@@ -15,6 +15,7 @@ use std::io::Read;
 
 mod instruction;
 mod section;
+mod value;
 
 #[derive(Debug)]
 pub struct Module {
