@@ -12,16 +12,31 @@ use std::io;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Read;
+use value::FuncType;
 
 mod instruction;
 mod section;
 mod value;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Module {
     magic: String,
     version: u32,
-    sections: Vec<Section>,
+    type_section: Option<Vec<FuncType>>,
+    function_section: Option<Vec<u32>>,
+    code_section: Option<Vec<FunctionBody>>,
+    export_section: Option<Vec<Export>>,
+}
+
+impl Module {
+    pub fn add_section(&mut self, section: Section) {
+        match section {
+            Section::Type(section) => self.type_section = Some(section),
+            Section::Function(section) => self.function_section = Some(section),
+            Section::Code(section) => self.code_section = Some(section),
+            Section::Export(section) => self.export_section = Some(section),
+        };
+    }
 }
 
 pub struct Decoder {
@@ -63,17 +78,6 @@ impl Decoder {
         Ok((id, size))
     }
 
-    pub fn decode_section(&mut self) -> Result<Vec<Section>> {
-        let mut sections = vec![];
-        while self.reader.has_data_left()? {
-            let (id, size) = self.decode_section_header()?;
-            let data = self.bytes(size as usize)?;
-            let section = Section::decode(id, data)?;
-            sections.push(section);
-        }
-        Ok(sections)
-    }
-
     pub fn decode_header(&mut self) -> Result<(String, u32)> {
         let magic = self.decode_to_string(4)?;
         if magic != "\0asm" {
@@ -89,12 +93,13 @@ impl Decoder {
 
     pub fn decode(&mut self) -> Result<Module> {
         let (magic, version) = self.decode_header()?;
-        let sections = self.decode_section()?;
-        let module = Module {
-            magic,
-            version,
-            sections,
-        };
+        let mut module = Module::default();
+        while self.reader.has_data_left()? {
+            let (id, size) = self.decode_section_header()?;
+            let data = self.bytes(size as usize)?;
+            let section = Section::decode(id, data)?;
+            module.add_section(section);
+        }
         Ok(module)
     }
 }

@@ -1,10 +1,10 @@
+use crate::instruction::{Instruction, Opcode};
+use crate::value::{FuncType, ValueType};
+use anyhow::{bail, Result};
 use std::{
     io::{BufRead, BufReader, Cursor, Read},
     u8,
 };
-use anyhow::{bail, Result};
-use crate::instruction::{Instruction, Opcode};
-use crate::value::{FuncType, ValueType};
 
 #[derive(Debug)]
 pub enum SectionID {
@@ -79,7 +79,6 @@ pub enum Section {
     Function(Vec<u32>),
     Code(Vec<FunctionBody>),
     Export(Vec<Export>),
-    Unknown,
 }
 
 pub struct ContentsReader {
@@ -123,7 +122,7 @@ impl Section {
             SectionID::Code => Section::decode_code_section(&mut reader)?,
             SectionID::Function => Section::decode_function_section(&mut reader)?,
             SectionID::Export => Section::decode_export_section(&mut reader)?,
-            _ => Section::Unknown,
+            _ => bail!("Unimplemented: {:x}", id as u8),
         };
         Ok(section)
     }
@@ -232,6 +231,7 @@ impl Section {
                     Instruction::LocalGet(local_idx)
                 }
                 Opcode::I32Sub => Instruction::I32Sub,
+                Opcode::I32Add => Instruction::I32Add,
             };
             function_body.code.push(inst);
         }

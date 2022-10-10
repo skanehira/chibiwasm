@@ -7,6 +7,7 @@ pub enum Opcode {
     Nop,
     LocalGet,
     Call,
+    I32Add,
     I32Sub,
 }
 
@@ -19,6 +20,7 @@ impl TryFrom<u8> for Opcode {
             0x01 => Self::Nop,
             0x20 => Self::LocalGet,
             0x10 => Self::Call,
+            0x6a => Self::I32Add,
             0x6b => Self::I32Sub,
             _ => bail!("invalid opcode: {:x}", value),
         };
@@ -33,4 +35,5 @@ pub enum Instruction {
     LocalGet(u32),
     Call(u32),
     I32Sub,
+    I32Add,
 }
