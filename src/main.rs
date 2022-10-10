@@ -4,15 +4,16 @@
 
 use anyhow::Result;
 use anyhow::{bail, Context};
+use clap::Parser;
 use runtime::{Runtime, Value};
 use section::*;
-use std::env;
 use std::fs;
 use std::fs::File;
 use std::io;
 use std::io::BufRead;
 use std::io::BufReader;
 use std::io::Read;
+use std::{env, result};
 use value::FuncType;
 
 mod instruction;
@@ -106,15 +107,28 @@ impl Decoder {
     }
 }
 
+#[derive(Parser)]
+#[clap(author, about, version)]
+struct Args {
+    file: String,
+
+    func: String,
+
+    func_args: Vec<i32>,
+}
+
 fn main() -> Result<()> {
-    let args: Vec<String> = env::args().collect();
-    let file = fs::File::open(args.get(1).context("Please specify a file name")?)?;
+    let args = Args::parse();
+    let file = fs::File::open(args.file)?;
     let reader = BufReader::new(Box::new(file));
     let mut decoder = Decoder::new(reader);
     let mut module = decoder.decode()?;
     let mut runtime = Runtime::new(&mut module)?;
-    let mut args = vec![Value::from(10), Value::from(5)];
-    let result = runtime.invoke("add".into(), &mut args);
+    let mut func_args = vec![];
+    for arg in args.func_args.into_iter() {
+        func_args.push(Value::from(arg));
+    }
+    let result = runtime.invoke("add".into(), &mut func_args);
     println!("{}", result?.unwrap());
     Ok(())
 }
