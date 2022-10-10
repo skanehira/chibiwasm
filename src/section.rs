@@ -158,6 +158,7 @@ impl Section {
             SectionID::Type => Section::decode_type_section(&mut reader)?,
             SectionID::Code => Section::decode_code_section(&mut reader)?,
             SectionID::Function => Section::decode_function_section(&mut reader)?,
+            SectionID::Export => Section::decode_export_section(&mut reader)?,
             _ => Section::Unknown,
         };
         Ok(section)
@@ -201,6 +202,27 @@ impl Section {
             func_idx.push(reader.num()?);
         }
         Ok(Section::Function(func_idx))
+    }
+
+    fn decode_export_section(reader: &mut ContentsReader) -> Result<Section> {
+        let count = reader.num()?;
+        let mut exports: Vec<Export> = vec![];
+        for _ in 0..count {
+            // name of exported function
+            let str_len = reader.num()?;
+            let name = String::from_utf8(reader.bytes(str_len as usize)?)?;
+            let kind = reader.byte()?;
+            let idx = reader.num()?;
+            let desc = match kind {
+                0x00 => ExportDesc::Func(idx),
+                0x01 => ExportDesc::Table(idx),
+                0x02 => ExportDesc::Memory(idx),
+                0x03 => ExportDesc::Global(idx),
+                _ => bail!("invalid export desc: {:x}", kind),
+            };
+            exports.push(Export { name, desc })
+        }
+        Ok(Section::Export(exports))
     }
 
     fn decode_code_section(reader: &mut ContentsReader) -> Result<Section> {
