@@ -4,6 +4,7 @@
 
 use anyhow::Result;
 use anyhow::{bail, Context};
+use runtime::{Runtime, Value};
 use section::*;
 use std::env;
 use std::fs;
@@ -15,6 +16,7 @@ use std::io::Read;
 use value::FuncType;
 
 mod instruction;
+mod runtime;
 mod section;
 mod value;
 
@@ -109,7 +111,10 @@ fn main() -> Result<()> {
     let file = fs::File::open(args.get(1).context("Please specify a file name")?)?;
     let reader = BufReader::new(Box::new(file));
     let mut decoder = Decoder::new(reader);
-    let module = decoder.decode()?;
-    dbg!(module);
+    let mut module = decoder.decode()?;
+    let mut runtime = Runtime::new(&mut module)?;
+    let mut args = vec![Value::from(10), Value::from(5)];
+    let result = runtime.invoke("add".into(), &mut args);
+    println!("{}", result?.unwrap());
     Ok(())
 }

@@ -28,7 +28,7 @@ impl TryFrom<u8> for Opcode {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Instruction {
     Unreachable,
     Nop,

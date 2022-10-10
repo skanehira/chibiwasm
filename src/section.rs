@@ -1,6 +1,7 @@
 use crate::instruction::{Instruction, Opcode};
 use crate::value::{FuncType, ValueType};
 use anyhow::{bail, Result};
+use std::collections::HashMap;
 use std::{
     io::{BufRead, BufReader, Cursor, Read},
     u8,
@@ -46,19 +47,19 @@ impl From<u8> for SectionID {
 }
 
 // https://webassembly.github.io/spec/core/binary/modules.html#binary-codesec
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FunctionLocal {
     type_count: u32,
     value_type: ValueType,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct FunctionBody {
-    locals: Vec<FunctionLocal>,
-    code: Vec<Instruction>,
+    pub locals: Vec<FunctionLocal>,
+    pub code: Vec<Instruction>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ExportDesc {
     Func(u32),
     Table(u32),
@@ -68,8 +69,8 @@ pub enum ExportDesc {
 
 #[derive(Debug)]
 pub struct Export {
-    name: String,
-    desc: ExportDesc,
+    pub name: String,
+    pub desc: ExportDesc,
 }
 
 // https://webassembly.github.io/spec/core/binary/modules.html#sections
