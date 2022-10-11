@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.65"
 clap = { version = "4.0.11", features = ["derive"] }
+wasmer = "2.3.0"

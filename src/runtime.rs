@@ -273,12 +273,35 @@ mod test {
     use super::{Runtime, Value};
     use crate::Decoder;
     use anyhow::{Context, Result};
-    use std::{fs, io::BufReader};
+    use std::{
+        fs,
+        io::{self, BufReader, Cursor},
+    };
+    use wasmer::wat2wasm;
 
     #[test]
     fn invoke() -> Result<()> {
-        let file = fs::File::open("test.wasm")?;
-        let reader = BufReader::new(file);
+        let wat_code = br#"
+(module
+	(func $add (param $lhs i32) (param $rhs i32) (result i32)
+				local.get $lhs
+				local.get $rhs
+				i32.add)
+	(func $sub (param $a i32) (param $b i32) (result i32)
+				local.get $a
+				local.get $b
+				i32.sub)
+	(func $eq (param $a i32) (param $b i32) (result i32)
+				local.get $a
+				local.get $b
+				i32.eq)
+	(export "add" (func $add))
+	(export "sub" (func $sub))
+	(export "eq" (func $eq))
+	)
+"#;
+        let wasm = wat2wasm(wat_code)?;
+        let reader = Cursor::new(wasm);
         let mut decoder = Decoder::new(reader);
         let mut module = decoder.decode()?;
         let mut runtime = Runtime::new(&mut module)?;

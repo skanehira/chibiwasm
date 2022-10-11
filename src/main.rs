@@ -42,12 +42,13 @@ impl Module {
     }
 }
 
-pub struct Decoder {
-    reader: BufReader<File>,
+pub struct Decoder<R> {
+    reader: BufReader<R>,
 }
 
-impl Decoder {
-    fn new(reader: BufReader<File>) -> Self {
+impl<R: io::Read> Decoder<R> {
+    fn new(reader: R) -> Self {
+        let reader = BufReader::new(reader);
         Self { reader }
     }
 
@@ -125,10 +126,8 @@ struct Args {
 fn main() -> Result<()> {
     let args = Args::parse();
     let file = fs::File::open(args.file)?;
-    let reader = BufReader::new(file);
-    let mut decoder = Decoder::new(reader);
+    let mut decoder = Decoder::new(file);
     let mut module = decoder.decode()?;
-    //dbg!(&module);
     let mut runtime = Runtime::new(&mut module)?;
     let mut func_args = vec![];
     for arg in args.func_args.into_iter() {

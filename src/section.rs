@@ -7,7 +7,7 @@ use std::{
     u8,
 };
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum SectionID {
     Custom,
     Type,
