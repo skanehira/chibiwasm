@@ -111,7 +111,7 @@ impl Decoder {
     }
 }
 
-#[derive(Parser)]
+#[derive(Debug, Parser)]
 #[clap(author, about, version)]
 struct Args {
     file: String,
@@ -127,6 +127,7 @@ fn main() -> Result<()> {
     let reader = BufReader::new(Box::new(file));
     let mut decoder = Decoder::new(reader);
     let mut module = decoder.decode()?;
+    //dbg!(&module);
     let mut runtime = Runtime::new(&mut module)?;
     let mut func_args = vec![];
     for arg in args.func_args.into_iter() {

@@ -70,13 +70,18 @@ impl Runtime {
                     self.stack.push(value.clone());
                 }
                 Instruction::I32Add => {
-                    let a = self.stack_pop()?;
                     let b = self.stack_pop()?;
+                    let a = self.stack_pop()?;
                     self.stack.push(a + b);
                 }
-                Instruction::I32Eq => {
-                    let a = self.stack_pop()?;
+                Instruction::I32Sub => {
                     let b = self.stack_pop()?;
+                    let a = self.stack_pop()?;
+                    self.stack.push(a - b);
+                }
+                Instruction::I32Eq => {
+                    let b = self.stack_pop()?;
+                    let a = self.stack_pop()?;
                     let v = i32::from(a == b);
                     self.stack.push(Value::from(v));
                 }
@@ -182,7 +187,19 @@ impl std::ops::Add for Value {
             (Self::Num(Number::I32(a)), Self::Num(Number::I32(b))) => {
                 Value::Num(Number::I32(a + b))
             }
-            _ => panic!("cannot add values"),
+            _ => unimplemented!("cannot add values"),
+        }
+    }
+}
+
+impl std::ops::Sub for Value {
+    type Output = Value;
+    fn sub(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Self::Num(Number::I32(a)), Self::Num(Number::I32(b))) => {
+                Value::Num(Number::I32(a - b))
+            }
+            _ => unimplemented!("cannot sub values"),
         }
     }
 }
@@ -272,12 +289,17 @@ mod test {
                 vec![Value::from(10), Value::from(11)],
                 Value::from(21),
             ),
+            (
+                "sub",
+                vec![Value::from(10), Value::from(11)],
+                Value::from(-1),
+            ),
             ("eq", vec![Value::from(10), Value::from(10)], Value::from(1)),
         ];
 
         for mut test in tests.into_iter() {
             let result = runtime.invoke(test.0.into(), &mut test.1)?;
-            assert_eq!(result.context("")?, test.2)
+            assert_eq!(result.unwrap(), test.2)
         }
 
         Ok(())
