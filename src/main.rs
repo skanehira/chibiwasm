@@ -43,11 +43,11 @@ impl Module {
 }
 
 pub struct Decoder {
-    reader: BufReader<Box<File>>,
+    reader: BufReader<File>,
 }
 
 impl Decoder {
-    fn new(reader: BufReader<Box<File>>) -> Self {
+    fn new(reader: BufReader<File>) -> Self {
         Self { reader }
     }
 
@@ -124,7 +124,7 @@ struct Args {
 fn main() -> Result<()> {
     let args = Args::parse();
     let file = fs::File::open(args.file)?;
-    let reader = BufReader::new(Box::new(file));
+    let reader = BufReader::new(file);
     let mut decoder = Decoder::new(reader);
     let mut module = decoder.decode()?;
     //dbg!(&module);

@@ -278,7 +278,7 @@ mod test {
     #[test]
     fn invoke() -> Result<()> {
         let file = fs::File::open("test.wasm")?;
-        let reader = BufReader::new(Box::new(file));
+        let reader = BufReader::new(file);
         let mut decoder = Decoder::new(reader);
         let mut module = decoder.decode()?;
         let mut runtime = Runtime::new(&mut module)?;
