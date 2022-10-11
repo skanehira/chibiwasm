@@ -53,6 +53,10 @@ impl Runtime {
         self.functions.get(idx as usize).context("")
     }
 
+    fn stack_pop(&mut self) -> Result<Value> {
+        self.stack.pop().context("not found variable from stack")
+    }
+
     fn execute(&mut self) -> Result<Option<Value>> {
         while let Some(inst) = self.instruction()? {
             self.frame_pc_inc();
@@ -66,9 +70,15 @@ impl Runtime {
                     self.stack.push(value.clone());
                 }
                 Instruction::I32Add => {
-                    let a = self.stack.pop().context("not found variable from stack")?;
-                    let b = self.stack.pop().context("not found variable from stack")?;
+                    let a = self.stack_pop()?;
+                    let b = self.stack_pop()?;
                     self.stack.push(a + b);
+                }
+                Instruction::I32Eq => {
+                    let a = self.stack_pop()?;
+                    let b = self.stack_pop()?;
+                    let v = i32::from(a == b);
+                    self.stack.push(Value::from(v));
                 }
                 _ => unimplemented!(),
             };
@@ -143,7 +153,7 @@ impl Frame {
 }
 
 // https://webassembly.github.io/spec/core/exec/runtime.html#syntax-val
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Num(Number),
 }
@@ -177,7 +187,7 @@ impl std::ops::Add for Value {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Number {
     I32(i32),
     I64(i64),
@@ -239,4 +249,37 @@ fn new_functions(module: &mut Module) -> Result<Vec<Function>> {
         functions.push(func);
     }
     Ok(functions)
+}
+
+#[cfg(test)]
+mod test {
+    use super::{Runtime, Value};
+    use crate::Decoder;
+    use anyhow::{Context, Result};
+    use std::{fs, io::BufReader};
+
+    #[test]
+    fn invoke() -> Result<()> {
+        let file = fs::File::open("test.wasm")?;
+        let reader = BufReader::new(Box::new(file));
+        let mut decoder = Decoder::new(reader);
+        let mut module = decoder.decode()?;
+        let mut runtime = Runtime::new(&mut module)?;
+
+        let tests = [
+            (
+                "add",
+                vec![Value::from(10), Value::from(11)],
+                Value::from(21),
+            ),
+            ("eq", vec![Value::from(10), Value::from(10)], Value::from(1)),
+        ];
+
+        for mut test in tests.into_iter() {
+            let result = runtime.invoke(test.0.into(), &mut test.1)?;
+            assert_eq!(result.context("")?, test.2)
+        }
+
+        Ok(())
+    }
 }

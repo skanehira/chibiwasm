@@ -233,6 +233,7 @@ impl Section {
                 }
                 Opcode::I32Sub => Instruction::I32Sub,
                 Opcode::I32Add => Instruction::I32Add,
+                Opcode::I32Eq => Instruction::I32Eq,
             };
             function_body.code.push(inst);
         }

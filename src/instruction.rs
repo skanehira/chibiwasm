@@ -9,6 +9,7 @@ pub enum Opcode {
     Call,
     I32Add,
     I32Sub,
+    I32Eq,
 }
 
 impl TryFrom<u8> for Opcode {
@@ -22,6 +23,7 @@ impl TryFrom<u8> for Opcode {
             0x10 => Self::Call,
             0x6a => Self::I32Add,
             0x6b => Self::I32Sub,
+            0x46 => Self::I32Eq,
             _ => bail!("invalid opcode: {:x}", value),
         };
         Ok(op)
@@ -36,4 +38,5 @@ pub enum Instruction {
     Call(u32),
     I32Sub,
     I32Add,
+    I32Eq,
 }
