@@ -204,17 +204,22 @@ pub struct Function {
 
 fn new_functions(module: &mut Module) -> Result<Vec<Function>> {
     let mut functions: Vec<Function> = vec![];
-    for idx in module
+    // 'idx' is index of function table
+    // 'func_sing_idx' is indx of function signature
+    for (idx, func_sig_idx) in module
         .function_section
         .as_ref()
         .context("not noud function section")?
         .iter()
+        .enumerate()
     {
         let t = module
             .type_section
             .as_ref()
             .context("not found type section")?;
-        let t = t.get(*idx as usize).context("cannot get type section")?;
+        let t = t
+            .get(*func_sig_idx as usize)
+            .context("cannot get type section")?;
 
         let func_type = FuncType {
             params: t.params.clone(),
@@ -225,9 +230,7 @@ fn new_functions(module: &mut Module) -> Result<Vec<Function>> {
             .code_section
             .as_ref()
             .context("not found code section")?;
-        let mut func_body = func_body
-            .get(*idx as usize)
-            .context("not found function body")?;
+        let mut func_body = func_body.get(idx).context("not found function body")?;
 
         let func = Function {
             func_type,
