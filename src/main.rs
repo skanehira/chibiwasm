@@ -128,7 +128,7 @@ fn main() -> Result<()> {
     for arg in args.func_args.into_iter() {
         func_args.push(Value::from(arg));
     }
-    let result = runtime.invoke("add".into(), &mut func_args);
+    let result = runtime.invoke(args.func, &mut func_args);
     println!("{}", result?.unwrap());
     Ok(())
 }
