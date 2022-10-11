@@ -21,7 +21,12 @@ impl Runtime {
     pub fn new(module: &mut Module) -> Result<Self> {
         let functions = new_functions(module)?;
         let mut exports = HashMap::<String, ExportDesc>::new();
-        for ex in module.export_section.as_ref().context("")?.iter() {
+        for ex in module
+            .export_section
+            .as_ref()
+            .context("not found export section")?
+            .iter()
+        {
             exports.insert(ex.name.clone(), ex.desc.clone());
         }
         Ok(Self {
