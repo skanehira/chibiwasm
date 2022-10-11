@@ -96,7 +96,11 @@ impl Decoder {
 
     pub fn decode(&mut self) -> Result<Module> {
         let (magic, version) = self.decode_header()?;
-        let mut module = Module::default();
+        let mut module = Module {
+            magic,
+            version,
+            ..Module::default()
+        };
         while self.reader.has_data_left()? {
             let (id, size) = self.decode_section_header()?;
             let data = self.bytes(size as usize)?;
