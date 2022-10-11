@@ -54,9 +54,6 @@ impl Decoder {
     fn byte(&mut self) -> Result<u8> {
         let mut buf = [0u8; 1];
         self.reader.read_exact(&mut buf)?;
-        if buf[0] == 0x00 {
-            bail!("end of file")
-        }
         Ok(buf[0])
     }
 
@@ -103,6 +100,10 @@ impl Decoder {
         };
         while self.reader.has_data_left()? {
             let (id, size) = self.decode_section_header()?;
+            // TODO: decode custom section
+            if id == SectionID::Custom {
+                break;
+            }
             let data = self.bytes(size as usize)?;
             let section = Section::decode(id, data)?;
             module.add_section(section);
