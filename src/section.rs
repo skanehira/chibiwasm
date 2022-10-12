@@ -111,7 +111,7 @@ impl ContentsReader {
     }
 
     fn is_end(&mut self) -> Result<bool> {
-        Ok(self.buf.has_data_left()?)
+        Ok(self.buf.fill_buf().map(|b| !b.is_empty())?)
     }
 }
 

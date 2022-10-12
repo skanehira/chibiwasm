@@ -1,4 +1,3 @@
-#![feature(buf_read_has_data_left)]
 #![allow(dead_code)]
 #![allow(unused)]
 
@@ -52,6 +51,10 @@ impl<R: io::Read> Decoder<R> {
         Self { reader }
     }
 
+    fn is_end(&mut self) -> Result<bool> {
+        Ok(self.reader.fill_buf().map(|b| !b.is_empty())?)
+    }
+
     fn byte(&mut self) -> Result<u8> {
         let mut buf = [0u8; 1];
         self.reader.read_exact(&mut buf)?;
@@ -99,7 +102,7 @@ impl<R: io::Read> Decoder<R> {
             version,
             ..Module::default()
         };
-        while self.reader.has_data_left()? {
+        while self.is_end()? {
             let (id, size) = self.decode_section_header()?;
             // TODO: decode custom section
             if id == SectionID::Custom {
