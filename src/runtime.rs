@@ -85,6 +85,24 @@ impl Runtime {
                     let v = i32::from(a == b);
                     self.stack.push(Value::from(v));
                 }
+                Instruction::Call(func_idx) => {
+                    let func = self
+                        .functions
+                        .get(func_idx as usize)
+                        .context("not found function")?;
+                    let body = func.body.clone();
+
+                    let mut args = vec![];
+                    for _ in 0..func.func_type.params.len() {
+                        args.push(self.stack_pop()?);
+                    }
+                    let frame = Frame::new(body, &mut args);
+                    self.frames.push(frame);
+                    let result = self.execute()?;
+                    if let Some(value) = result {
+                        self.stack.push(value);
+                    }
+                }
                 _ => unimplemented!(),
             };
         }
@@ -295,8 +313,13 @@ mod test {
 				local.get $a
 				local.get $b
 				i32.eq)
+	(func $call_add (param $a i32) (param $b i32) (result i32)
+				local.get $a
+				local.get $b
+				call $add)
 	(export "add" (func $add))
 	(export "sub" (func $sub))
+	(export "call_add" (func $call_add))
 	(export "eq" (func $eq))
 	)
 "#;
@@ -318,6 +341,11 @@ mod test {
                 Value::from(-1),
             ),
             ("eq", vec![Value::from(10), Value::from(10)], Value::from(1)),
+            (
+                "call_add",
+                vec![Value::from(10), Value::from(10)],
+                Value::from(20),
+            ),
         ];
 
         for mut test in tests.into_iter() {
