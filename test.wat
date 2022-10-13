@@ -15,7 +15,7 @@
 				local.get $a
 				local.get $b
 				call $add)
-	(func $get_i32 (result i32)
+	(func $const_i32 (result i32)
 				i32.const 1
 				i32.const 1
 				i32.add
@@ -24,5 +24,5 @@
 	(export "sub" (func $sub))
 	(export "call_add" (func $call_add))
 	(export "eq" (func $eq))
-	(export "get_i32" (func $get_i32))
+	(export "const_i32" (func $const_i32))
 	)

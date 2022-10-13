@@ -325,10 +325,16 @@ mod test {
                 i32.const 1
                 return
     )
+	(func $const_i32 (result i32)
+				i32.const 1
+				i32.const 1
+				i32.add
+				)
 	(export "add" (func $add))
 	(export "sub" (func $sub))
 	(export "call_add" (func $call_add))
 	(export "eq" (func $eq))
+	(export "const_i32" (func $const_i32))
 	)
 "#;
         let wasm = wat2wasm(wat_code)?;
@@ -338,27 +344,17 @@ mod test {
         let mut runtime = Runtime::new(&mut module)?;
 
         let tests = [
-            (
-                "add",
-                vec![Value::from(10), Value::from(11)],
-                Value::from(21),
-            ),
-            (
-                "sub",
-                vec![Value::from(10), Value::from(11)],
-                Value::from(-1),
-            ),
-            ("eq", vec![Value::from(10), Value::from(10)], Value::from(1)),
-            (
-                "call_add",
-                vec![Value::from(10), Value::from(10)],
-                Value::from(20),
-            ),
+            ("add", vec![10, 11], 21),
+            ("sub", vec![10, 11], -1),
+            ("eq", vec![10, 10], 1),
+            ("call_add", vec![10, 10], 20),
+            ("const_i32", vec![], 2),
         ];
 
         for mut test in tests.into_iter() {
-            let result = runtime.invoke(test.0.into(), &mut test.1)?;
-            assert_eq!(result.unwrap(), test.2)
+            let args = test.1.into_iter().map(Value::from);
+            let result = runtime.invoke(test.0.into(), &mut args.into_iter().collect())?;
+            assert_eq!(result.unwrap(), Value::from(test.2))
         }
 
         Ok(())
