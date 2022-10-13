@@ -99,8 +99,8 @@ impl ContentsReader {
         Ok(buf[0])
     }
 
-    fn num(&mut self) -> Result<u32> {
-        let num: u32 = self.byte()?.try_into()?;
+    fn num<T: From<u8>>(&mut self) -> Result<T> {
+        let num = self.byte()?.try_into()?;
         Ok(num)
     }
 
@@ -130,7 +130,7 @@ impl Section {
 
     fn decode_type_section(reader: &mut ContentsReader) -> Result<Section> {
         let mut func_types: Vec<FuncType> = vec![];
-        let count = reader.num()?;
+        let count = reader.num::<u32>()?;
 
         // read each func types
         for _ in 0..count {
@@ -141,14 +141,14 @@ impl Section {
             let mut func = FuncType::default();
 
             // read each params
-            let num_params = reader.num()?;
+            let num_params = reader.num::<u32>()?;
             for _ in 0..num_params {
                 let value_type: ValueType = reader.byte()?.into();
                 func.params.push(value_type);
             }
 
             // read each results
-            let num_results = reader.num()?;
+            let num_results = reader.num::<u32>()?;
             for _ in 0..num_results {
                 let value_type: ValueType = reader.byte()?.into();
                 func.results.push(value_type);
@@ -161,22 +161,22 @@ impl Section {
 
     fn decode_function_section(reader: &mut ContentsReader) -> Result<Section> {
         let mut func_idx: Vec<u32> = vec![];
-        let count = reader.num()?;
+        let count = reader.num::<u32>()?;
         for _ in 0..count {
-            func_idx.push(reader.num()?);
+            func_idx.push(reader.num::<u32>()?);
         }
         Ok(Section::Function(func_idx))
     }
 
     fn decode_export_section(reader: &mut ContentsReader) -> Result<Section> {
-        let count = reader.num()?;
+        let count = reader.num::<u32>()?;
         let mut exports: Vec<Export> = vec![];
         for _ in 0..count {
             // name of exported function
-            let str_len = reader.num()?;
+            let str_len = reader.num::<u32>()?;
             let name = String::from_utf8(reader.bytes(str_len as usize)?)?;
             let kind = reader.byte()?;
-            let idx = reader.num()?;
+            let idx = reader.num::<u32>()?;
             let desc = match kind {
                 0x00 => ExportDesc::Func(idx),
                 0x01 => ExportDesc::Table(idx),
@@ -191,10 +191,10 @@ impl Section {
 
     fn decode_code_section(reader: &mut ContentsReader) -> Result<Section> {
         let mut functions: Vec<FunctionBody> = vec![];
-        let count = reader.num()?;
+        let count = reader.num::<u32>()?;
 
         for _ in 0..count {
-            let body_size = reader.num()?;
+            let body_size = reader.num::<u32>()?;
             let mut body = ContentsReader::new(reader.bytes(body_size as usize)?);
             functions.push(Section::decode_function_body(&mut body)?);
         }
@@ -203,9 +203,9 @@ impl Section {
 
     fn decode_function_body(reader: &mut ContentsReader) -> Result<FunctionBody> {
         let mut function_body = FunctionBody::default();
-        let local_count = reader.num()?;
+        let local_count = reader.num::<u32>()?;
         for _ in 0..local_count {
-            let type_count = reader.num()?;
+            let type_count = reader.num::<u32>()?;
             let value_type: ValueType = reader.byte()?.into();
             function_body.locals.push(FunctionLocal {
                 type_count,
@@ -224,16 +224,20 @@ impl Section {
                 Opcode::Unreachable => Instruction::Unreachable,
                 Opcode::Nop => Instruction::Nop,
                 Opcode::Call => {
-                    let local_idx = reader.num()?;
+                    let local_idx = reader.num::<u32>()?;
                     Instruction::Call(local_idx)
                 }
                 Opcode::LocalGet => {
-                    let local_idx = reader.num()?;
+                    let local_idx = reader.num::<u32>()?;
                     Instruction::LocalGet(local_idx)
                 }
                 Opcode::I32Sub => Instruction::I32Sub,
                 Opcode::I32Add => Instruction::I32Add,
                 Opcode::I32Eq => Instruction::I32Eq,
+                Opcode::I32Const => {
+                    let value = reader.num::<i32>()?;
+                    Instruction::I32Const(value)
+                }
             };
             function_body.code.push(inst);
         }

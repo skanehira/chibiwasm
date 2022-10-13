@@ -85,6 +85,9 @@ impl Runtime {
                     let v = i32::from(a == b);
                     self.stack.push(Value::from(v));
                 }
+                Instruction::I32Const(v) => {
+                    self.stack.push(Value::from(v));
+                }
                 Instruction::Call(func_idx) => {
                     let func = self
                         .functions
@@ -317,6 +320,11 @@ mod test {
 				local.get $a
 				local.get $b
 				call $add)
+    (func $get_i32 (result i32)
+                i32.const 1
+                i32.const 1
+                return
+    )
 	(export "add" (func $add))
 	(export "sub" (func $sub))
 	(export "call_add" (func $call_add))
