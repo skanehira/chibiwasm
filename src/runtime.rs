@@ -88,6 +88,9 @@ impl Runtime {
                 Instruction::I32Const(v) => {
                     self.stack.push(Value::from(v));
                 }
+                Instruction::Return => {
+                    // do nothing
+                }
                 Instruction::Call(func_idx) => {
                     let func = self
                         .functions
@@ -330,11 +333,15 @@ mod test {
 				i32.const 1
 				i32.add
 				)
+	(func $return_value (result i32)
+				(return (i32.const 15))
+				)
 	(export "add" (func $add))
 	(export "sub" (func $sub))
 	(export "call_add" (func $call_add))
 	(export "eq" (func $eq))
 	(export "const_i32" (func $const_i32))
+	(export "return_value" (func $return_value))
 	)
 "#;
         let wasm = wat2wasm(wat_code)?;
@@ -349,6 +356,7 @@ mod test {
             ("eq", vec![10, 10], 1),
             ("call_add", vec![10, 10], 20),
             ("const_i32", vec![], 2),
+            ("return_value", vec![], 15),
         ];
 
         for mut test in tests.into_iter() {

@@ -20,9 +20,13 @@
 				i32.const 1
 				i32.add
 				)
+	(func $return_value (result i32)
+				(return (i32.const 15))
+				)
 	(export "add" (func $add))
 	(export "sub" (func $sub))
 	(export "call_add" (func $call_add))
 	(export "eq" (func $eq))
 	(export "const_i32" (func $const_i32))
+	(export "return_value" (func $return_value))
 	)

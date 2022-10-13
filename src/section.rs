@@ -227,6 +227,7 @@ impl Section {
                     let local_idx = reader.num::<u32>()?;
                     Instruction::Call(local_idx)
                 }
+                Opcode::Return => Instruction::Return,
                 Opcode::LocalGet => {
                     let local_idx = reader.num::<u32>()?;
                     Instruction::LocalGet(local_idx)
