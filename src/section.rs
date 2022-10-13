@@ -213,11 +213,8 @@ impl Section {
             })
         }
 
-        loop {
+        while reader.is_end()? {
             let op = reader.byte()?;
-            if op == 0x0b {
-                break;
-            }
 
             let op: Opcode = op.try_into()?;
             let inst = match op {
@@ -228,6 +225,9 @@ impl Section {
                     Instruction::Call(local_idx)
                 }
                 Opcode::Return => Instruction::Return,
+                Opcode::If => Instruction::If,
+                Opcode::End => Instruction::End,
+                Opcode::Void => Instruction::Void,
                 Opcode::LocalGet => {
                     let local_idx = reader.num::<u32>()?;
                     Instruction::LocalGet(local_idx)

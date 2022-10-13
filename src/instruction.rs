@@ -12,6 +12,9 @@ pub enum Opcode {
     I32Eq,
     I32Const,
     Return,
+    If,
+    End,
+    Void,
 }
 
 impl TryFrom<u8> for Opcode {
@@ -28,13 +31,16 @@ impl TryFrom<u8> for Opcode {
             0x46 => Self::I32Eq,
             0x41 => Self::I32Const,
             0x0f => Self::Return,
+            0x04 => Self::If,
+            0x0b => Self::End,
+            0x40 => Self::Void,
             _ => bail!("invalid opcode: {:x}", value),
         };
         Ok(op)
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Instruction {
     Unreachable,
     Nop,
@@ -45,4 +51,7 @@ pub enum Instruction {
     I32Eq,
     I32Const(i32),
     Return,
+    If,
+    End,
+    Void,
 }

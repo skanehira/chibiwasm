@@ -89,7 +89,23 @@ impl Runtime {
                     self.stack.push(Value::from(v));
                 }
                 Instruction::Return => {
+                    self.frames.pop();
+                }
+                Instruction::Void | Instruction::End => {
                     // do nothing
+                }
+                Instruction::If => {
+                    let v = self.stack_pop()?;
+                    if v != Value::from(1) {
+                        loop {
+                            let ins = self.instruction()?.context("not found instruction")?;
+                            if ins == Instruction::End {
+                                self.frame_pc_inc();
+                                break;
+                            }
+                            self.frame_pc_inc();
+                        }
+                    }
                 }
                 Instruction::Call(func_idx) => {
                     let func = self
@@ -109,7 +125,11 @@ impl Runtime {
                         self.stack.push(value);
                     }
                 }
-                _ => unimplemented!(),
+                _ => {
+                    dbg!(inst);
+                    dbg!(self.instructions()?);
+                    unimplemented!()
+                }
             };
         }
         Ok(self.stack.pop())
@@ -323,11 +343,6 @@ mod test {
 				local.get $a
 				local.get $b
 				call $add)
-    (func $get_i32 (result i32)
-                i32.const 1
-                i32.const 1
-                return
-    )
 	(func $const_i32 (result i32)
 				i32.const 1
 				i32.const 1
@@ -336,12 +351,20 @@ mod test {
 	(func $return_value (result i32)
 				(return (i32.const 15))
 				)
+	(func $test_if (param $a i32) (param $b i32) (result i32)
+				(if
+					(i32.eq (local.get $a) (local.get $b))
+					(then (return (i32.const 1)))
+					)
+				(return (i32.const 0))
+				)
 	(export "add" (func $add))
 	(export "sub" (func $sub))
 	(export "call_add" (func $call_add))
 	(export "eq" (func $eq))
 	(export "const_i32" (func $const_i32))
 	(export "return_value" (func $return_value))
+	(export "test_if" (func $test_if))
 	)
 "#;
         let wasm = wat2wasm(wat_code)?;
@@ -357,6 +380,7 @@ mod test {
             ("call_add", vec![10, 10], 20),
             ("const_i32", vec![], 2),
             ("return_value", vec![], 15),
+            ("test_if", vec![1, 0], 0),
         ];
 
         for mut test in tests.into_iter() {
