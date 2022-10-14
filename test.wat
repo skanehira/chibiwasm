@@ -30,6 +30,20 @@
 					)
 				(return (i32.const 0))
 				)
+  (func $fib (param $N i32) (result i32)
+      (if
+        (i32.eq (local.get $N) (i32.const 1))
+        (then (return (i32.const 1)))
+      )
+      (if
+        (i32.eq (local.get $N) (i32.const 2))
+        (then (return (i32.const 1)))
+      )
+      (i32.add (call $fib
+        (i32.sub (local.get $N) (i32.const 1)))
+				(call $fib (i32.sub (local.get $N) (i32.const 2)))
+      )
+  )
 	(export "add" (func $add))
 	(export "sub" (func $sub))
 	(export "call_add" (func $call_add))
@@ -37,4 +51,5 @@
 	(export "const_i32" (func $const_i32))
 	(export "return_value" (func $return_value))
 	(export "test_if" (func $test_if))
+	(export "fib" (func $fib))
 	)

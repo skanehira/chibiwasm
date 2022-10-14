@@ -83,10 +83,10 @@ impl Runtime {
                     let b = self.stack_pop()?;
                     let a = self.stack_pop()?;
                     let v = i32::from(a == b);
-                    self.stack.push(Value::from(v));
+                    self.stack.push(v.into());
                 }
                 Instruction::I32Const(v) => {
-                    self.stack.push(Value::from(v));
+                    self.stack.push(v.into());
                 }
                 Instruction::Return => {
                     self.frames.pop();
@@ -358,6 +358,20 @@ mod test {
 					)
 				(return (i32.const 0))
 				)
+    (func $fib (param $N i32) (result i32)
+        (if
+          (i32.eq (local.get $N) (i32.const 1))
+          (then (return (i32.const 1)))
+        )
+        (if
+          (i32.eq (local.get $N) (i32.const 2))
+          (then (return (i32.const 1)))
+        )
+        (i32.add (call $fib
+          (i32.sub (local.get $N) (i32.const 1)))
+      			(call $fib (i32.sub (local.get $N) (i32.const 2)))
+        )
+    )
 	(export "add" (func $add))
 	(export "sub" (func $sub))
 	(export "call_add" (func $call_add))
@@ -365,6 +379,7 @@ mod test {
 	(export "const_i32" (func $const_i32))
 	(export "return_value" (func $return_value))
 	(export "test_if" (func $test_if))
+    (export "fib" (func $fib))
 	)
 "#;
         let wasm = wat2wasm(wat_code)?;
@@ -381,6 +396,13 @@ mod test {
             ("const_i32", vec![], 2),
             ("return_value", vec![], 15),
             ("test_if", vec![1, 0], 0),
+            ("fib", vec![10], 55),
+            ("fib", vec![1], 1),
+            ("fib", vec![2], 1),
+            ("fib", vec![4], 3),
+            ("fib", vec![5], 5),
+            ("fib", vec![6], 8),
+            ("fib", vec![8], 21),
         ];
 
         for mut test in tests.into_iter() {
