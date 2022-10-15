@@ -226,6 +226,7 @@ impl Section {
                 }
                 Opcode::Return => Instruction::Return,
                 Opcode::If => Instruction::If,
+                Opcode::Else => Instruction::Else,
                 Opcode::End => Instruction::End,
                 Opcode::Void => Instruction::Void,
                 Opcode::LocalGet => {

@@ -99,7 +99,7 @@ impl Runtime {
                     if v != Value::from(1) {
                         loop {
                             let ins = self.instruction()?.context("not found instruction")?;
-                            if ins == Instruction::End {
+                            if ins == Instruction::End || ins == Instruction::Else {
                                 self.frame_pc_inc();
                                 break;
                             }
@@ -358,6 +358,13 @@ mod test {
 					)
 				(return (i32.const 0))
 				)
+    (func $if_else (param $a i32) (result i32)
+      (if
+        (i32.eq (local.get $a) (i32.const 1))
+        (then (return (i32.const 1)))
+        (else (return (i32.const 0)))
+      )
+    )
     (func $fib (param $N i32) (result i32)
         (if
           (i32.eq (local.get $N) (i32.const 1))
@@ -379,6 +386,7 @@ mod test {
 	(export "const_i32" (func $const_i32))
 	(export "return_value" (func $return_value))
 	(export "test_if" (func $test_if))
+    (export "if_else" (func $if_else))
     (export "fib" (func $fib))
 	)
 "#;
@@ -403,6 +411,8 @@ mod test {
             ("fib", vec![5], 5),
             ("fib", vec![6], 8),
             ("fib", vec![8], 21),
+            ("if_else", vec![1], 1),
+            ("if_else", vec![0], 0),
         ];
 
         for mut test in tests.into_iter() {
