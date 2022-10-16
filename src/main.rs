@@ -76,9 +76,15 @@ impl<R: io::Read> Decoder<R> {
         Ok(str)
     }
 
+    fn u32(&mut self) -> Result<u32> {
+        let num = leb128::read::unsigned(&mut self.reader)?;
+        let num = u32::try_from(num)?;
+        Ok(num)
+    }
+
     pub fn decode_section_header(&mut self) -> Result<(SectionID, u32)> {
         let id: SectionID = self.byte()?.into();
-        let size: u32 = self.byte()?.try_into()?;
+        let size: u32 = self.u32()?;
         Ok((id, size))
     }
 
