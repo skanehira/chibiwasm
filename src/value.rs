@@ -1,34 +1,102 @@
-// https://webassembly.github.io/spec/core/binary/types.html#number-types
-#[derive(Debug, Clone)]
-pub enum NumberType {
-    I32, // 0x7F
-    I64, // 0x7E
-    F32, // 0x7D
-    F64, // 0x7C
+use crate::{
+    instruction::Instruction,
+    types::{FuncType, ValueType},
+};
+use std::fmt::Display;
+
+// https://webassembly.github.io/spec/core/exec/runtime.html#syntax-val
+#[derive(Debug, Clone, PartialEq)]
+pub enum Value {
+    Num(Number),
 }
 
-// https://webassembly.github.io/spec/core/binary/types.html#value-types
-#[derive(Debug, Clone)]
-pub enum ValueType {
-    NumberType(NumberType),
-    Unknown(u8),
-}
-
-impl From<u8> for ValueType {
-    fn from(value_type: u8) -> Self {
-        match value_type {
-            0x7F => Self::NumberType(NumberType::I32),
-            0x7E => Self::NumberType(NumberType::I64),
-            0x7D => Self::NumberType(NumberType::F32),
-            0x7C => Self::NumberType(NumberType::F64),
-            _ => Self::Unknown(value_type),
+impl Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Num(number) => {
+                write!(f, "{}", number)
+            }
+            Value::Num(_) => todo!(),
         }
     }
 }
 
-// https://webassembly.github.io/spec/core/binary/types.html#function-types
-#[derive(Debug, Default, Clone)]
-pub struct FuncType {
-    pub params: Vec<ValueType>,
-    pub results: Vec<ValueType>,
+impl From<i32> for Value {
+    fn from(v: i32) -> Self {
+        Self::Num(Number::I32(v))
+    }
 }
+
+impl std::ops::Add for Value {
+    type Output = Value;
+    fn add(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Self::Num(Number::I32(a)), Self::Num(Number::I32(b))) => {
+                Value::Num(Number::I32(a + b))
+            }
+            _ => unimplemented!("cannot add values"),
+        }
+    }
+}
+
+impl std::ops::Sub for Value {
+    type Output = Value;
+    fn sub(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Self::Num(Number::I32(a)), Self::Num(Number::I32(b))) => {
+                Value::Num(Number::I32(a - b))
+            }
+            _ => unimplemented!("cannot sub values"),
+        }
+    }
+}
+
+impl std::ops::Mul for Value {
+    type Output = Value;
+    fn mul(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Self::Num(Number::I32(a)), Self::Num(Number::I32(b))) => {
+                Value::Num(Number::I32(a * b))
+            }
+            _ => unimplemented!("cannot mul values"),
+        }
+    }
+}
+
+impl std::ops::Div for Value {
+    type Output = Value;
+    fn div(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Self::Num(Number::I32(a)), Self::Num(Number::I32(b))) => {
+                Value::Num(Number::I32(a / b))
+            }
+            _ => unimplemented!("cannot mul values"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Number {
+    I32(i32),
+    I64(i64),
+    F32(f32),
+    F64(f64),
+}
+
+impl Display for Number {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Number::I32(v) => write!(f, "{}", v),
+            Number::I64(v) => write!(f, "{}", v),
+            Number::F32(v) => write!(f, "{}", v),
+            Number::F64(v) => write!(f, "{}", v),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Function {
+    pub func_type: FuncType,
+    pub body: Vec<Instruction>,
+}
+

@@ -1,5 +1,5 @@
 use crate::instruction::{Instruction, Opcode};
-use crate::value::{FuncType, ValueType};
+use crate::types::{FuncType, ValueType};
 use anyhow::{bail, Result};
 use std::collections::HashMap;
 use std::fmt::{Display, LowerHex};

@@ -1,45 +1,24 @@
 #![allow(dead_code)]
 #![allow(unused)]
 
+use crate::value::Value;
 use anyhow::Result;
 use anyhow::{bail, Context};
 use clap::Parser;
-use runtime::{Runtime, Value};
+use module::Module;
+use runtime::Runtime;
 use section::*;
-use std::fs;
-use std::fs::File;
-use std::io;
-use std::io::BufRead;
-use std::io::BufReader;
-use std::io::Read;
+use std::fs::{self, File};
+use std::io::{self, BufRead, BufReader, Read};
 use std::{env, result};
-use value::FuncType;
+use types::FuncType;
 
 mod instruction;
+mod module;
 mod runtime;
 mod section;
+mod types;
 mod value;
-
-#[derive(Debug, Default)]
-pub struct Module {
-    magic: String,
-    version: u32,
-    type_section: Option<Vec<FuncType>>,
-    function_section: Option<Vec<u32>>,
-    code_section: Option<Vec<FunctionBody>>,
-    export_section: Option<Vec<Export>>,
-}
-
-impl Module {
-    pub fn add_section(&mut self, section: Section) {
-        match section {
-            Section::Type(section) => self.type_section = Some(section),
-            Section::Function(section) => self.function_section = Some(section),
-            Section::Code(section) => self.code_section = Some(section),
-            Section::Export(section) => self.export_section = Some(section),
-        };
-    }
-}
 
 pub struct Decoder<R> {
     reader: BufReader<R>,
