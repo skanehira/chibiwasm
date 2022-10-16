@@ -14,6 +14,11 @@
     local.get $b
     i32.mul
   )
+  (func $div_u (param $a i32) (param $b i32) (result i32)
+    local.get $a
+    local.get $b
+    i32.div_u
+  )
   (func $eq (param $a i32) (param $b i32) (result i32)
     local.get $a
     local.get $b
@@ -63,6 +68,7 @@
   (export "add" (func $add))
   (export "sub" (func $sub))
   (export "mul" (func $mul))
+  (export "div_u" (func $div_u))
   (export "call_add" (func $call_add))
   (export "eq" (func $eq))
   (export "const_i32" (func $const_i32))
