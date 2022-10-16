@@ -79,6 +79,11 @@ impl Runtime {
                     let a = self.stack_pop()?;
                     self.stack.push(a - b);
                 }
+                Instruction::I32Mul => {
+                    let b = self.stack_pop()?;
+                    let a = self.stack_pop()?;
+                    self.stack.push(a * b);
+                }
                 Instruction::I32Eq => {
                     let b = self.stack_pop()?;
                     let a = self.stack_pop()?;
@@ -248,6 +253,18 @@ impl std::ops::Sub for Value {
     }
 }
 
+impl std::ops::Mul for Value {
+    type Output = Value;
+    fn mul(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Self::Num(Number::I32(a)), Self::Num(Number::I32(b))) => {
+                Value::Num(Number::I32(a * b))
+            }
+            _ => unimplemented!("cannot mul values"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Number {
     I32(i32),
@@ -337,6 +354,11 @@ mod test {
     local.get $b
     i32.sub
 	)
+  (func $mul (param $a i32) (param $b i32) (result i32)
+    local.get $a
+    local.get $b
+    i32.mul
+  )
   (func $eq (param $a i32) (param $b i32) (result i32)
     local.get $a
     local.get $b
@@ -385,6 +407,7 @@ mod test {
   )
   (export "add" (func $add))
   (export "sub" (func $sub))
+  (export "mul" (func $mul))
   (export "call_add" (func $call_add))
   (export "eq" (func $eq))
   (export "const_i32" (func $const_i32))
@@ -403,6 +426,7 @@ mod test {
         let tests = [
             ("add", vec![10, 11], 21),
             ("sub", vec![10, 11], -1),
+            ("mul", vec![10, 10], 100),
             ("eq", vec![10, 10], 1),
             ("call_add", vec![10, 10], 20),
             ("const_i32", vec![], 2),
