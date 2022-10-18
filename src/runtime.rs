@@ -104,6 +104,18 @@ impl Runtime {
                     let v = i32::from(a != b);
                     self.stack.push(v.into());
                 }
+                Instruction::I32LtS => {
+                    let b = self.stack_pop()?;
+                    let a = self.stack_pop()?;
+                    let v = i32::from(a < b);
+                    self.stack.push(v.into());
+                }
+                Instruction::I32LtU => {
+                    let b = self.stack_pop()?;
+                    let a = self.stack_pop()?;
+                    let v = i32::from(a < b);
+                    self.stack.push(v.into());
+                }
                 Instruction::I32Const(v) => {
                     self.stack.push(v.into());
                 }
@@ -313,6 +325,16 @@ mod test {
     local.get $b
     i32.ne
   )
+  (func $i32.lt_s (param $a i32) (param $b i32) (result i32)
+    local.get $a
+    local.get $b
+    i32.lt_s
+  )
+  (func $i32.lt_u (param $a i32) (param $b i32) (result i32)
+    local.get $a
+    local.get $b
+    i32.lt_u
+  )
   (func $call (param $a i32) (param $b i32) (result i32)
     local.get $a
     local.get $b
@@ -362,6 +384,8 @@ mod test {
   (export "i32.eq" (func $i32.eq))
   (export "i32.eqz" (func $i32.eqz))
   (export "i32.ne" (func $i32.ne))
+  (export "i32.lt_s" (func $i32.lt_s))
+  (export "i32.lt_u" (func $i32.lt_u))
   (export "i32.const" (func $i32.const))
   (export "call" (func $call))
   (export "return" (func $return))
@@ -388,6 +412,12 @@ mod test {
             ("i32.eqz", vec![0], 1),
             ("i32.ne", vec![10, 10], 0),
             ("i32.ne", vec![10, 11], 1),
+            ("i32.lt_u", vec![10, 11], 1),
+            ("i32.lt_u", vec![11, 11], 0),
+            ("i32.lt_u", vec![12, 11], 0),
+            ("i32.lt_s", vec![-10, -11], 0),
+            ("i32.lt_s", vec![-11, -11], 0),
+            ("i32.lt_s", vec![-12, -11], 1),
             ("i32.const", vec![], 2),
             ("call", vec![10, 10], 20),
             ("return", vec![], 15),
@@ -406,7 +436,7 @@ mod test {
         for mut test in tests.into_iter() {
             let args = test.1.into_iter().map(Value::from);
             let result = runtime.invoke(test.0.into(), &mut args.into_iter().collect())?;
-            assert_eq!(result.unwrap(), Value::from(test.2))
+            assert_eq!(result.unwrap(), Value::from(test.2), "func {}", test.0)
         }
 
         Ok(())

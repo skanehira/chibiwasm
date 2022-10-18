@@ -5,7 +5,7 @@ use crate::{
 use std::fmt::Display;
 
 // https://webassembly.github.io/spec/core/exec/runtime.html#syntax-val
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Value {
     Num(Number),
 }
@@ -75,7 +75,7 @@ impl std::ops::Div for Value {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Number {
     I32(i32),
     I64(i64),
