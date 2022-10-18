@@ -83,7 +83,7 @@ impl Runtime {
                     let a = self.stack_pop()?;
                     self.stack.push(a * b);
                 }
-                Instruction::I32DivU => {
+                Instruction::I32DivU | Instruction::I32DivS => {
                     let b = self.stack_pop()?;
                     let a = self.stack_pop()?;
                     self.stack.push(a / b);
@@ -284,6 +284,11 @@ mod test {
     local.get $b
     i32.div_u
   )
+  (func $div_s (param $a i32) (param $b i32) (result i32)
+    local.get $a
+    local.get $b
+    i32.div_s
+  )
   (func $eq (param $a i32) (param $b i32) (result i32)
     local.get $a
     local.get $b
@@ -334,6 +339,7 @@ mod test {
   (export "sub" (func $sub))
   (export "mul" (func $mul))
   (export "div_u" (func $div_u))
+  (export "div_s" (func $div_s))
   (export "call_add" (func $call_add))
   (export "eq" (func $eq))
   (export "const_i32" (func $const_i32))
@@ -353,6 +359,7 @@ mod test {
             ("add", vec![10, 11], 21),
             ("sub", vec![10, 11], -1),
             ("div_u", vec![100, 20], 5),
+            ("div_s", vec![-10, -2], 5),
             ("mul", vec![10, 10], 100),
             ("eq", vec![10, 10], 1),
             ("call_add", vec![10, 10], 20),

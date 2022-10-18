@@ -245,6 +245,7 @@ impl Section {
                 Opcode::I32Add => Instruction::I32Add,
                 Opcode::I32Mul => Instruction::I32Mul,
                 Opcode::I32DivU => Instruction::I32DivU,
+                Opcode::I32DivS => Instruction::I32DivS,
                 Opcode::I32Eq => Instruction::I32Eq,
                 Opcode::I32Const => {
                     let value = reader.i32()?;
