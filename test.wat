@@ -24,10 +24,15 @@
     local.get $b
     i32.div_s
   )
-  (func $eq (param $a i32) (param $b i32) (result i32)
+  (func $i32.eq (param $a i32) (param $b i32) (result i32)
     local.get $a
     local.get $b
     i32.eq
+	)
+  (func $i32.ne (param $a i32) (param $b i32) (result i32)
+    local.get $a
+    local.get $b
+    i32.ne
 	)
   (func $call_add (param $a i32) (param $b i32) (result i32)
     local.get $a
@@ -76,7 +81,8 @@
   (export "div_u" (func $div_u))
   (export "div_s" (func $div_s))
   (export "call_add" (func $call_add))
-  (export "eq" (func $eq))
+  (export "i32.eq" (func $i32.eq))
+  (export "i32.ne" (func $i32.ne))
   (export "const_i32" (func $const_i32))
   (export "return_value" (func $return_value))
   (export "test_if" (func $test_if))

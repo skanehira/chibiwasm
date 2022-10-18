@@ -94,6 +94,12 @@ impl Runtime {
                     let v = i32::from(a == b);
                     self.stack.push(v.into());
                 }
+                Instruction::I32Ne => {
+                    let b = self.stack_pop()?;
+                    let a = self.stack_pop()?;
+                    let v = i32::from(a != b);
+                    self.stack.push(v.into());
+                }
                 Instruction::I32Const(v) => {
                     self.stack.push(v.into());
                 }
@@ -289,10 +295,15 @@ mod test {
     local.get $b
     i32.div_s
   )
-  (func $eq (param $a i32) (param $b i32) (result i32)
+  (func $i32.eq (param $a i32) (param $b i32) (result i32)
     local.get $a
     local.get $b
     i32.eq
+	)
+  (func $i32.ne (param $a i32) (param $b i32) (result i32)
+    local.get $a
+    local.get $b
+    i32.ne
 	)
   (func $call_add (param $a i32) (param $b i32) (result i32)
     local.get $a
@@ -341,7 +352,8 @@ mod test {
   (export "div_u" (func $div_u))
   (export "div_s" (func $div_s))
   (export "call_add" (func $call_add))
-  (export "eq" (func $eq))
+  (export "i32.eq" (func $i32.eq))
+  (export "i32.ne" (func $i32.ne))
   (export "const_i32" (func $const_i32))
   (export "return_value" (func $return_value))
   (export "test_if" (func $test_if))
@@ -361,7 +373,10 @@ mod test {
             ("div_u", vec![100, 20], 5),
             ("div_s", vec![-10, -2], 5),
             ("mul", vec![10, 10], 100),
-            ("eq", vec![10, 10], 1),
+            ("i32.eq", vec![10, 10], 1),
+            ("i32.eq", vec![10, 11], 0),
+            ("i32.ne", vec![10, 10], 0),
+            ("i32.ne", vec![10, 11], 1),
             ("call_add", vec![10, 10], 20),
             ("const_i32", vec![], 2),
             ("return_value", vec![], 15),
