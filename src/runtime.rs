@@ -116,6 +116,18 @@ impl Runtime {
                     let v = i32::from(a < b);
                     self.stack.push(v.into());
                 }
+                Instruction::I32GtS => {
+                    let b = self.stack_pop()?;
+                    let a = self.stack_pop()?;
+                    let v = i32::from(a > b);
+                    self.stack.push(v.into());
+                }
+                Instruction::I32GtU => {
+                    let b = self.stack_pop()?;
+                    let a = self.stack_pop()?;
+                    let v = i32::from(a > b);
+                    self.stack.push(v.into());
+                }
                 Instruction::I32Const(v) => {
                     self.stack.push(v.into());
                 }
@@ -335,6 +347,16 @@ mod test {
     local.get $b
     i32.lt_u
   )
+  (func $i32.gt_s (param $a i32) (param $b i32) (result i32)
+    local.get $a
+    local.get $b
+    i32.gt_s
+  )
+  (func $i32.gt_u (param $a i32) (param $b i32) (result i32)
+    local.get $a
+    local.get $b
+    i32.gt_u
+  )
   (func $call (param $a i32) (param $b i32) (result i32)
     local.get $a
     local.get $b
@@ -386,6 +408,8 @@ mod test {
   (export "i32.ne" (func $i32.ne))
   (export "i32.lt_s" (func $i32.lt_s))
   (export "i32.lt_u" (func $i32.lt_u))
+  (export "i32.gt_s" (func $i32.gt_s))
+  (export "i32.gt_u" (func $i32.gt_u))
   (export "i32.const" (func $i32.const))
   (export "call" (func $call))
   (export "return" (func $return))
@@ -418,6 +442,12 @@ mod test {
             ("i32.lt_s", vec![-10, -11], 0),
             ("i32.lt_s", vec![-11, -11], 0),
             ("i32.lt_s", vec![-12, -11], 1),
+            ("i32.gt_u", vec![10, 11], 0),
+            ("i32.gt_u", vec![11, 11], 0),
+            ("i32.gt_u", vec![12, 11], 1),
+            ("i32.gt_s", vec![-10, -11], 1),
+            ("i32.gt_s", vec![-11, -11], 0),
+            ("i32.gt_s", vec![-12, -11], 0),
             ("i32.const", vec![], 2),
             ("call", vec![10, 10], 20),
             ("return", vec![], 15),
