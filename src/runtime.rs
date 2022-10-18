@@ -299,17 +299,17 @@ mod test {
     local.get $a
     local.get $b
     i32.eq
-	)
+  )
   (func $i32.ne (param $a i32) (param $b i32) (result i32)
     local.get $a
     local.get $b
     i32.ne
-	)
+  )
   (func $call (param $a i32) (param $b i32) (result i32)
     local.get $a
     local.get $b
     call $i32.add
-	)
+  )
   (func $i32.const (result i32)
     i32.const 1
     i32.const 1
