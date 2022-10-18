@@ -1,25 +1,25 @@
 (module
-  (func $add (param $lhs i32) (param $rhs i32) (result i32)
+  (func $i32.add (param $lhs i32) (param $rhs i32) (result i32)
     local.get $lhs
     local.get $rhs
     i32.add
 	)
-  (func $sub (param $a i32) (param $b i32) (result i32)
+  (func $i32.sub (param $a i32) (param $b i32) (result i32)
     local.get $a
     local.get $b
     i32.sub
 	)
-  (func $mul (param $a i32) (param $b i32) (result i32)
+  (func $i32.mul (param $a i32) (param $b i32) (result i32)
     local.get $a
     local.get $b
     i32.mul
   )
-  (func $div_u (param $a i32) (param $b i32) (result i32)
+  (func $i32.div_u (param $a i32) (param $b i32) (result i32)
     local.get $a
     local.get $b
     i32.div_u
   )
-  (func $div_s (param $a i32) (param $b i32) (result i32)
+  (func $i32.div_s (param $a i32) (param $b i32) (result i32)
     local.get $a
     local.get $b
     i32.div_s
@@ -34,20 +34,20 @@
     local.get $b
     i32.ne
 	)
-  (func $call_add (param $a i32) (param $b i32) (result i32)
+  (func $call (param $a i32) (param $b i32) (result i32)
     local.get $a
     local.get $b
-    call $add
+    call $i32.add
 	)
-  (func $const_i32 (result i32)
+  (func $i32.const (result i32)
     i32.const 1
     i32.const 1
     i32.add
   )
-  (func $return_value (result i32)
+  (func $return (result i32)
     (return (i32.const 15))
   )
-  (func $test_if (param $a i32) (param $b i32) (result i32)
+  (func $if (param $a i32) (param $b i32) (result i32)
     (if
       (i32.eq (local.get $a) (local.get $b))
       (then (return (i32.const 1)))
@@ -75,17 +75,17 @@
     )
     (return (i32.const -1))
   )
-  (export "add" (func $add))
-  (export "sub" (func $sub))
-  (export "mul" (func $mul))
-  (export "div_u" (func $div_u))
-  (export "div_s" (func $div_s))
-  (export "call_add" (func $call_add))
+  (export "i32.add" (func $i32.add))
+  (export "i32.sub" (func $i32.sub))
+  (export "i32.mul" (func $i32.mul))
+  (export "i32.div_u" (func $i32.div_u))
+  (export "i32.div_s" (func $i32.div_s))
   (export "i32.eq" (func $i32.eq))
   (export "i32.ne" (func $i32.ne))
-  (export "const_i32" (func $const_i32))
-  (export "return_value" (func $return_value))
-  (export "test_if" (func $test_if))
+  (export "i32.const" (func $i32.const))
+  (export "call" (func $call))
+  (export "return" (func $return))
+  (export "if" (func $if))
   (export "fib" (func $fib))
   (export "if_else" (func $if_else))
 )
