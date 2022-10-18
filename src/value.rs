@@ -99,4 +99,3 @@ pub struct Function {
     pub func_type: FuncType,
     pub body: Vec<Instruction>,
 }
-
