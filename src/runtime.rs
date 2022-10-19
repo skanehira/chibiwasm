@@ -56,6 +56,34 @@ impl Runtime {
         self.stack.pop().context("not found variable from stack")
     }
 
+    fn binop_signed<F>(&mut self, f: F) -> Result<()>
+    where
+        F: Fn(i32, i32) -> i32,
+    {
+        let b = self.stack_pop()?;
+        let a = self.stack_pop()?;
+        let result = match (a, b) {
+            (Value::I32(lhs), Value::I32(rhs)) => f(lhs as i32, rhs as i32),
+            _ => unreachable!(),
+        };
+        self.stack.push(Value::from(result as i32));
+        Ok(())
+    }
+
+    fn binop_unsigned<F>(&mut self, f: F) -> Result<()>
+    where
+        F: Fn(u32, u32) -> u32,
+    {
+        let b = self.stack_pop()?;
+        let a = self.stack_pop()?;
+        let result = match (a, b) {
+            (Value::I32(lhs), Value::I32(rhs)) => f(lhs as u32, rhs as u32),
+            _ => unreachable!(),
+        };
+        self.stack.push(Value::from(result as i32));
+        Ok(())
+    }
+
     fn execute(&mut self) -> Result<Option<Value>> {
         while let Some(inst) = self.instruction()? {
             self.frame_pc_inc();
@@ -69,64 +97,41 @@ impl Runtime {
                     self.stack.push(value.clone());
                 }
                 Instruction::I32Add => {
-                    let b = self.stack_pop()?;
-                    let a = self.stack_pop()?;
-                    self.stack.push(a + b);
+                    self.binop_signed(|a, b| a + b)?;
                 }
                 Instruction::I32Sub => {
-                    let b = self.stack_pop()?;
-                    let a = self.stack_pop()?;
-                    self.stack.push(a - b);
+                    self.binop_signed(|a, b| a - b)?;
                 }
                 Instruction::I32Mul => {
-                    let b = self.stack_pop()?;
-                    let a = self.stack_pop()?;
-                    self.stack.push(a * b);
+                    self.binop_signed(|a, b| a * b)?;
                 }
-                Instruction::I32DivU | Instruction::I32DivS => {
-                    let b = self.stack_pop()?;
-                    let a = self.stack_pop()?;
-                    self.stack.push(a / b);
+                Instruction::I32DivU => {
+                    self.binop_unsigned(|a, b| a / b)?;
+                }
+                Instruction::I32DivS => {
+                    self.binop_signed(|a, b| a / b)?;
                 }
                 Instruction::I32Eq => {
-                    let b = self.stack_pop()?;
-                    let a = self.stack_pop()?;
-                    let v = i32::from(a == b);
-                    self.stack.push(v.into());
+                    self.binop_signed(|a, b| i32::from(a == b));
                 }
                 Instruction::I32Eqz => {
                     let v = self.stack_pop()?;
                     self.stack.push(i32::from(v == Value::from(0)).into());
                 }
                 Instruction::I32Ne => {
-                    let b = self.stack_pop()?;
-                    let a = self.stack_pop()?;
-                    let v = i32::from(a != b);
-                    self.stack.push(v.into());
+                    self.binop_signed(|a, b| i32::from(a != b));
                 }
                 Instruction::I32LtS => {
-                    let b = self.stack_pop()?;
-                    let a = self.stack_pop()?;
-                    let v = i32::from(a < b);
-                    self.stack.push(v.into());
+                    self.binop_signed(|a, b| i32::from(a < b));
                 }
                 Instruction::I32LtU => {
-                    let b = self.stack_pop()?;
-                    let a = self.stack_pop()?;
-                    let v = i32::from(a < b);
-                    self.stack.push(v.into());
+                    self.binop_signed(|a, b| i32::from(a < b));
                 }
                 Instruction::I32GtS => {
-                    let b = self.stack_pop()?;
-                    let a = self.stack_pop()?;
-                    let v = i32::from(a > b);
-                    self.stack.push(v.into());
+                    self.binop_signed(|a, b| i32::from(a > b));
                 }
                 Instruction::I32GtU => {
-                    let b = self.stack_pop()?;
-                    let a = self.stack_pop()?;
-                    let v = i32::from(a > b);
-                    self.stack.push(v.into());
+                    self.binop_signed(|a, b| i32::from(a > b));
                 }
                 Instruction::I32Const(v) => {
                     self.stack.push(v.into());
