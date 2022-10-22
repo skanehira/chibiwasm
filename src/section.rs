@@ -1,6 +1,7 @@
 use crate::instruction::{Instruction, Opcode};
 use crate::types::{FuncType, ValueType};
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
+use num_traits::FromPrimitive;
 use std::collections::HashMap;
 use std::fmt::{Display, LowerHex};
 use std::{
@@ -224,7 +225,8 @@ impl Section {
         while reader.is_end()? {
             let op = reader.byte()?;
 
-            let op: Opcode = op.try_into()?;
+            let op: Opcode = FromPrimitive::from_u8(op).context("unsupported opcode")?;
+
             let inst = match op {
                 Opcode::Unreachable => Instruction::Unreachable,
                 Opcode::Nop => Instruction::Nop,
@@ -254,6 +256,8 @@ impl Section {
                 Opcode::I32GtS => Instruction::I32GtS,
                 Opcode::I32GtU => Instruction::I32GtU,
                 Opcode::I32LeS => Instruction::I32LeS,
+                Opcode::I32GeU => Instruction::I32GeU,
+                Opcode::I32GeS => Instruction::I32GeS,
                 Opcode::I32LeU => Instruction::I32LeU,
                 Opcode::I32Const => {
                     let value = reader.i32()?;

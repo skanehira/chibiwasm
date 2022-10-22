@@ -129,6 +129,12 @@ impl Runtime {
                 Instruction::I32LeU => {
                     binop!(self, |a, b| a <= b, i32)?;
                 }
+                Instruction::I32GeS => {
+                    binop!(self, |a, b| a >= b, i32)?;
+                }
+                Instruction::I32GeU => {
+                    binop!(self, |a, b| a >= b, i32)?;
+                }
                 Instruction::I32Const(v) => {
                     self.stack.push(v.into());
                 }
@@ -368,6 +374,16 @@ mod test {
     local.get $b
     i32.le_u
   )
+  (func $i32.ge_s (param $a i32) (param $b i32) (result i32)
+    local.get $a
+    local.get $b
+    i32.ge_s
+  )
+  (func $i32.ge_u (param $a i32) (param $b i32) (result i32)
+    local.get $a
+    local.get $b
+    i32.ge_u
+  )
   (func $call (param $a i32) (param $b i32) (result i32)
     local.get $a
     local.get $b
@@ -423,6 +439,8 @@ mod test {
   (export "i32.gt_u" (func $i32.gt_u))
   (export "i32.le_s" (func $i32.le_s))
   (export "i32.le_u" (func $i32.le_u))
+  (export "i32.ge_s" (func $i32.ge_s))
+  (export "i32.ge_u" (func $i32.ge_u))
   (export "i32.const" (func $i32.const))
   (export "call" (func $call))
   (export "return" (func $return))
@@ -467,6 +485,12 @@ mod test {
             ("i32.le_s", vec![-10, -10], 1),
             ("i32.le_s", vec![-10, -9], 1),
             ("i32.le_s", vec![-10, -11], 0),
+            ("i32.ge_u", vec![9, 10], 0),
+            ("i32.ge_u", vec![10, 10], 1),
+            ("i32.ge_u", vec![11, 10], 1),
+            ("i32.ge_s", vec![-10, -10], 1),
+            ("i32.ge_s", vec![-10, -9], 0),
+            ("i32.ge_s", vec![-10, -11], 1),
             ("i32.const", vec![], 2),
             ("call", vec![10, 10], 20),
             ("return", vec![], 15),
