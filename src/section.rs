@@ -246,6 +246,8 @@ impl Section {
                 Opcode::I32Sub => Instruction::I32Sub,
                 Opcode::I32Add => Instruction::I32Add,
                 Opcode::I32Mul => Instruction::I32Mul,
+                Opcode::I32Clz => Instruction::I32Clz,
+                Opcode::I32Ctz => Instruction::I32Ctz,
                 Opcode::I32DivU => Instruction::I32DivU,
                 Opcode::I32DivS => Instruction::I32DivS,
                 Opcode::I32Eq => Instruction::I32Eq,

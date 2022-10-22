@@ -95,6 +95,20 @@ impl Runtime {
                 Instruction::I32Mul => {
                     binop!(self, |a, b| a * b, i32)?;
                 }
+                Instruction::I32Clz => {
+                    let v = self.stack_pop()?;
+                    match v {
+                        Value::I32(v) => self.stack.push(Value::I32(v.leading_zeros() as i32)),
+                        _ => bail!("unexpected value"),
+                    }
+                }
+                Instruction::I32Ctz => {
+                    let v = self.stack_pop()?;
+                    match v {
+                        Value::I32(v) => self.stack.push(Value::I32(v.trailing_zeros() as i32)),
+                        _ => bail!("unexpected value"),
+                    }
+                }
                 Instruction::I32DivU => {
                     binop!(self, |a, b| a / b, i32)?;
                 }
@@ -161,7 +175,7 @@ impl Runtime {
                     let func = self
                         .functions
                         .get(func_idx as usize)
-                        .context("not found function")?;
+                        .context("not found function with index")?;
                     let body = func.body.clone();
 
                     let mut args = vec![];
@@ -320,6 +334,14 @@ mod test {
     local.get $b
     i32.mul
   )
+  (func $i32.clz (param $a i32) (result i32)
+    local.get $a
+    i32.clz
+  )
+  (func $i32.ctz (param $a i32) (result i32)
+    local.get $a
+    i32.ctz
+  )
   (func $i32.div_u (param $a i32) (param $b i32) (result i32)
     local.get $a
     local.get $b
@@ -428,6 +450,8 @@ mod test {
   (export "i32.add" (func $i32.add))
   (export "i32.sub" (func $i32.sub))
   (export "i32.mul" (func $i32.mul))
+  (export "i32.clz" (func $i32.clz))
+  (export "i32.ctz" (func $i32.ctz))
   (export "i32.div_u" (func $i32.div_u))
   (export "i32.div_s" (func $i32.div_s))
   (export "i32.eq" (func $i32.eq))
@@ -461,6 +485,10 @@ mod test {
             ("i32.div_u", vec![100, 20], 5),
             ("i32.div_s", vec![-10, -2], 5),
             ("i32.mul", vec![10, 10], 100),
+            ("i32.clz", vec![(u32::MAX >> 2) as i32], 2),
+            ("i32.clz", vec![(u32::MAX >> 5) as i32], 5),
+            ("i32.ctz", vec![(u32::MAX << 2) as i32], 2),
+            ("i32.ctz", vec![(u32::MAX << 5) as i32], 5),
             ("i32.eq", vec![10, 10], 1),
             ("i32.eq", vec![10, 10], 1),
             ("i32.eqz", vec![1], 0),
