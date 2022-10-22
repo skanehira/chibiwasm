@@ -8,6 +8,24 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use std::ops::Deref;
 
+#[macro_export]
+macro_rules! binop {
+    ($self:expr, $f:expr, $ty:ty) => {{
+        let b = $self.stack_pop()?;
+        let a = $self.stack_pop()?;
+
+        let result = match (a, b) {
+            (Value::I32(lhs), Value::I32(rhs)) => $f(lhs, rhs) as $ty,
+            (Value::I64(lhs), Value::I64(rhs)) => $f(lhs, rhs) as $ty,
+            (Value::F32(lhs), Value::F32(rhs)) => $f(lhs, rhs) as $ty,
+            (Value::F64(lhs), Value::F64(rhs)) => $f(lhs, rhs) as $ty,
+            _ => panic!("Unsupported opration"),
+        };
+        $self.stack.push(result.into());
+        Ok::<(), anyhow::Error>(())
+    }};
+}
+
 #[derive(Debug, Default)]
 pub struct Runtime {
     exports: HashMap<String, ExportDesc>,
@@ -56,34 +74,6 @@ impl Runtime {
         self.stack.pop().context("not found variable from stack")
     }
 
-    fn binop_signed<F>(&mut self, f: F) -> Result<()>
-    where
-        F: Fn(i32, i32) -> i32,
-    {
-        let b = self.stack_pop()?;
-        let a = self.stack_pop()?;
-        let result = match (a, b) {
-            (Value::I32(lhs), Value::I32(rhs)) => f(lhs as i32, rhs as i32),
-            _ => unreachable!(),
-        };
-        self.stack.push(Value::from(result as i32));
-        Ok(())
-    }
-
-    fn binop_unsigned<F>(&mut self, f: F) -> Result<()>
-    where
-        F: Fn(u32, u32) -> u32,
-    {
-        let b = self.stack_pop()?;
-        let a = self.stack_pop()?;
-        let result = match (a, b) {
-            (Value::I32(lhs), Value::I32(rhs)) => f(lhs as u32, rhs as u32),
-            _ => unreachable!(),
-        };
-        self.stack.push(Value::from(result as i32));
-        Ok(())
-    }
-
     fn execute(&mut self) -> Result<Option<Value>> {
         while let Some(inst) = self.instruction()? {
             self.frame_pc_inc();
@@ -97,47 +87,47 @@ impl Runtime {
                     self.stack.push(value.clone());
                 }
                 Instruction::I32Add => {
-                    self.binop_signed(|a, b| a + b)?;
+                    binop!(self, |a, b| a + b, i32)?;
                 }
                 Instruction::I32Sub => {
-                    self.binop_signed(|a, b| a - b)?;
+                    binop!(self, |a, b| a - b, i32)?;
                 }
                 Instruction::I32Mul => {
-                    self.binop_signed(|a, b| a * b)?;
+                    binop!(self, |a, b| a * b, i32)?;
                 }
                 Instruction::I32DivU => {
-                    self.binop_unsigned(|a, b| a / b)?;
+                    binop!(self, |a, b| a / b, i32)?;
                 }
                 Instruction::I32DivS => {
-                    self.binop_signed(|a, b| a / b)?;
+                    binop!(self, |a, b| a / b, i32)?;
                 }
                 Instruction::I32Eq => {
-                    self.binop_signed(|a, b| i32::from(a == b));
+                    binop!(self, |a, b| a == b, i32)?;
                 }
                 Instruction::I32Eqz => {
                     let v = self.stack_pop()?;
                     self.stack.push(i32::from(v == Value::from(0)).into());
                 }
                 Instruction::I32Ne => {
-                    self.binop_signed(|a, b| i32::from(a != b));
+                    binop!(self, |a, b| a != b, i32)?;
                 }
                 Instruction::I32LtS => {
-                    self.binop_signed(|a, b| i32::from(a < b));
+                    binop!(self, |a, b| a < b, i32)?;
                 }
                 Instruction::I32LtU => {
-                    self.binop_signed(|a, b| i32::from(a < b));
+                    binop!(self, |a, b| a < b, i32)?;
                 }
                 Instruction::I32GtS => {
-                    self.binop_signed(|a, b| i32::from(a > b));
+                    binop!(self, |a, b| a > b, i32)?;
                 }
                 Instruction::I32GtU => {
-                    self.binop_signed(|a, b| i32::from(a > b));
+                    binop!(self, |a, b| a > b, i32)?;
                 }
                 Instruction::I32LeS => {
-                    self.binop_signed(|a, b| i32::from(a <= b));
+                    binop!(self, |a, b| a <= b, i32)?;
                 }
                 Instruction::I32LeU => {
-                    self.binop_signed(|a, b| i32::from(a <= b));
+                    binop!(self, |a, b| a <= b, i32)?;
                 }
                 Instruction::I32Const(v) => {
                     self.stack.push(v.into());
@@ -313,12 +303,12 @@ mod test {
     local.get $lhs
     local.get $rhs
     i32.add
-	)
+  )
   (func $i32.sub (param $a i32) (param $b i32) (result i32)
     local.get $a
     local.get $b
     i32.sub
-	)
+  )
   (func $i32.mul (param $a i32) (param $b i32) (result i32)
     local.get $a
     local.get $b

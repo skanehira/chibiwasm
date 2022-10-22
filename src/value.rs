@@ -38,6 +38,12 @@ impl From<i32> for Value {
     }
 }
 
+impl From<i64> for Value {
+    fn from(v: i64) -> Self {
+        Self::I64(v)
+    }
+}
+
 #[derive(Debug)]
 pub struct Function {
     pub func_type: FuncType,
