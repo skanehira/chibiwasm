@@ -156,6 +156,12 @@ impl Runtime {
                         _ => bail!("unexpected value"),
                     }
                 }
+                Instruction::I32RemU => {
+                    binop!(self, |a, b| a % b, i32)?;
+                }
+                Instruction::I32RemS => {
+                    binop!(self, |a, b| a % b, i32)?;
+                }
                 Instruction::I32Const(v) => {
                     self.stack.push(v.into());
                 }
@@ -455,6 +461,8 @@ mod test {
     (return (i32.const -1))
   )
   (func (export "i32.popcnt") (param $x i32) (result i32) (i32.popcnt (local.get $x)))
+  (func (export "i32.rem_s") (param $x i32) (param $y i32) (result i32) (i32.rem_s (local.get $x) (local.get $y)))
+  (func (export "i32.rem_u") (param $x i32) (param $y i32) (result i32) (i32.rem_u (local.get $x) (local.get $y)))
   (export "i32.add" (func $i32.add))
   (export "i32.sub" (func $i32.sub))
   (export "i32.mul" (func $i32.mul))
@@ -531,6 +539,8 @@ mod test {
             ("i32.popcnt", vec![0], 0),
             ("i32.popcnt", vec![2147483647], 31),
             ("i32.popcnt", vec![-1], 32),
+            ("i32.rem_s", vec![-5, 2], -1),
+            ("i32.rem_u", vec![5, 2], 1),
             ("call", vec![10, 10], 20),
             ("return", vec![], 15),
             ("if", vec![1, 0], 0),
