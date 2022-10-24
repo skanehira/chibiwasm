@@ -149,6 +149,13 @@ impl Runtime {
                 Instruction::I32GeU => {
                     binop!(self, |a, b| a >= b, i32)?;
                 }
+                Instruction::I32Popcnt => {
+                    let value = self.stack_pop()?;
+                    match value {
+                        Value::I32(v) => self.stack.push(v.count_ones().into()),
+                        _ => bail!("unexpected value"),
+                    }
+                }
                 Instruction::I32Const(v) => {
                     self.stack.push(v.into());
                 }
@@ -160,7 +167,7 @@ impl Runtime {
                 }
                 Instruction::If => {
                     let v = self.stack_pop()?;
-                    if v != Value::from(1) {
+                    if v != 1.into() {
                         loop {
                             let ins = self.instruction()?.context("not found instruction")?;
                             if ins == Instruction::End || ins == Instruction::Else {
@@ -447,6 +454,7 @@ mod test {
     )
     (return (i32.const -1))
   )
+  (func (export "i32.popcnt") (param $x i32) (result i32) (i32.popcnt (local.get $x)))
   (export "i32.add" (func $i32.add))
   (export "i32.sub" (func $i32.sub))
   (export "i32.mul" (func $i32.mul))
@@ -520,6 +528,9 @@ mod test {
             ("i32.ge_s", vec![-10, -9], 0),
             ("i32.ge_s", vec![-10, -11], 1),
             ("i32.const", vec![], 2),
+            ("i32.popcnt", vec![0], 0),
+            ("i32.popcnt", vec![2147483647], 31),
+            ("i32.popcnt", vec![-1], 32),
             ("call", vec![10, 10], 20),
             ("return", vec![], 15),
             ("if", vec![1, 0], 0),
