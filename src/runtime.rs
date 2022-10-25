@@ -6,7 +6,7 @@ use crate::Module;
 use anyhow::{bail, Context, Result};
 use std::collections::HashMap;
 use std::fmt::Display;
-use std::ops::Deref;
+use std::ops::{Deref, Shl, Shr};
 
 #[macro_export]
 macro_rules! binop {
@@ -15,10 +15,10 @@ macro_rules! binop {
         let a = $self.stack_pop()?;
 
         let result = match (a, b) {
-            (Value::I32(lhs), Value::I32(rhs)) => $f(lhs, rhs) as $ty,
-            (Value::I64(lhs), Value::I64(rhs)) => $f(lhs, rhs) as $ty,
-            (Value::F32(lhs), Value::F32(rhs)) => $f(lhs, rhs) as $ty,
-            (Value::F64(lhs), Value::F64(rhs)) => $f(lhs, rhs) as $ty,
+            (Value::I32(lhs), Value::I32(rhs)) => $f(lhs as $ty, rhs as $ty) as $ty,
+            (Value::I64(lhs), Value::I64(rhs)) => $f(lhs as $ty, rhs as $ty) as $ty,
+            (Value::F32(lhs), Value::F32(rhs)) => $f(lhs as $ty, rhs as $ty) as $ty,
+            (Value::F64(lhs), Value::F64(rhs)) => $f(lhs as $ty, rhs as $ty) as $ty,
             _ => panic!("Unsupported opration"),
         };
         $self.stack.push(result.into());
@@ -163,13 +163,22 @@ impl Runtime {
                     binop!(self, |a, b| a % b, i32)?;
                 }
                 Instruction::I32And => {
-                    binop!(self, |a, b| a as i32 & b as i32, i32)?;
+                    binop!(self, |a: i32, b: i32| a & b, i32)?;
                 }
                 Instruction::I32Or => {
-                    binop!(self, |a, b| a as i32 | b as i32, i32)?;
+                    binop!(self, |a: i32, b: i32| a | b, i32)?;
                 }
                 Instruction::I32Xor => {
-                    binop!(self, |a, b| a as i32 ^ b as i32, i32)?;
+                    binop!(self, |a: i32, b: i32| a ^ b, i32)?;
+                }
+                Instruction::I32Shl => {
+                    binop!(self, |a: i32, b: i32| a.shl(b), i32)?;
+                }
+                Instruction::I32ShrU => {
+                    binop!(self, |a: i32, b: i32| a.shr(b), i32)?;
+                }
+                Instruction::I32ShrS => {
+                    binop!(self, |a: i32, b: i32| a.shr(b), i32)?;
                 }
                 Instruction::I32Const(v) => {
                     self.stack.push(v.into());
@@ -334,6 +343,7 @@ mod test {
     use std::{
         fs,
         io::{self, BufReader, Cursor},
+        ops::Shl,
     };
     use wasmer::wat2wasm;
 
@@ -475,6 +485,9 @@ mod test {
   (func (export "i32.and") (param $x i32) (param $y i32) (result i32) (i32.and (local.get $x) (local.get $y)))
   (func (export "i32.or") (param $x i32) (param $y i32) (result i32) (i32.or (local.get $x) (local.get $y)))
   (func (export "i32.xor") (param $x i32) (param $y i32) (result i32) (i32.xor (local.get $x) (local.get $y)))
+  (func (export "i32.shl") (param $x i32) (param $y i32) (result i32) (i32.shl (local.get $x) (local.get $y)))
+  (func (export "i32.shr_s") (param $x i32) (param $y i32) (result i32) (i32.shr_s (local.get $x) (local.get $y)))
+  (func (export "i32.shr_u") (param $x i32) (param $y i32) (result i32) (i32.shr_u (local.get $x) (local.get $y)))
   (export "i32.add" (func $i32.add))
   (export "i32.sub" (func $i32.sub))
   (export "i32.mul" (func $i32.mul))
@@ -561,6 +574,16 @@ mod test {
             ("i32.xor", vec![1, 1], 0),
             ("i32.xor", vec![0, 0], 0),
             ("i32.xor", vec![1, 0], 1),
+            ("i32.shl", vec![1, 0], 1),
+            ("i32.shl", vec![0x40000000, 1], -0x80000000),
+            ("i32.shl", vec![-0x80000000, 1], 0),
+            ("i32.shl", vec![1, 31], -0x80000000),
+            ("i32.shr_u", vec![1, 1], 0),
+            ("i32.shr_u", vec![0x7fffffff, 1], 0x3fffffff),
+            ("i32.shr_u", vec![0x40000000, 1], 0x20000000),
+            ("i32.shr_s", vec![1, 1], 0),
+            ("i32.shr_s", vec![0x7fffffff, 1], 0x3fffffff),
+            ("i32.shr_s", vec![0x40000000, 1], 0x20000000),
             ("call", vec![10, 10], 20),
             ("return", vec![], 15),
             ("if", vec![1, 0], 0),
