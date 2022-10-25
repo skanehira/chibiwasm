@@ -171,7 +171,7 @@ impl Runtime {
                 Instruction::I32Xor => {
                     binop!(self, |a: i32, b: i32| a ^ b, i32)?;
                 }
-                Instruction::I32Shl => {
+                Instruction::I32ShL => {
                     binop!(self, |a: i32, b: i32| a.shl(b), i32)?;
                 }
                 Instruction::I32ShrU => {
@@ -179,6 +179,12 @@ impl Runtime {
                 }
                 Instruction::I32ShrS => {
                     binop!(self, |a: i32, b: i32| a.shr(b), i32)?;
+                }
+                Instruction::I32RtoL => {
+                    binop!(self, |a: i32, b: i32| a.rotate_left(b as u32), i32)?;
+                }
+                Instruction::I32RtoR => {
+                    binop!(self, |a: i32, b: i32| a.rotate_right(b as u32), i32)?;
                 }
                 Instruction::I32Const(v) => {
                     self.stack.push(v.into());
@@ -488,6 +494,8 @@ mod test {
   (func (export "i32.shl") (param $x i32) (param $y i32) (result i32) (i32.shl (local.get $x) (local.get $y)))
   (func (export "i32.shr_s") (param $x i32) (param $y i32) (result i32) (i32.shr_s (local.get $x) (local.get $y)))
   (func (export "i32.shr_u") (param $x i32) (param $y i32) (result i32) (i32.shr_u (local.get $x) (local.get $y)))
+  (func (export "i32.rtol") (param $x i32) (param $y i32) (result i32) (i32.rotl (local.get $x) (local.get $y)))
+  (func (export "i32.rtor") (param $x i32) (param $y i32) (result i32) (i32.rotr (local.get $x) (local.get $y)))
   (export "i32.add" (func $i32.add))
   (export "i32.sub" (func $i32.sub))
   (export "i32.mul" (func $i32.mul))
@@ -584,6 +592,12 @@ mod test {
             ("i32.shr_s", vec![1, 1], 0),
             ("i32.shr_s", vec![0x7fffffff, 1], 0x3fffffff),
             ("i32.shr_s", vec![0x40000000, 1], 0x20000000),
+            ("i32.rtol", vec![1, 1], 2),
+            ("i32.rtol", vec![1, 31], -0x80000000),
+            ("i32.rtol", vec![1, 32], 1),
+            ("i32.rtor", vec![1, 1], -0x80000000),
+            ("i32.rtor", vec![1, 0], 1),
+            ("i32.rtor", vec![1, 32], 1),
             ("call", vec![10, 10], 20),
             ("return", vec![], 15),
             ("if", vec![1, 0], 0),
