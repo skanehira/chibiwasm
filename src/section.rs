@@ -272,6 +272,8 @@ impl Section {
                 Opcode::I32ShrU => Instruction::I32ShrU,
                 Opcode::I32RtoL => Instruction::I32RtoL,
                 Opcode::I32RtoR => Instruction::I32RtoR,
+                Opcode::I32Extend8S => Instruction::I32Extend8S,
+                Opcode::I32Extend16S => Instruction::I32Extend16S,
                 Opcode::I32Const => {
                     let value = reader.i32()?;
                     Instruction::I32Const(value)

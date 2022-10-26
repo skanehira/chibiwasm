@@ -186,6 +186,26 @@ impl Runtime {
                 Instruction::I32RtoR => {
                     binop!(self, |a: i32, b: i32| a.rotate_right(b as u32), i32)?;
                 }
+                Instruction::I32Extend8S => {
+                    let value = self.stack_pop()?;
+                    match value {
+                        Value::I32(v) => {
+                            let result = v << 24 >> 24;
+                            self.stack.push(result.into());
+                        }
+                        _ => bail!("unexpected value type"),
+                    }
+                }
+                Instruction::I32Extend16S => {
+                    let value = self.stack_pop()?;
+                    match value {
+                        Value::I32(v) => {
+                            let result = v << 16 >> 16;
+                            self.stack.push(result.into());
+                        }
+                        _ => bail!("unexpected value type"),
+                    }
+                }
                 Instruction::I32Const(v) => {
                     self.stack.push(v.into());
                 }
@@ -496,6 +516,8 @@ mod test {
   (func (export "i32.shr_u") (param $x i32) (param $y i32) (result i32) (i32.shr_u (local.get $x) (local.get $y)))
   (func (export "i32.rtol") (param $x i32) (param $y i32) (result i32) (i32.rotl (local.get $x) (local.get $y)))
   (func (export "i32.rtor") (param $x i32) (param $y i32) (result i32) (i32.rotr (local.get $x) (local.get $y)))
+  (func (export "i32.extend8_s") (param $x i32) (result i32) (i32.extend8_s (local.get $x)))
+  (func (export "i32.extend16_s") (param $x i32) (result i32) (i32.extend16_s (local.get $x)))
   (export "i32.add" (func $i32.add))
   (export "i32.sub" (func $i32.sub))
   (export "i32.mul" (func $i32.mul))
@@ -598,6 +620,12 @@ mod test {
             ("i32.rtor", vec![1, 1], -0x80000000),
             ("i32.rtor", vec![1, 0], 1),
             ("i32.rtor", vec![1, 32], 1),
+            ("i32.extend8_s", vec![0], 0),
+            ("i32.extend8_s", vec![0x80], -128),
+            ("i32.extend8_s", vec![-1], -1),
+            ("i32.extend16_s", vec![0], 0),
+            ("i32.extend16_s", vec![0x7fff], 32767),
+            ("i32.extend16_s", vec![-1], -1),
             ("call", vec![10, 10], 20),
             ("return", vec![], 15),
             ("if", vec![1, 0], 0),
