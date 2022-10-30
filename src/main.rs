@@ -1,17 +1,10 @@
 use anyhow::Result;
 
-use crate::module::Decoder;
-use crate::runtime::Runtime;
-use crate::value::Value;
+use chibiwasm::module::Decoder;
+use chibiwasm::runtime::Runtime;
+use chibiwasm::value::Value;
 use clap::Parser;
 use std::fs;
-
-pub mod instruction;
-pub mod module;
-pub mod runtime;
-pub mod section;
-pub mod types;
-pub mod value;
 
 #[derive(Debug, Parser)]
 #[clap(author, about, version)]
