@@ -364,7 +364,7 @@ fn new_functions(module: &mut Module) -> Result<Vec<Function>> {
 #[cfg(test)]
 mod test {
     use super::{Runtime, Value};
-    use crate::Decoder;
+    use crate::module::Decoder;
     use anyhow::{Context, Result};
     use std::{
         fs,

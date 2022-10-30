@@ -1,13 +1,11 @@
 use crate::instruction::{Instruction, Opcode};
+use crate::module::Module;
 use crate::types::{FuncType, ValueType};
 use anyhow::{bail, Context, Result};
 use num_traits::FromPrimitive;
 use std::collections::HashMap;
 use std::fmt::{Display, LowerHex};
-use std::{
-    io::{BufRead, BufReader, Cursor, Read},
-    u8,
-};
+use std::io::{BufRead, BufReader, Cursor, Read};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum SectionID {
