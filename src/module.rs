@@ -1,12 +1,11 @@
-use crate::instruction::{Instruction, Opcode};
 use crate::{
     section::{Export, FunctionBody, Section, SectionID},
     types::FuncType,
 };
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use std::io;
 use std::{
-    io::{BufRead, BufReader, Cursor, Read},
+    io::{BufRead, BufReader, Read},
     u8,
 };
 

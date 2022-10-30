@@ -1,12 +1,11 @@
-use crate::instruction::{self, Instruction};
-use crate::section::{Export, ExportDesc, FunctionBody, Section};
-use crate::types::{FuncType, ValueType};
+use crate::instruction::Instruction;
+use crate::module::Module;
+use crate::section::ExportDesc;
+use crate::types::FuncType;
 use crate::value::{Function, Value};
-use crate::Module;
 use anyhow::{bail, Context, Result};
 use std::collections::HashMap;
-use std::fmt::Display;
-use std::ops::{Deref, Shl, Shr};
+use std::ops::{Shl, Shr};
 
 #[macro_export]
 macro_rules! binop {
@@ -76,7 +75,7 @@ impl Runtime {
 
     fn execute(&mut self) -> Result<Option<Value>> {
         while let Some(inst) = self.instruction()? {
-            self.frame_pc_inc();
+            self.frame_pc_inc()?;
             match inst {
                 Instruction::LocalGet(idx) => {
                     let value = self
@@ -221,10 +220,10 @@ impl Runtime {
                         loop {
                             let ins = self.instruction()?.context("not found instruction")?;
                             if ins == Instruction::End || ins == Instruction::Else {
-                                self.frame_pc_inc();
+                                self.frame_pc_inc()?;
                                 break;
                             }
-                            self.frame_pc_inc();
+                            self.frame_pc_inc()?;
                         }
                     }
                 }
@@ -346,11 +345,11 @@ fn new_functions(module: &mut Module) -> Result<Vec<Function>> {
             results: t.results.clone(),
         };
 
-        let mut func_body = module
+        let func_body = module
             .code_section
             .as_ref()
             .context("not found code section")?;
-        let mut func_body = func_body.get(idx).context("not found function body")?;
+        let func_body = func_body.get(idx).context("not found function body")?;
 
         let func = Function {
             func_type,
@@ -365,12 +364,8 @@ fn new_functions(module: &mut Module) -> Result<Vec<Function>> {
 mod test {
     use super::{Runtime, Value};
     use crate::module::Decoder;
-    use anyhow::{Context, Result};
-    use std::{
-        fs,
-        io::{self, BufReader, Cursor},
-        ops::Shl,
-    };
+    use anyhow::Result;
+    use std::io::Cursor;
     use wasmer::wat2wasm;
 
     #[test]
@@ -640,7 +635,7 @@ mod test {
             ("fib", vec![8], 21),
         ];
 
-        for mut test in tests.into_iter() {
+        for test in tests.into_iter() {
             let args = test.1.into_iter().map(Value::from);
             let result = runtime.invoke(test.0.into(), &mut args.into_iter().collect())?;
             assert_eq!(result.unwrap(), Value::from(test.2), "func {}", test.0)

@@ -1,24 +1,17 @@
-#![allow(dead_code)]
-#![allow(unused)]
-
-use crate::value::Value;
 use anyhow::Result;
-use anyhow::{bail, Context};
-use clap::Parser;
-use module::Module;
-use runtime::Runtime;
-use section::*;
-use std::fs::{self, File};
-use std::io::{self, BufRead, BufReader, Read};
-use std::{env, result};
-use types::FuncType;
 
-mod instruction;
-mod module;
-mod runtime;
-mod section;
-mod types;
-mod value;
+use crate::module::Decoder;
+use crate::runtime::Runtime;
+use crate::value::Value;
+use clap::Parser;
+use std::fs;
+
+pub mod instruction;
+pub mod module;
+pub mod runtime;
+pub mod section;
+pub mod types;
+pub mod value;
 
 #[derive(Debug, Parser)]
 #[clap(author, about, version)]
@@ -33,7 +26,7 @@ struct Args {
 fn main() -> Result<()> {
     let args = Args::parse();
     let file = fs::File::open(args.file)?;
-    let mut decoder = module::Decoder::new(file);
+    let mut decoder = Decoder::new(file);
     let mut module = decoder.decode()?;
     let mut runtime = Runtime::new(&mut module)?;
     let mut func_args = vec![];

@@ -1,11 +1,8 @@
 use crate::instruction::{Instruction, Opcode};
-use crate::module::Module;
 use crate::types::{FuncType, ValueType};
 use anyhow::{bail, Context, Result};
 use num_traits::FromPrimitive;
-use std::collections::HashMap;
-use std::fmt::{Display, LowerHex};
-use std::io::{BufRead, BufReader, Cursor, Read};
+use std::io::{BufRead, Cursor, Read};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum SectionID {
@@ -48,6 +45,7 @@ impl From<u8> for SectionID {
 
 // https://webassembly.github.io/spec/core/binary/modules.html#binary-codesec
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct FunctionLocal {
     type_count: u32,
     value_type: ValueType,

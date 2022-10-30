@@ -1,4 +1,3 @@
-use anyhow::bail;
 use num_derive::FromPrimitive;
 
 // https://webassembly.github.io/spec/core/binary/instructions.html#expressions

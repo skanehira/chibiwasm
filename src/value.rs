@@ -1,7 +1,4 @@
-use crate::{
-    instruction::Instruction,
-    types::{FuncType, ValueType},
-};
+use crate::{instruction::Instruction, types::FuncType};
 use std::fmt::Display;
 
 // https://webassembly.github.io/spec/core/exec/runtime.html#syntax-val
