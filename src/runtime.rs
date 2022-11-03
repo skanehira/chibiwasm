@@ -5,7 +5,6 @@ use crate::types::FuncType;
 use crate::value::{Function, Value};
 use anyhow::{bail, Context, Result};
 use std::collections::HashMap;
-use std::ops::{Shl, Shr};
 
 #[macro_export]
 macro_rules! binop {
@@ -61,7 +60,10 @@ impl Runtime {
     }
 
     fn resolve_func(&mut self, func_name: String) -> Result<&Function> {
-        let desc = self.exports.get(&func_name).context("not found function")?;
+        let desc = self
+            .exports
+            .get(&func_name)
+            .context(format!("not found function {}", func_name))?;
         let idx = match desc {
             ExportDesc::Func(i) => *i,
             _ => bail!("invalid export desc: {:?}", desc),
@@ -86,13 +88,13 @@ impl Runtime {
                     self.stack.push(value.clone());
                 }
                 Instruction::I32Add => {
-                    binop!(self, |a, b| a + b, i32)?;
+                    binop!(self, i32::wrapping_add, i32)?;
                 }
                 Instruction::I32Sub => {
-                    binop!(self, |a, b| a - b, i32)?;
+                    binop!(self, i32::wrapping_sub, i32)?;
                 }
                 Instruction::I32Mul => {
-                    binop!(self, |a, b| a * b, i32)?;
+                    binop!(self, i32::wrapping_mul, i32)?;
                 }
                 Instruction::I32Clz => {
                     let v = self.stack_pop()?;
@@ -109,10 +111,10 @@ impl Runtime {
                     }
                 }
                 Instruction::I32DivU => {
-                    binop!(self, |a, b| a / b, i32)?;
+                    binop!(self, |a, b| u32::wrapping_div(a as u32, b as u32), i32)?;
                 }
                 Instruction::I32DivS => {
-                    binop!(self, |a, b| a / b, i32)?;
+                    binop!(self, i32::wrapping_div, i32)?;
                 }
                 Instruction::I32Eq => {
                     binop!(self, |a, b| a == b, i32)?;
@@ -128,25 +130,25 @@ impl Runtime {
                     binop!(self, |a, b| a < b, i32)?;
                 }
                 Instruction::I32LtU => {
-                    binop!(self, |a, b| a < b, i32)?;
+                    binop!(self, |a, b| (a as u32) < (b as u32), i32)?;
                 }
                 Instruction::I32GtS => {
                     binop!(self, |a, b| a > b, i32)?;
                 }
                 Instruction::I32GtU => {
-                    binop!(self, |a, b| a > b, i32)?;
+                    binop!(self, |a, b| (a as u32) > (b as u32), i32)?;
                 }
                 Instruction::I32LeS => {
                     binop!(self, |a, b| a <= b, i32)?;
                 }
                 Instruction::I32LeU => {
-                    binop!(self, |a, b| a <= b, i32)?;
+                    binop!(self, |a, b| (a as u32) <= (b as u32), i32)?;
                 }
                 Instruction::I32GeS => {
                     binop!(self, |a, b| a >= b, i32)?;
                 }
                 Instruction::I32GeU => {
-                    binop!(self, |a, b| a >= b, i32)?;
+                    binop!(self, |a, b| (a as u32) >= (b as u32), i32)?;
                 }
                 Instruction::I32Popcnt => {
                     let value = self.stack_pop()?;
@@ -156,10 +158,10 @@ impl Runtime {
                     }
                 }
                 Instruction::I32RemU => {
-                    binop!(self, |a, b| a % b, i32)?;
+                    binop!(self, |a, b| u32::wrapping_rem(a as u32, b as u32), i32)?;
                 }
                 Instruction::I32RemS => {
-                    binop!(self, |a, b| a % b, i32)?;
+                    binop!(self, i32::wrapping_rem, i32)?;
                 }
                 Instruction::I32And => {
                     binop!(self, |a: i32, b: i32| a & b, i32)?;
@@ -171,13 +173,17 @@ impl Runtime {
                     binop!(self, |a: i32, b: i32| a ^ b, i32)?;
                 }
                 Instruction::I32ShL => {
-                    binop!(self, |a: i32, b: i32| a.shl(b), i32)?;
+                    binop!(self, |a: i32, b: i32| a.wrapping_shl(b as u32), i32)?;
                 }
                 Instruction::I32ShrU => {
-                    binop!(self, |a: i32, b: i32| a.shr(b), i32)?;
+                    binop!(
+                        self,
+                        |a: i32, b: i32| u32::wrapping_shr(a as u32, b as u32),
+                        i32
+                    )?;
                 }
                 Instruction::I32ShrS => {
-                    binop!(self, |a: i32, b: i32| a.shr(b), i32)?;
+                    binop!(self, |a: i32, b: i32| a.wrapping_shr(b as u32), i32)?;
                 }
                 Instruction::I32RtoL => {
                     binop!(self, |a: i32, b: i32| a.rotate_left(b as u32), i32)?;

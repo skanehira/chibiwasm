@@ -12,3 +12,5 @@ wasmer = "2.3.0"
 leb128 = "0.2.5"
 num-traits = "0.2"
 num-derive = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"

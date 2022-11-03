@@ -43,7 +43,15 @@ impl From<i64> for Value {
 
 impl From<u32> for Value {
     fn from(v: u32) -> Self {
-        Self::I32(v as i32)
+        let v: i32 = v.try_into().unwrap();
+        Self::I32(v)
+    }
+}
+
+impl From<u64> for Value {
+    fn from(v: u64) -> Self {
+        let v: i64 = v.try_into().unwrap();
+        Self::I64(v)
     }
 }
 
