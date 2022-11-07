@@ -22,10 +22,7 @@ fn main() -> Result<()> {
     let mut decoder = Decoder::new(file);
     let mut module = decoder.decode()?;
     let mut runtime = Runtime::new(&mut module)?;
-    let mut func_args = vec![];
-    for arg in args.func_args.into_iter() {
-        func_args.push(Value::from(arg));
-    }
+    let mut func_args: Vec<Value> = args.func_args.into_iter().map(Value::from).collect();
     let result = runtime.invoke(args.func, &mut func_args);
     println!("{}", result?.unwrap());
     Ok(())
