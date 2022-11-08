@@ -12,14 +12,14 @@ macro_rules! binop {
         let b = $self.stack_pop()?;
         let a = $self.stack_pop()?;
 
-        let result = match (a, b) {
-            (Value::I32(lhs), Value::I32(rhs)) => $f(lhs as $ty, rhs as $ty) as $ty,
-            (Value::I64(lhs), Value::I64(rhs)) => $f(lhs as $ty, rhs as $ty) as $ty,
-            (Value::F32(lhs), Value::F32(rhs)) => $f(lhs as $ty, rhs as $ty) as $ty,
-            (Value::F64(lhs), Value::F64(rhs)) => $f(lhs as $ty, rhs as $ty) as $ty,
+        let result: Result<_, anyhow::Error> = match (a, b) {
+            (Value::I32(lhs), Value::I32(rhs)) => $f(lhs as $ty, rhs as $ty),
+            (Value::I64(lhs), Value::I64(rhs)) => $f(lhs as $ty, rhs as $ty),
+            (Value::F32(lhs), Value::F32(rhs)) => $f(lhs as $ty, rhs as $ty),
+            (Value::F64(lhs), Value::F64(rhs)) => $f(lhs as $ty, rhs as $ty),
             _ => panic!("Unsupported opration"),
         };
-        $self.stack.push(result.into());
+        $self.stack.push((result? as $ty).into());
         Ok::<(), anyhow::Error>(())
     }};
 }
@@ -75,6 +75,17 @@ impl Runtime {
         self.stack.pop().context("not found variable from stack")
     }
 
+    fn check_divide_by_zero(&mut self) -> Result<()> {
+        let v = self.stack_pop()?;
+
+        if format!("{}", v) == "0" {
+            bail!("integer divide by zero")
+        }
+
+        self.stack.push(v);
+        Ok(())
+    }
+
     fn execute(&mut self) -> Result<Option<Value>> {
         while let Some(inst) = self.instruction()? {
             self.frame_pc_inc()?;
@@ -88,13 +99,13 @@ impl Runtime {
                     self.stack.push(value.clone());
                 }
                 Instruction::I32Add => {
-                    binop!(self, i32::wrapping_add, i32)?;
+                    binop!(self, |a, b| Ok(i32::wrapping_add(a, b)), i32)?;
                 }
                 Instruction::I32Sub => {
-                    binop!(self, i32::wrapping_sub, i32)?;
+                    binop!(self, |a, b| Ok(i32::wrapping_sub(a, b)), i32)?;
                 }
                 Instruction::I32Mul => {
-                    binop!(self, i32::wrapping_mul, i32)?;
+                    binop!(self, |a, b| Ok(i32::wrapping_mul(a, b)), i32)?;
                 }
                 Instruction::I32Clz => {
                     let v = self.stack_pop()?;
@@ -111,44 +122,55 @@ impl Runtime {
                     }
                 }
                 Instruction::I32DivU => {
-                    binop!(self, |a, b| u32::wrapping_div(a as u32, b as u32), i32)?;
+                    self.check_divide_by_zero()?;
+                    binop!(self, |a, b| Ok(u32::wrapping_div(a as u32, b as u32)), i32)?;
                 }
                 Instruction::I32DivS => {
-                    binop!(self, i32::wrapping_div, i32)?;
+                    self.check_divide_by_zero()?;
+                    binop!(
+                        self,
+                        |a: i32, b: i32| {
+                            match a.checked_div(b) {
+                                Some(v) => Ok(v),
+                                None => bail!("integer overflow"),
+                            }
+                        },
+                        i32
+                    )?;
                 }
                 Instruction::I32Eq => {
-                    binop!(self, |a, b| a == b, i32)?;
+                    binop!(self, |a, b| Ok(i32::from(a == b)), i32)?;
                 }
                 Instruction::I32Eqz => {
                     let v = self.stack_pop()?;
                     self.stack.push(i32::from(v == Value::from(0)).into());
                 }
                 Instruction::I32Ne => {
-                    binop!(self, |a, b| a != b, i32)?;
+                    binop!(self, |a, b| Ok(i32::from(a != b)), i32)?;
                 }
                 Instruction::I32LtS => {
-                    binop!(self, |a, b| a < b, i32)?;
+                    binop!(self, |a, b| Ok(i32::from(a < b)), i32)?;
                 }
                 Instruction::I32LtU => {
-                    binop!(self, |a, b| (a as u32) < (b as u32), i32)?;
+                    binop!(self, |a, b| Ok((a as u32) < (b as u32)), i32)?;
                 }
                 Instruction::I32GtS => {
-                    binop!(self, |a, b| a > b, i32)?;
+                    binop!(self, |a, b| Ok(i32::from(a > b)), i32)?;
                 }
                 Instruction::I32GtU => {
-                    binop!(self, |a, b| (a as u32) > (b as u32), i32)?;
+                    binop!(self, |a, b| Ok(i32::from((a as u32) > (b as u32))), i32)?;
                 }
                 Instruction::I32LeS => {
-                    binop!(self, |a, b| a <= b, i32)?;
+                    binop!(self, |a, b| Ok(i32::from(a <= b)), i32)?;
                 }
                 Instruction::I32LeU => {
-                    binop!(self, |a, b| (a as u32) <= (b as u32), i32)?;
+                    binop!(self, |a, b| Ok(i32::from((a as u32) <= (b as u32))), i32)?;
                 }
                 Instruction::I32GeS => {
-                    binop!(self, |a, b| a >= b, i32)?;
+                    binop!(self, |a, b| Ok(i32::from(a >= b)), i32)?;
                 }
                 Instruction::I32GeU => {
-                    binop!(self, |a, b| (a as u32) >= (b as u32), i32)?;
+                    binop!(self, |a, b| Ok(i32::from((a as u32) >= (b as u32))), i32)?;
                 }
                 Instruction::I32Popcnt => {
                     let value = self.stack_pop()?;
@@ -158,38 +180,40 @@ impl Runtime {
                     }
                 }
                 Instruction::I32RemU => {
-                    binop!(self, |a, b| u32::wrapping_rem(a as u32, b as u32), i32)?;
+                    self.check_divide_by_zero()?;
+                    binop!(self, |a, b| Ok(u32::wrapping_rem(a as u32, b as u32)), i32)?;
                 }
                 Instruction::I32RemS => {
-                    binop!(self, i32::wrapping_rem, i32)?;
+                    self.check_divide_by_zero()?;
+                    binop!(self, |a, b| Ok(i32::wrapping_rem(a, b)), i32)?;
                 }
                 Instruction::I32And => {
-                    binop!(self, |a: i32, b: i32| a & b, i32)?;
+                    binop!(self, |a: i32, b: i32| Ok(a & b), i32)?;
                 }
                 Instruction::I32Or => {
-                    binop!(self, |a: i32, b: i32| a | b, i32)?;
+                    binop!(self, |a: i32, b: i32| Ok(a | b), i32)?;
                 }
                 Instruction::I32Xor => {
-                    binop!(self, |a: i32, b: i32| a ^ b, i32)?;
+                    binop!(self, |a: i32, b: i32| Ok(a ^ b), i32)?;
                 }
                 Instruction::I32ShL => {
-                    binop!(self, |a: i32, b: i32| a.wrapping_shl(b as u32), i32)?;
+                    binop!(self, |a: i32, b: i32| Ok(a.wrapping_shl(b as u32)), i32)?;
                 }
                 Instruction::I32ShrU => {
                     binop!(
                         self,
-                        |a: i32, b: i32| u32::wrapping_shr(a as u32, b as u32),
+                        |a: i32, b: i32| Ok(u32::wrapping_shr(a as u32, b as u32)),
                         i32
                     )?;
                 }
                 Instruction::I32ShrS => {
-                    binop!(self, |a: i32, b: i32| a.wrapping_shr(b as u32), i32)?;
+                    binop!(self, |a: i32, b: i32| Ok(a.wrapping_shr(b as u32)), i32)?;
                 }
                 Instruction::I32RtoL => {
-                    binop!(self, |a: i32, b: i32| a.rotate_left(b as u32), i32)?;
+                    binop!(self, |a: i32, b: i32| Ok(a.rotate_left(b as u32)), i32)?;
                 }
                 Instruction::I32RtoR => {
-                    binop!(self, |a: i32, b: i32| a.rotate_right(b as u32), i32)?;
+                    binop!(self, |a: i32, b: i32| Ok(a.rotate_right(b as u32)), i32)?;
                 }
                 Instruction::I32Extend8S => {
                     let value = self.stack_pop()?;

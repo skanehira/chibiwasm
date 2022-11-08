@@ -100,22 +100,48 @@ fn spec() -> Result<()> {
     let mut runtime = runtime::Runtime::new(&mut module)?;
 
     for cmd in spec.commands.into_iter() {
-        // TODO: 他のテストも動くようにする
-        if cmd.type_field == "assert_return" {
-            let action = cmd.action.context("not found action")?;
-            let function_name = action.field;
-            let mut args: Vec<value::Value> = action
-                .args
-                .into_iter()
-                .map(|arg| -> value::Value { (&arg).into() })
-                .collect();
-            let result = runtime
-                .invoke(function_name, &mut args)?
-                .context("no result")?;
-            let expected = &cmd.expected[0];
+        match cmd.type_field.as_str() {
+            "assert_return" => {
+                let action = cmd.action.context("not found action")?;
+                let function_name = action.field;
+                let mut args: Vec<value::Value> = action
+                    .args
+                    .into_iter()
+                    .map(|arg| -> value::Value { (&arg).into() })
+                    .collect();
+                let result = runtime
+                    .invoke(function_name, &mut args)?
+                    .context("no result")?;
+                let expected = &cmd.expected[0];
 
-            let expect: Value = expected.into();
-            assert_eq!(result, expect, "fail line: {}", cmd.line);
+                let expect: Value = expected.into();
+                assert_eq!(result, expect, "fail line: {}", cmd.line);
+            }
+            "assert_trap" => {
+                let action = cmd.action.context("not found action")?;
+                let function_name = action.field;
+                let mut args: Vec<value::Value> = action
+                    .args
+                    .into_iter()
+                    .map(|arg| -> value::Value { (&arg).into() })
+                    .collect();
+                let result = runtime.invoke(function_name, &mut args);
+
+                match result {
+                    Ok(_) => {
+                        let expect = cmd.text.unwrap();
+                        panic!("invoke function is successed: {}", cmd.line);
+                    }
+                    Err(err) => {
+                        let expect = cmd.text.unwrap();
+                        let result = err.to_string();
+                        assert_eq!(result, expect, "fail line: {}", cmd.line);
+                    }
+                }
+            }
+            _ => {
+                // TODO: 他のテストも動くようにする
+            }
         }
     }
 
