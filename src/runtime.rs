@@ -75,17 +75,6 @@ impl Runtime {
         self.stack.pop().context("not found variable from stack")
     }
 
-    fn check_divide_by_zero(&mut self) -> Result<()> {
-        let v = self.stack_pop()?;
-
-        if format!("{}", v) == "0" {
-            bail!("integer divide by zero")
-        }
-
-        self.stack.push(v);
-        Ok(())
-    }
-
     fn execute(&mut self) -> Result<Option<Value>> {
         while let Some(inst) = self.instruction()? {
             self.frame_pc_inc()?;
@@ -122,14 +111,24 @@ impl Runtime {
                     }
                 }
                 Instruction::I32DivU => {
-                    self.check_divide_by_zero()?;
-                    binop!(self, |a, b| Ok(u32::wrapping_div(a as u32, b as u32)), i32)?;
+                    binop!(
+                        self,
+                        |a, b| {
+                            if b == 0 {
+                                bail!("integer divide by zero")
+                            }
+                            Ok(u32::wrapping_div(a as u32, b as u32))
+                        },
+                        i32
+                    )?;
                 }
                 Instruction::I32DivS => {
-                    self.check_divide_by_zero()?;
                     binop!(
                         self,
                         |a: i32, b: i32| {
+                            if b == 0 {
+                                bail!("integer divide by zero")
+                            }
                             match a.checked_div(b) {
                                 Some(v) => Ok(v),
                                 None => bail!("integer overflow"),
@@ -180,12 +179,28 @@ impl Runtime {
                     }
                 }
                 Instruction::I32RemU => {
-                    self.check_divide_by_zero()?;
-                    binop!(self, |a, b| Ok(u32::wrapping_rem(a as u32, b as u32)), i32)?;
+                    binop!(
+                        self,
+                        |a, b| {
+                            if b == 0 {
+                                bail!("integer divide by zero")
+                            }
+                            Ok(u32::wrapping_rem(a as u32, b as u32))
+                        },
+                        i32
+                    )?;
                 }
                 Instruction::I32RemS => {
-                    self.check_divide_by_zero()?;
-                    binop!(self, |a, b| Ok(i32::wrapping_rem(a, b)), i32)?;
+                    binop!(
+                        self,
+                        |a, b| {
+                            if b == 0 {
+                                bail!("integer divide by zero")
+                            }
+                            Ok(i32::wrapping_rem(a, b))
+                        },
+                        i32
+                    )?;
                 }
                 Instruction::I32And => {
                     binop!(self, |a: i32, b: i32| Ok(a & b), i32)?;
