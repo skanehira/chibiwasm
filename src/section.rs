@@ -109,6 +109,11 @@ impl ContentsReader {
         Ok(num)
     }
 
+    fn i64(&mut self) -> Result<i64> {
+        let num = leb128::read::signed(&mut self.buf)?;
+        Ok(num)
+    }
+
     fn bytes(&mut self, num: usize) -> Result<Vec<u8>> {
         let mut buf = vec![0u8; num];
         self.buf.read_exact(&mut buf)?;
@@ -221,7 +226,8 @@ impl Section {
         while reader.is_end()? {
             let op = reader.byte()?;
 
-            let op: Opcode = FromPrimitive::from_u8(op).context("unsupported opcode")?;
+            let op: Opcode =
+                FromPrimitive::from_u8(op).context(format!("unsupported opcode: {:X}", op))?;
 
             let inst = match op {
                 Opcode::Unreachable => Instruction::Unreachable,
@@ -273,6 +279,42 @@ impl Section {
                 Opcode::I32Const => {
                     let value = reader.i32()?;
                     Instruction::I32Const(value)
+                }
+                Opcode::I64Sub => Instruction::I64Sub,
+                Opcode::I64Add => Instruction::I64Add,
+                Opcode::I64Mul => Instruction::I64Mul,
+                Opcode::I64Clz => Instruction::I64Clz,
+                Opcode::I64Ctz => Instruction::I64Ctz,
+                Opcode::I64DivU => Instruction::I64DivU,
+                Opcode::I64DivS => Instruction::I64DivS,
+                Opcode::I64Eq => Instruction::I64Eq,
+                Opcode::I64Eqz => Instruction::I64Eqz,
+                Opcode::I64Ne => Instruction::I64Ne,
+                Opcode::I64LtS => Instruction::I64LtS,
+                Opcode::I64LtU => Instruction::I64LtU,
+                Opcode::I64GtS => Instruction::I64GtS,
+                Opcode::I64GtU => Instruction::I64GtU,
+                Opcode::I64LeS => Instruction::I64LeS,
+                Opcode::I64GeU => Instruction::I64GeU,
+                Opcode::I64GeS => Instruction::I64GeS,
+                Opcode::I64LeU => Instruction::I64LeU,
+                Opcode::I64Popcnt => Instruction::I64Popcnt,
+                Opcode::I64RemS => Instruction::I64RemS,
+                Opcode::I64RemU => Instruction::I64RemU,
+                Opcode::I64And => Instruction::I64And,
+                Opcode::I64Or => Instruction::I64Or,
+                Opcode::I64Xor => Instruction::I64Xor,
+                Opcode::I64ShL => Instruction::I64ShL,
+                Opcode::I64ShrS => Instruction::I64ShrS,
+                Opcode::I64ShrU => Instruction::I64ShrU,
+                Opcode::I64RtoL => Instruction::I64RtoL,
+                Opcode::I64RtoR => Instruction::I64RtoR,
+                Opcode::I64Extend8S => Instruction::I64Extend8S,
+                Opcode::I64Extend16S => Instruction::I64Extend16S,
+                Opcode::I64Extend32S => Instruction::I64Extend32S,
+                Opcode::I64Const => {
+                    let value = reader.i64()?;
+                    Instruction::I64Const(value)
                 }
             };
             function_body.code.push(inst);
