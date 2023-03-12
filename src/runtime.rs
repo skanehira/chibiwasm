@@ -63,7 +63,7 @@ impl Runtime {
         let desc = self
             .exports
             .get(&func_name)
-            .context(format!("not found function {}", func_name))?;
+            .context(format!("not found function {func_name}"))?;
         let idx = match desc {
             ExportDesc::Func(i) => *i,
             _ => bail!("invalid export desc: {:?}", desc),

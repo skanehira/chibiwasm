@@ -227,7 +227,7 @@ impl Section {
             let op = reader.byte()?;
 
             let op: Opcode =
-                FromPrimitive::from_u8(op).context(format!("unsupported opcode: {:X}", op))?;
+                FromPrimitive::from_u8(op).context(format!("unsupported opcode: {op:X}"))?;
 
             let inst = match op {
                 Opcode::Unreachable => Instruction::Unreachable,

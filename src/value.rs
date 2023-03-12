@@ -14,16 +14,16 @@ impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::I32(n) => {
-                write!(f, "{}", n)
+                write!(f, "{n}")
             }
             Self::I64(n) => {
-                write!(f, "{}", n)
+                write!(f, "{n}")
             }
             Self::F32(n) => {
-                write!(f, "{}", n)
+                write!(f, "{n}")
             }
             Self::F64(n) => {
-                write!(f, "{}", n)
+                write!(f, "{n}")
             }
         }
     }

@@ -157,7 +157,7 @@ mod tests {
     fn spec() -> Result<()> {
         let spec_files = vec!["i32.json", "i64.json"];
         for file in spec_files {
-            println!("test {}", file);
+            println!("test {file}");
             let spec = Path::new("./tests/testsuite").join(file);
             run_test(&spec)?;
         }
