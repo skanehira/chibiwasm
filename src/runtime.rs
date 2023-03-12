@@ -52,7 +52,7 @@ impl Runtime {
         })
     }
 
-    pub fn invoke(&mut self, func_name: String, args: &mut Vec<Value>) -> Result<Option<Value>> {
+    pub fn invoke(&mut self, func_name: String, args: Vec<Value>) -> Result<Option<Value>> {
         let func = self.resolve_func(func_name)?;
         let frame = Frame::new(func.body.clone(), args);
         self.frames.push(frame);
@@ -390,12 +390,7 @@ impl Runtime {
                     binop!(self, |a, b| Ok(i64::wrapping_shl(a, b as u32)), i64, i64)?;
                 }
                 Instruction::I64ShrU => {
-                    binop!(
-                        self,
-                        |a, b| Ok(u64::wrapping_shr(a, b as u32)),
-                        u64,
-                        i64
-                    )?;
+                    binop!(self, |a, b| Ok(u64::wrapping_shr(a, b as u32)), u64, i64)?;
                 }
                 Instruction::I64ShrS => {
                     binop!(self, |a, b| Ok(i64::wrapping_shr(a, b as u32)), i64, i64)?;
@@ -469,7 +464,7 @@ impl Runtime {
                     for _ in 0..func.func_type.params.len() {
                         args.push(self.stack_pop()?);
                     }
-                    let frame = Frame::new(body, &mut args);
+                    let frame = Frame::new(body, args);
                     self.frames.push(frame);
                     let result = self.execute()?;
                     if let Some(value) = result {
@@ -537,11 +532,9 @@ pub struct Frame {
 }
 
 impl Frame {
-    pub fn new(instructions: Vec<Instruction>, args: &mut Vec<Value>) -> Self {
-        let mut stack = vec![];
-        stack.append(args);
+    pub fn new(instructions: Vec<Instruction>, args: Vec<Value>) -> Self {
         Self {
-            local_stack: stack,
+            local_stack: args,
             pc: 0,
             instructions,
         }
@@ -719,8 +712,8 @@ mod test {
       (i32.eq (local.get $N) (i32.const 2))
       (then (return (i32.const 1)))
     )
-    (i32.add (call $fib
-      (i32.sub (local.get $N) (i32.const 1)))
+    (i32.add
+      (call $fib (i32.sub (local.get $N) (i32.const 1)))
       (call $fib (i32.sub (local.get $N) (i32.const 2)))
     )
   )
@@ -868,7 +861,7 @@ mod test {
 
         for test in tests.into_iter() {
             let args = test.1.into_iter().map(Value::from);
-            let result = runtime.invoke(test.0.into(), &mut args.into_iter().collect())?;
+            let result = runtime.invoke(test.0.into(), args.into_iter().collect())?;
             assert_eq!(result.unwrap(), Value::from(test.2), "func {}", test.0)
         }
 

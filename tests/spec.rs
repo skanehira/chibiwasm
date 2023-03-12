@@ -115,7 +115,7 @@ mod tests {
                         .map(|arg| -> value::Value { (&arg).into() })
                         .collect();
                     let result = runtime
-                        .invoke(function_name, &mut args)?
+                        .invoke(function_name, args)?
                         .context("no result")?;
                     let expected = &cmd.expected[0];
 
@@ -130,7 +130,7 @@ mod tests {
                         .into_iter()
                         .map(|arg| -> value::Value { (&arg).into() })
                         .collect();
-                    let result = runtime.invoke(function_name, &mut args);
+                    let result = runtime.invoke(function_name, args);
 
                     match result {
                         Ok(_) => {
