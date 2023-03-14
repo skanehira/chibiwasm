@@ -1,5 +1,5 @@
 # chibiwasm
-A small wasm runtime for learning that written in Rust.
+A small wasm runtime for learning how wasm runtime works.
 
 ## test
 ```sh
