@@ -6,24 +6,6 @@ use crate::value::{Function, Value};
 use anyhow::{bail, Context, Result};
 use std::collections::HashMap;
 
-#[macro_export]
-macro_rules! binop {
-    ($self:expr, $f:expr, $aty:ty, $ty:ty) => {{
-        let b = $self.stack_pop()?;
-        let a = $self.stack_pop()?;
-
-        let result: Result<_> = match (a, b) {
-            (Value::I32(lhs), Value::I32(rhs)) => $f(lhs as $aty, rhs as $aty),
-            (Value::I64(lhs), Value::I64(rhs)) => $f(lhs as $aty, rhs as $aty),
-            (Value::F32(lhs), Value::F32(rhs)) => $f(lhs as $aty, rhs as $aty),
-            (Value::F64(lhs), Value::F64(rhs)) => $f(lhs as $aty, rhs as $aty),
-            _ => panic!("Unsupported opration"),
-        };
-        $self.stack.push((result? as $ty).into());
-        Ok::<(), anyhow::Error>(())
-    }};
-}
-
 #[derive(Debug, Default)]
 pub struct Runtime {
     exports: HashMap<String, ExportDesc>,
