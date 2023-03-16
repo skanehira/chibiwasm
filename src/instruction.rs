@@ -76,6 +76,27 @@ pub enum Opcode {
     I64Extend8S = 0xC2,
     I64Extend16S = 0xC3,
     I64Extend32S = 0xC4,
+    F32Const = 0x43,
+    F32Eq = 0x5B,
+    F32Ne = 0x5C,
+    F32Lt = 0x5D,
+    F32Gt = 0x5E,
+    F32Le = 0x5F,
+    F32Ge = 0x60,
+    F32Abs = 0x8B,
+    F32Neg = 0x8C,
+    F32Ceil = 0x8D,
+    F32Floor = 0x8E,
+    F32Trunc = 0x8F,
+    F32Nearest = 0x90,
+    F32Sqrt = 0x91,
+    F32Add = 0x92,
+    F32Sub = 0x93,
+    F32Mul = 0x94,
+    F32Div = 0x95,
+    F32Min = 0x96,
+    F32Max = 0x97,
+    F32Copysign = 0x98,
     Return = 0x0f,
     If = 0x04,
     Else = 0x05,
@@ -83,7 +104,7 @@ pub enum Opcode {
     Void = 0x40,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub enum Instruction {
     Unreachable,
     Nop,
@@ -154,6 +175,27 @@ pub enum Instruction {
     I64Extend8S,
     I64Extend16S,
     I64Extend32S,
+    F32Const(f32),
+    F32Eq,
+    F32Ne,
+    F32Lt,
+    F32Gt,
+    F32Le,
+    F32Ge,
+    F32Abs,
+    F32Neg,
+    F32Ceil,
+    F32Floor,
+    F32Trunc,
+    F32Nearest,
+    F32Sqrt,
+    F32Add,
+    F32Sub,
+    F32Mul,
+    F32Div,
+    F32Min,
+    F32Max,
+    F32Copysign,
     Return,
     If,
     Else,
@@ -233,8 +275,15 @@ macro_rules! impl_unary_operation {
     };
 }
 
-impl_unary_operation!(clz, ctz, equalz, extend8_s, extend16_s);
+impl_unary_operation!(
+    eqz, // itestop
+    clz, ctz, extend8_s, extend16_s, // iunop
+    abs, neg, sqrt, ceil, floor, trunc, nearest // funop
+);
 impl_binary_operation!(
-    add, sub, mul, div_s, div_u, equal, not_equal, lts, ltu, gts, gtu, les, leu, ges, geu, rems,
-    remu, and, or, xor, shl, shru, shrs, rtol, rtor
+    add, sub, mul, // binop
+    div_s, div_u, rem_s, rem_u, and, or, xor, shl, shr_u, shr_s, rotl, rotr, // ibinop
+    min, max, div, // fbinop
+    equal, not_equal, // relop
+    lt_s, lt_u, gt_s, gt_u, le_s, le_u, ge_s, ge_u // irelop
 );
