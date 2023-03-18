@@ -103,6 +103,12 @@ impl ContentsReader {
         Ok(num)
     }
 
+    fn f32(&mut self) -> Result<f32> {
+        let num = leb128::read::unsigned(&mut self.buf)?;
+        let num = f32::from_bits(num as u32);
+        Ok(num)
+    }
+
     fn i32(&mut self) -> Result<i32> {
         let num = leb128::read::signed(&mut self.buf)?;
         let num = i32::try_from(num)?;
@@ -316,6 +322,30 @@ impl Section {
                     let value = reader.i64()?;
                     Instruction::I64Const(value)
                 }
+                Opcode::F32Const => {
+                    let num = reader.f32()?;
+                    Instruction::F32Const(num)
+                }
+                Opcode::F32Eq => Instruction::F32Eq,
+                Opcode::F32Ne => Instruction::F32Ne,
+                Opcode::F32Lt => Instruction::F32Lt,
+                Opcode::F32Gt => Instruction::F32Gt,
+                Opcode::F32Le => Instruction::F32Le,
+                Opcode::F32Ge => Instruction::F32Ge,
+                Opcode::F32Abs => Instruction::F32Abs,
+                Opcode::F32Neg => Instruction::F32Neg,
+                Opcode::F32Ceil => Instruction::F32Ceil,
+                Opcode::F32Floor => Instruction::F32Floor,
+                Opcode::F32Trunc => Instruction::F32Trunc,
+                Opcode::F32Nearest => Instruction::F32Nearest,
+                Opcode::F32Sqrt => Instruction::F32Sqrt,
+                Opcode::F32Add => Instruction::F32Add,
+                Opcode::F32Sub => Instruction::F32Sub,
+                Opcode::F32Mul => Instruction::F32Mul,
+                Opcode::F32Div => Instruction::F32Div,
+                Opcode::F32Min => Instruction::F32Min,
+                Opcode::F32Max => Instruction::F32Max,
+                Opcode::F32Copysign => Instruction::F32Copysign,
             };
             function_body.code.push(inst);
         }

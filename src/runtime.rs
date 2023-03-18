@@ -1,10 +1,12 @@
 use crate::instruction::*;
-use crate::module::Module;
+use crate::module::{Decoder, Module};
 use crate::section::ExportDesc;
 use crate::types::FuncType;
 use crate::value::{Function, Value};
 use anyhow::{bail, Context, Result};
 use std::collections::HashMap;
+use std::fs;
+use std::io::Read;
 
 #[derive(Debug, Default)]
 pub struct Runtime {
@@ -15,6 +17,19 @@ pub struct Runtime {
 }
 
 impl Runtime {
+    pub fn from_file(file: &str) -> Result<Self> {
+        let file = fs::File::open(file)?;
+        let mut decoder = Decoder::new(file);
+        let mut module = decoder.decode()?;
+        Ok(Self::new(&mut module)?)
+    }
+
+    pub fn from_reader(reader: &mut impl Read) -> Result<Self> {
+        let mut decoder = Decoder::new(reader);
+        let mut module = decoder.decode()?;
+        Ok(Self::new(&mut module)?)
+    }
+
     pub fn new(module: &mut Module) -> Result<Self> {
         let functions = new_functions(module)?;
         let mut exports = HashMap::<String, ExportDesc>::new();
@@ -70,32 +85,43 @@ impl Runtime {
                 Instruction::I32DivU | Instruction::I64DivU => div_u(self)?,
                 Instruction::I32DivS | Instruction::I64DivS => div_s(self)?,
                 Instruction::I32Eq | Instruction::I64Eq => equal(self)?,
-                Instruction::I32Eqz | Instruction::I64Eqz => equalz(self)?,
+                Instruction::I32Eqz | Instruction::I64Eqz => eqz(self)?,
                 Instruction::I32Ne | Instruction::I64Ne => not_equal(self)?,
-                Instruction::I32LtS | Instruction::I64LtS => lts(self)?,
-                Instruction::I32LtU | Instruction::I64LtU => ltu(self)?,
-                Instruction::I32GtS | Instruction::I64GtS => gts(self)?,
-                Instruction::I32GtU | Instruction::I64GtU => gtu(self)?,
-                Instruction::I32LeS | Instruction::I64LeS => les(self)?,
-                Instruction::I32LeU | Instruction::I64LeU => leu(self)?,
-                Instruction::I32GeS | Instruction::I64GeS => ges(self)?,
-                Instruction::I32GeU | Instruction::I64GeU => geu(self)?,
+                Instruction::I32LtS | Instruction::I64LtS => lt_s(self)?,
+                Instruction::I32LtU | Instruction::I64LtU => lt_u(self)?,
+                Instruction::I32GtS | Instruction::I64GtS => gt_s(self)?,
+                Instruction::I32GtU | Instruction::I64GtU => gt_u(self)?,
+                Instruction::I32LeS | Instruction::I64LeS => le_s(self)?,
+                Instruction::I32LeU | Instruction::I64LeU => le_u(self)?,
+                Instruction::I32GeS | Instruction::I64GeS => ge_s(self)?,
+                Instruction::I32GeU | Instruction::I64GeU => ge_u(self)?,
                 Instruction::I32Popcnt | Instruction::I64Popcnt => popcnt(self)?,
-                Instruction::I32RemU | Instruction::I64RemU => remu(self)?,
-                Instruction::I32RemS | Instruction::I64RemS => rems(self)?,
+                Instruction::I32RemU | Instruction::I64RemU => rem_u(self)?,
+                Instruction::I32RemS | Instruction::I64RemS => rem_s(self)?,
                 Instruction::I32And | Instruction::I64And => and(self)?,
                 Instruction::I32Or | Instruction::I64Or => or(self)?,
                 Instruction::I32Xor | Instruction::I64Xor => xor(self)?,
                 Instruction::I32ShL | Instruction::I64ShL => shl(self)?,
-                Instruction::I32ShrU | Instruction::I64ShrU => shru(self)?,
-                Instruction::I32ShrS | Instruction::I64ShrS => shrs(self)?,
-                Instruction::I32RtoL | Instruction::I64RtoL => rtol(self)?,
-                Instruction::I32RtoR | Instruction::I64RtoR => rtor(self)?,
+                Instruction::I32ShrU | Instruction::I64ShrU => shr_u(self)?,
+                Instruction::I32ShrS | Instruction::I64ShrS => shr_s(self)?,
+                Instruction::I32RtoL | Instruction::I64RtoL => rotl(self)?,
+                Instruction::I32RtoR | Instruction::I64RtoR => rotr(self)?,
                 Instruction::I32Extend8S | Instruction::I64Extend8S => extend8_s(self)?,
                 Instruction::I32Extend16S | Instruction::I64Extend16S => extend16_s(self)?,
                 Instruction::I32Const(v) => push(self, v)?,
                 Instruction::I64Extend32S => i64extend_32s(self)?,
                 Instruction::I64Const(v) => push(self, v)?,
+                Instruction::F32Add => add(self)?,
+                Instruction::F32Sub => sub(self)?,
+                Instruction::F32Mul => mul(self)?,
+                Instruction::F32Div => div(self)?,
+                Instruction::F32Ceil => ceil(self)?,
+                Instruction::F32Floor => floor(self)?,
+                Instruction::F32Max => max(self)?,
+                Instruction::F32Min => min(self)?,
+                Instruction::F32Nearest => nearest(self)?,
+                Instruction::F32Sqrt => sqrt(self)?,
+                Instruction::F32Trunc => trunc(self)?,
                 Instruction::Return => {
                     self.frames.pop();
                 }
@@ -107,11 +133,15 @@ impl Runtime {
                     if v != 1.into() {
                         loop {
                             let ins = self.instruction()?.context("not found instruction")?;
-                            if ins == Instruction::End || ins == Instruction::Else {
-                                self.frame_pc_inc()?;
-                                break;
+                            match ins {
+                                Instruction::End | Instruction::Else => {
+                                    self.frame_pc_inc()?;
+                                    break;
+                                }
+                                _ => {
+                                    self.frame_pc_inc()?;
+                                }
                             }
-                            self.frame_pc_inc()?;
                         }
                     }
                 }
