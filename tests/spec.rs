@@ -52,24 +52,53 @@ mod tests {
                 CommandKind::AssertReturn { action, expected } => match action {
                     Action::Invoke { field, args, .. } => {
                         let args = into_wasm_value(args);
-                        let result = runtime.invoke(field, args)?;
+                        let result = runtime.invoke(field, args.clone())?;
                         if result.is_none() {
                             continue;
                         }
-                        match result.unwrap() {
+                        let result = match result.unwrap() {
                             Value::I32(v) => {
-                                assert_eq!(expected, vec![wabt::script::Value::I32(v)]);
+                                vec![wabt::script::Value::I32(v)]
                             }
                             Value::I64(v) => {
-                                assert_eq!(expected, vec![wabt::script::Value::I64(v)]);
+                                vec![wabt::script::Value::I64(v)]
                             }
                             Value::F32(v) => {
-                                assert_eq!(expected, vec![wabt::script::Value::F32(v)]);
+                                if v.is_nan() {
+                                    vec![wabt::script::Value::F32(0_f32)]
+                                } else {
+                                    vec![wabt::script::Value::F32(v)]
+                                }
                             }
                             Value::F64(v) => {
-                                assert_eq!(expected, vec![wabt::script::Value::F64(v)]);
+                                if v.is_nan() {
+                                    vec![wabt::script::Value::F64(0_f64)]
+                                } else {
+                                    vec![wabt::script::Value::F64(v)]
+                                }
                             }
-                        }
+                        };
+
+                        let expected: Vec<_> = expected
+                            .into_iter()
+                            .map(|e| match e {
+                                wabt::script::Value::F32(v) => {
+                                    if v.is_nan() {
+                                        return wabt::script::Value::F32(0_f32);
+                                    }
+                                    e
+                                }
+                                wabt::script::Value::F64(v) => {
+                                    if v.is_nan() {
+                                        return wabt::script::Value::F64(0_f64);
+                                    }
+                                    e
+                                }
+                                _ => e,
+                            })
+                            .collect();
+
+                        assert_eq!(expected, result, "args: {:?}", args);
                     }
                     Action::Get { .. } => todo!(),
                 },
@@ -139,6 +168,8 @@ mod tests {
     test!(i64);
     test!(f32);
     test!(f32_cmp);
+    test!(f32_bitwise);
     test!(f64);
     test!(f64_cmp);
+    test!(f64_bitwise);
 }

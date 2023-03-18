@@ -323,7 +323,7 @@ impl_unary_operation!(
 impl_binary_operation!(
     add, sub, mul, // binop
     div_s, div_u, rem_s, rem_u, and, or, xor, shl, shr_u, shr_s, rotl, rotr, // ibinop
-    min, max, div, // fbinop
+    min, max, div, copysign, // fbinop
     equal, not_equal, // relop
     lt_s, lt_u, gt_s, gt_u, le_s, le_u, ge_s, ge_u, // irelop
     flt, fgt, fle, fge // frelop

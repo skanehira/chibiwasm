@@ -204,7 +204,7 @@ impl Value {
     ibinop!(div_s, div_u, rem_s, rem_u, and, or, xor, shl, shr_s, shr_u, rotl, rotr);
 
     // TODO: add copysign
-    fbinop!(min, max, div);
+    fbinop!(min, max, div, copysign);
 
     relop!(equal, not_equal);
 

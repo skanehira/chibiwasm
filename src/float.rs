@@ -44,6 +44,9 @@ pub trait Fbinop {
     fn max(&self, rhs: Self) -> Result<Self>
     where
         Self: Sized;
+    fn copysign(&self, rhs: Self) -> Result<Self>
+    where
+        Self: Sized;
 }
 
 pub trait Frelop {
@@ -131,6 +134,9 @@ macro_rules! fbinop {
                 }
                 fn max(&self, rhs: Self) -> Result<Self> {
                     Ok((*self).max(rhs))
+                }
+                fn copysign(&self, rhs: Self) -> Result<Self> {
+                    Ok((*self).copysign(rhs))
                 }
             }
         )+
