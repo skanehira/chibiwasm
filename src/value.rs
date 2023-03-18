@@ -120,7 +120,7 @@ macro_rules! relop {
                     (Value::I32(l), Value::I32(r)) => Ok(Value::I32(l.$op(*r)?)),
                     (Value::I64(l), Value::I64(r)) => Ok(Value::I32(l.$op(*r)? as i32)),
                     (Value::F32(l), Value::F32(r)) => Ok(Value::I32(l.$op(*r)? as i32)),
-                    //(Value::F64(l), Value::F64(r)) => Ok(Value::I32(l.$op(*r)? as i32)),
+                    (Value::F64(l), Value::F64(r)) => Ok(Value::I32(l.$op(*r)? as i32)),
                     _ => unimplemented!("unimplemented div_s for Value")
                 }
             }
@@ -148,7 +148,7 @@ macro_rules! frelop {
             pub fn $op(&self, rhs: &Self) -> Result<Self> {
                 match (self, rhs) {
                     (Value::F32(l), Value::F32(r)) => Ok(Value::I32(l.$op(*r)? as i32)),
-                    //(Value::F64(l), Value::F64(r)) => Ok(Value::I32(l.$op(*r)? as i32)),
+                    (Value::F64(l), Value::F64(r)) => Ok(Value::I32(l.$op(*r)? as i32)),
                     _ => unimplemented!("unimplemented div_s for Value")
                 }
             }

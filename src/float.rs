@@ -1,12 +1,11 @@
 use anyhow::Result;
 
 // Ref: https://www.w3.org/TR/wasm-core-1/#numeric-instructions%E2%91%A0
-pub trait FloatNmberic {
-    // funop
-    fn abs(&self) -> Result<f32>
+pub trait Funop {
+    fn abs(&self) -> Result<Self>
     where
         Self: Sized;
-    fn neg(&self) -> Result<f32>
+    fn neg(&self) -> Result<Self>
     where
         Self: Sized;
     fn sqrt(&self) -> Result<Self>
@@ -24,8 +23,9 @@ pub trait FloatNmberic {
     fn nearest(&self) -> Result<Self>
     where
         Self: Sized;
+}
 
-    // fbinop
+pub trait Fbinop {
     fn add(&self, rhs: Self) -> Result<Self>
     where
         Self: Sized;
@@ -44,8 +44,9 @@ pub trait FloatNmberic {
     fn max(&self, rhs: Self) -> Result<Self>
     where
         Self: Sized;
+}
 
-    // frelop
+pub trait Frelop {
     fn equal(&self, rhs: Self) -> Result<i32>
     where
         Self: Sized;
@@ -66,7 +67,7 @@ pub trait FloatNmberic {
         Self: Sized;
 }
 
-impl FloatNmberic for f32 {
+impl Funop for f32 {
     // funop
     fn abs(&self) -> Result<Self> {
         Ok((*self).abs())
@@ -102,9 +103,11 @@ impl FloatNmberic for f32 {
         };
         Ok(value)
     }
+}
 
+impl Fbinop for f32 {
     // fbinop
-    fn add(&self, rhs: Self) -> Result<f32> {
+    fn add(&self, rhs: Self) -> Result<Self> {
         Ok((*self) + rhs)
     }
     fn div(&self, rhs: Self) -> Result<Self> {
@@ -122,7 +125,31 @@ impl FloatNmberic for f32 {
     fn max(&self, rhs: Self) -> Result<Self> {
         Ok((*self).max(rhs))
     }
+}
 
+impl Frelop for f32 {
+    // frelop
+    fn equal(&self, rhs: Self) -> Result<i32> {
+        Ok(((*self) == rhs) as i32)
+    }
+    fn not_equal(&self, rhs: Self) -> Result<i32> {
+        Ok(((*self) != rhs) as i32)
+    }
+    fn flt(&self, rhs: Self) -> Result<i32> {
+        Ok(((*self) < rhs) as i32)
+    }
+    fn fgt(&self, rhs: Self) -> Result<i32> {
+        Ok(((*self) > rhs) as i32)
+    }
+    fn fle(&self, rhs: Self) -> Result<i32> {
+        Ok(((*self) <= rhs) as i32)
+    }
+    fn fge(&self, rhs: Self) -> Result<i32> {
+        Ok(((*self) >= rhs) as i32)
+    }
+}
+
+impl Frelop for f64 {
     // frelop
     fn equal(&self, rhs: Self) -> Result<i32> {
         Ok(((*self) == rhs) as i32)

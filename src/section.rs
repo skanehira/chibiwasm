@@ -346,6 +346,12 @@ impl Section {
                 Opcode::F32Min => Instruction::F32Min,
                 Opcode::F32Max => Instruction::F32Max,
                 Opcode::F32Copysign => Instruction::F32Copysign,
+                Opcode::F64Eq => Instruction::F64Eq,
+                Opcode::F64Ne => Instruction::F64Ne,
+                Opcode::F64Lt => Instruction::F64Lt,
+                Opcode::F64Gt => Instruction::F64Gt,
+                Opcode::F64Le => Instruction::F64Le,
+                Opcode::F64Ge => Instruction::F64Ge,
             };
             function_body.code.push(inst);
         }

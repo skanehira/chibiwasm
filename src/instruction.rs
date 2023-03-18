@@ -96,6 +96,12 @@ pub enum Opcode {
     F32Div = 0x95,
     F32Min = 0x96,
     F32Max = 0x97,
+    F64Eq = 0x61,
+    F64Ne = 0x62,
+    F64Lt = 0x63,
+    F64Gt = 0x64,
+    F64Le = 0x65,
+    F64Ge = 0x66,
     F32Copysign = 0x98,
     Return = 0x0f,
     If = 0x04,
@@ -196,6 +202,12 @@ pub enum Instruction {
     F32Min,
     F32Max,
     F32Copysign,
+    F64Eq,
+    F64Ne,
+    F64Lt,
+    F64Gt,
+    F64Le,
+    F64Ge,
     Return,
     If,
     Else,
@@ -285,5 +297,6 @@ impl_binary_operation!(
     div_s, div_u, rem_s, rem_u, and, or, xor, shl, shr_u, shr_s, rotl, rotr, // ibinop
     min, max, div, // fbinop
     equal, not_equal, // relop
-    lt_s, lt_u, gt_s, gt_u, le_s, le_u, ge_s, ge_u // irelop
+    lt_s, lt_u, gt_s, gt_u, le_s, le_u, ge_s, ge_u, // irelop
+    flt, fgt, fle, fge // frelop
 );

@@ -122,6 +122,12 @@ impl Runtime {
                 Instruction::F32Nearest => nearest(self)?,
                 Instruction::F32Sqrt => sqrt(self)?,
                 Instruction::F32Trunc => trunc(self)?,
+                Instruction::F64Eq => equal(self)?,
+                Instruction::F64Ne => not_equal(self)?,
+                Instruction::F64Lt => flt(self)?,
+                Instruction::F64Gt => fgt(self)?,
+                Instruction::F64Le => fle(self)?,
+                Instruction::F64Ge => fge(self)?,
                 Instruction::Return => {
                     self.frames.pop();
                 }
