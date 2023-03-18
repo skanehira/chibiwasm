@@ -1,86 +1,9 @@
-#![allow(dead_code)]
-#![allow(unused)]
-
-use anyhow::{bail, Context, Result};
-use chibiwasm::{value::Value, *};
-use serde::Deserialize;
-use std::{fs, num::IntErrorKind, path::Path};
-
-#[derive(Default, Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Spec {
-    #[serde(rename = "source_filename")]
-    pub source_filename: String,
-    pub commands: Vec<Command>,
-}
-
-#[derive(Default, Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Command {
-    #[serde(rename = "type")]
-    pub type_field: String,
-    pub line: i64,
-    pub filename: Option<String>,
-    pub action: Option<Action>,
-    #[serde(default)]
-    pub expected: Vec<SpecValue>,
-    pub text: Option<String>,
-    #[serde(rename = "module_type")]
-    pub module_type: Option<String>,
-}
-
-#[derive(Default, Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Action {
-    #[serde(rename = "type")]
-    pub type_field: String,
-    pub field: String,
-    pub args: Vec<SpecValue>,
-}
-
-#[derive(Default, Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SpecValue {
-    #[serde(rename = "type")]
-    pub type_field: String,
-    pub value: Option<String>,
-}
-
-impl From<&SpecValue> for Value {
-    fn from(e: &SpecValue) -> Self {
-        let result = match e.type_field.as_str() {
-            "i32" => {
-                let value = e.value.as_ref().unwrap().parse::<u32>().unwrap();
-                Value::I32(value as i32)
-            }
-            "i64" => {
-                let value = e.value.as_ref().unwrap().parse::<u64>().unwrap();
-                Value::I64(value as i64)
-            }
-            "f32" => {
-                let value = e.value.as_ref().unwrap().parse::<u32>().unwrap();
-                Value::F32(f32::from_bits(value))
-            }
-            "f64" => {
-                let value = e.value.as_ref().unwrap().parse::<u64>().unwrap();
-                Value::F64(f64::from_bits(value))
-            }
-            _ => {
-                panic!("unexpected type field")
-            }
-        };
-        result
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use anyhow::*;
-    use chibiwasm::runtime::Runtime;
-    use chibiwasm::{value::Value, *};
-    use serde::Deserialize;
+    use chibiwasm::{runtime::Runtime, value::Value};
     use std::io::{Cursor, Read};
-    use std::{fs, num::IntErrorKind, path::Path};
+    use std::{fs, path::Path};
     use wabt::{script::*, Features};
 
     fn into_wasm_value(values: Vec<wabt::script::Value>) -> Vec<chibiwasm::value::Value> {
@@ -97,7 +20,6 @@ mod tests {
     }
 
     fn run_test(spec_file: &str) -> Result<()> {
-        println!("{} testing...", spec_file);
         let spec = Path::new("./tests/testsuite").join(spec_file);
         let mut file = fs::File::open(spec)?;
         let mut wast = String::new();
@@ -114,7 +36,7 @@ mod tests {
         let mut runtime = {
             if let Some(command) = parser.next()? {
                 match command.kind {
-                    CommandKind::Module { module, name } => {
+                    CommandKind::Module { module, .. } => {
                         let mut reader = Cursor::new(module.into_vec());
                         Runtime::from_reader(&mut reader)?
                     }
@@ -128,11 +50,7 @@ mod tests {
         while let Some(command) = parser.next()? {
             match command.kind {
                 CommandKind::AssertReturn { action, expected } => match action {
-                    Action::Invoke {
-                        module,
-                        field,
-                        args,
-                    } => {
+                    Action::Invoke { field, args, .. } => {
                         let args = into_wasm_value(args);
                         let result = runtime.invoke(field, args)?;
                         if result.is_none() {
@@ -153,20 +71,16 @@ mod tests {
                             }
                         }
                     }
-                    Action::Get { module, field } => todo!(),
+                    Action::Get { .. } => todo!(),
                 },
-                CommandKind::AssertReturnCanonicalNan { action } => {
+                CommandKind::AssertReturnCanonicalNan { .. } => {
                     // TODO
                 }
-                CommandKind::AssertReturnArithmeticNan { action } => {
+                CommandKind::AssertReturnArithmeticNan { .. } => {
                     // TODO
                 }
                 CommandKind::AssertTrap { action, message } => match action {
-                    Action::Invoke {
-                        module,
-                        field,
-                        args,
-                    } => {
+                    Action::Invoke { field, args, .. } => {
                         let args = into_wasm_value(args);
                         let result = runtime.invoke(field.clone(), args);
 
@@ -179,24 +93,24 @@ mod tests {
                             }
                         }
                     }
-                    Action::Get { module, field } => todo!(),
+                    Action::Get { .. } => todo!(),
                 },
-                CommandKind::AssertInvalid { module, message } => {
+                CommandKind::AssertInvalid { .. } => {
                     // TODO
                 }
-                CommandKind::AssertMalformed { module, message } => {
+                CommandKind::AssertMalformed { .. } => {
                     // TODO
                 }
-                CommandKind::AssertUninstantiable { module, message } => {
+                CommandKind::AssertUninstantiable { .. } => {
                     // TODO
                 }
-                CommandKind::AssertExhaustion { action, message } => {
+                CommandKind::AssertExhaustion { .. } => {
                     // TODO
                 }
-                CommandKind::AssertUnlinkable { module, message } => {
+                CommandKind::AssertUnlinkable { .. } => {
                     // TODO
                 }
-                CommandKind::Register { name, as_name } => {
+                CommandKind::Register { .. } => {
                     // TODO
                 }
                 CommandKind::PerformAction(_) => {
@@ -210,13 +124,18 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn spec() -> Result<()> {
-        let spec_files = vec!["i32.wast", "i64.wast", "f32.wast"];
-        for file in spec_files {
-            run_test(file)?;
-        }
-
-        Ok(())
+    macro_rules! test {
+        ($ty: ident) => {
+            #[test]
+            fn $ty() -> Result<()> {
+                let file = format!("{}.wast", stringify!($ty));
+                run_test(&file)?;
+                Ok(())
+            }
+        };
     }
+
+    test!(i32);
+    test!(i64);
+    test!(f32);
 }
