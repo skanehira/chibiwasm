@@ -76,7 +76,7 @@ macro_rules! binop {
                     (Value::I32(l), Value::I32(r)) => Ok(Value::I32(l.$op(*r)?)),
                     (Value::I64(l), Value::I64(r)) => Ok(Value::I64(l.$op(*r)?)),
                     (Value::F32(l), Value::F32(r)) => Ok(Value::F32(l.$op(*r)?)),
-                    //(Value::F64(l), Value::F64(r)) => Ok(Value::F64(l.$op(*r)?)),
+                    (Value::F64(l), Value::F64(r)) => Ok(Value::F64(l.$op(*r)?)),
                     _ => unimplemented!("unimplemented for Value")
                 }
             }
@@ -104,7 +104,7 @@ macro_rules! fbinop {
             pub fn $op(&self, rhs: &Self) -> Result<Self> {
                 match (self, rhs) {
                     (Value::F32(l), Value::F32(r)) => Ok(Value::F32(l.$op(*r)?)),
-                    //(Value::F64(l), Value::F64(r)) => Ok(Value::F64(l.$op(*r)?)),
+                    (Value::F64(l), Value::F64(r)) => Ok(Value::F64(l.$op(*r)?)),
                     _ => unimplemented!("unimplemented for Value")
                 }
             }
@@ -190,7 +190,7 @@ macro_rules! funop {
             pub fn $op(&self) -> Result<Self> {
                 match self {
                     Value::F32(l) => Ok(Value::F32(l.$op()?)),
-                    //Value::F64(l) => Ok(Value::F64(l.$op()?)),
+                    Value::F64(l) => Ok(Value::F64(l.$op()?)),
                     _ => unimplemented!("unimplemented for Value")
                 }
             }

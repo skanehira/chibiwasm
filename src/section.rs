@@ -352,6 +352,20 @@ impl Section {
                 Opcode::F64Gt => Instruction::F64Gt,
                 Opcode::F64Le => Instruction::F64Le,
                 Opcode::F64Ge => Instruction::F64Ge,
+                Opcode::F64Abs => Instruction::F64Abs,
+                Opcode::F64Neg => Instruction::F64Neg,
+                Opcode::F64Ceil => Instruction::F64Ceil,
+                Opcode::F64Floor => Instruction::F64Floor,
+                Opcode::F64Trunc => Instruction::F64Trunc,
+                Opcode::F64Nearest => Instruction::F64Nearest,
+                Opcode::F64Sqrt => Instruction::F64Sqrt,
+                Opcode::F64Add => Instruction::F64Add,
+                Opcode::F64Sub => Instruction::F64Sub,
+                Opcode::F64Mul => Instruction::F64Mul,
+                Opcode::F64Div => Instruction::F64Div,
+                Opcode::F64Min => Instruction::F64Min,
+                Opcode::F64Max => Instruction::F64Max,
+                Opcode::F64Copysign => Instruction::F64Copysign,
             };
             function_body.code.push(inst);
         }

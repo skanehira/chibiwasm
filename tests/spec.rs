@@ -139,5 +139,6 @@ mod tests {
     test!(i64);
     test!(f32);
     test!(f32_cmp);
+    test!(f64);
     test!(f64_cmp);
 }
