@@ -2,17 +2,34 @@ use crate::instruction::*;
 use crate::module::{Decoder, Module};
 use crate::section::ExportDesc;
 use crate::types::FuncType;
-use crate::value::{Function, Value};
+use crate::value::{ExternalVal, Function, Value};
 use anyhow::{bail, Context, Result};
 use std::collections::HashMap;
 use std::fs;
 use std::io::Read;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
+pub struct ExportInst(HashMap<String, ExternalVal>);
+
+impl ExportInst {
+    fn new() -> Self {
+        Self(HashMap::new())
+    }
+
+    fn add(&mut self, key: String, value: ExternalVal) {
+        self.0.insert(key, value);
+    }
+
+    fn get(&self, key: &str) -> Option<&ExternalVal> {
+        self.0.get(key)
+    }
+}
+
+#[derive(Debug)]
 pub struct Runtime {
-    pub exports: HashMap<String, ExportDesc>,
+    pub exports: ExportInst,
     pub functions: Vec<Function>, // for fetch instructions of function
-    pub stack_frame: Vec<Frame>,       // stack frame
+    pub stack_frame: Vec<Frame>,  // stack frame
     pub value_stack: Vec<Value>,  // value stack
 }
 
@@ -32,17 +49,17 @@ impl Runtime {
 
     pub fn new(module: &mut Module) -> Result<Self> {
         let functions = new_functions(module)?;
-        let mut exports = HashMap::<String, ExportDesc>::new();
+        let mut export = ExportInst::new();
         for ex in module
             .export_section
             .as_ref()
             .context("not found export section")?
             .iter()
         {
-            exports.insert(ex.name.clone(), ex.desc.clone());
+            export.add(ex.name.clone(), ex.desc.clone().into());
         }
         Ok(Self {
-            exports,
+            exports: export,
             functions,
             stack_frame: vec![],
             value_stack: vec![],
@@ -57,13 +74,13 @@ impl Runtime {
     }
 
     fn resolve_func(&mut self, func_name: String) -> Result<&Function> {
-        let desc = self
+        let external_val = self
             .exports
             .get(&func_name)
             .context(format!("not found function {func_name}"))?;
-        let idx = match desc {
-            ExportDesc::Func(i) => *i,
-            _ => bail!("invalid export desc: {:?}", desc),
+        let idx = match external_val {
+            ExternalVal::Func(i) => *i,
+            _ => bail!("invalid export desc: {:?}", external_val),
         };
         self.functions.get(idx as usize).context("")
     }

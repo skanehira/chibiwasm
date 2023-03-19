@@ -1,4 +1,4 @@
-use crate::{float::*, instruction::Instruction, integer::*, types::FuncType};
+use crate::{float::*, instruction::Instruction, integer::*, section::ExportDesc, types::FuncType};
 use anyhow::Result;
 use std::fmt::Display;
 
@@ -66,6 +66,25 @@ impl From<u64> for Value {
 pub struct Function {
     pub func_type: FuncType,
     pub body: Vec<Instruction>,
+}
+
+#[derive(Debug)]
+pub enum ExternalVal {
+    Func(u32),
+    Table(u32),
+    Memory(u32),
+    Global(u32),
+}
+
+impl From<ExportDesc> for ExternalVal {
+    fn from(value: ExportDesc) -> Self {
+        match value {
+            ExportDesc::Func(addr) => Self::Func(addr),
+            ExportDesc::Table(addr) => Self::Table(addr),
+            ExportDesc::Memory(addr) => Self::Memory(addr),
+            ExportDesc::Global(addr) => Self::Global(addr),
+        }
+    }
 }
 
 macro_rules! binop {
