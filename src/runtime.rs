@@ -169,10 +169,6 @@ impl Runtime {
                     }
                     let frame = Frame::new(body, args);
                     self.frames.push(frame);
-                    let result = self.execute()?;
-                    if let Some(value) = result {
-                        self.value_stack.push(value);
-                    }
                 }
                 _ => {
                     dbg!(inst);
@@ -550,13 +546,13 @@ mod test {
             ("if", vec![1, 0], 0),
             ("if_else", vec![1], 1),
             ("if_else", vec![0], 0),
-            ("fib", vec![10], 55), // TODO: fix stack overflow
             ("fib", vec![1], 1),
             ("fib", vec![2], 1),
             ("fib", vec![4], 3),
             ("fib", vec![5], 5),
             ("fib", vec![6], 8),
             ("fib", vec![8], 21),
+            ("fib", vec![10], 55),
         ];
 
         for test in tests.into_iter() {
