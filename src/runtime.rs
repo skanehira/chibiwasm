@@ -10,10 +10,10 @@ use std::io::Read;
 
 #[derive(Debug, Default)]
 pub struct Runtime {
-    exports: HashMap<String, ExportDesc>,
-    functions: Vec<Function>, // for fetch instructions of function
-    frames: Vec<Frame>,       // stack frame
-    pub stack: Vec<Value>,    // value stack
+    pub exports: HashMap<String, ExportDesc>,
+    pub functions: Vec<Function>, // for fetch instructions of function
+    pub frames: Vec<Frame>,       // stack frame
+    pub value_stack: Vec<Value>,  // value stack
 }
 
 impl Runtime {
@@ -45,7 +45,7 @@ impl Runtime {
             exports,
             functions,
             frames: vec![],
-            stack: vec![],
+            value_stack: vec![],
         })
     }
 
@@ -69,7 +69,9 @@ impl Runtime {
     }
 
     pub fn stack_pop(&mut self) -> Result<Value> {
-        self.stack.pop().context("not found variable from stack")
+        self.value_stack
+            .pop()
+            .context("not found variable from stack")
     }
 
     fn execute(&mut self) -> Result<Option<Value>> {
@@ -169,7 +171,7 @@ impl Runtime {
                     self.frames.push(frame);
                     let result = self.execute()?;
                     if let Some(value) = result {
-                        self.stack.push(value);
+                        self.value_stack.push(value);
                     }
                 }
                 _ => {
@@ -179,7 +181,7 @@ impl Runtime {
                 }
             };
         }
-        Ok(self.stack.pop())
+        Ok(self.value_stack.pop())
     }
 
     fn instruction(&mut self) -> Result<Option<Instruction>> {

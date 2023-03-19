@@ -244,8 +244,8 @@ pub enum Instruction {
 }
 
 pub fn pop_rl(runtime: &mut Runtime) -> Result<(Value, Value)> {
-    let r = runtime.stack.pop().ok_or_else(|| Error::StackPopError)?;
-    let l = runtime.stack.pop().ok_or_else(|| Error::StackPopError)?;
+    let r = runtime.value_stack.pop().ok_or_else(|| Error::StackPopError)?;
+    let l = runtime.value_stack.pop().ok_or_else(|| Error::StackPopError)?;
     Ok((r, l))
 }
 
@@ -255,36 +255,36 @@ pub fn local_get(runtime: &mut Runtime, idx: usize) -> Result<()> {
         .local_stack
         .get(idx)
         .context("not found local variable")?;
-    runtime.stack.push(value.clone());
+    runtime.value_stack.push(value.clone());
     Ok(())
 }
 
 pub fn popcnt(runtime: &mut Runtime) -> Result<()> {
     let value = runtime.stack_pop()?;
     match value {
-        Value::I32(v) => runtime.stack.push(v.count_ones().into()),
-        Value::I64(v) => runtime.stack.push((v.count_ones() as i64).into()),
+        Value::I32(v) => runtime.value_stack.push(v.count_ones().into()),
+        Value::I64(v) => runtime.value_stack.push((v.count_ones() as i64).into()),
         _ => bail!("unexpected value"),
     }
     Ok(())
 }
 
 pub fn i32const(runtime: &mut Runtime, value: i32) -> Result<()> {
-    runtime.stack.push(value.into());
+    runtime.value_stack.push(value.into());
     Ok(())
 }
 
 pub fn push<T: Into<Value>>(runtime: &mut Runtime, value: T) -> Result<()> {
-    runtime.stack.push(value.into());
+    runtime.value_stack.push(value.into());
     Ok(())
 }
 
 pub fn i64extend_32s(runtime: &mut Runtime) -> Result<()> {
-    let value = runtime.stack.pop().ok_or_else(|| Error::StackPopError)?;
+    let value = runtime.value_stack.pop().ok_or_else(|| Error::StackPopError)?;
     match value {
         Value::I64(v) => {
             let result = v << 32 >> 32;
-            runtime.stack.push(result.into());
+            runtime.value_stack.push(result.into());
         }
         _ => bail!("unexpected value type"),
     }
@@ -296,7 +296,7 @@ macro_rules! impl_binary_operation {
         $(
             pub fn $op(runtime: &mut Runtime) -> Result<()> {
                 let (r, l) = pop_rl(runtime)?;
-                runtime.stack.push(l.$op(&r)?);
+                runtime.value_stack.push(l.$op(&r)?);
                 Ok(())
             }
         )*
@@ -307,8 +307,8 @@ macro_rules! impl_unary_operation {
     ($($op: ident),*) => {
         $(
             pub fn $op(runtime: &mut Runtime) -> Result<()> {
-                let value = runtime.stack.pop().ok_or_else(|| Error::StackPopError)?;
-                runtime.stack.push(value.$op()?);
+                let value = runtime.value_stack.pop().ok_or_else(|| Error::StackPopError)?;
+                runtime.value_stack.push(value.$op()?);
                 Ok(())
             }
          )*
