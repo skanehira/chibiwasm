@@ -187,17 +187,18 @@ impl Runtime {
     fn instruction(&mut self) -> Result<Option<Instruction>> {
         loop {
             let frame = self.frames.last();
+            match frame {
+                Some(frame) => {
+                    let insts = frame.instructions.clone();
+                    let inst = insts.get(frame.pc as usize);
 
-            if frame.is_none() {
-                return Ok(None);
+                    if inst.is_some() {
+                        return Ok(inst.cloned());
+                    }
+                    self.frames.pop();
+                }
+                None => return Ok(None),
             }
-            let insts = self.instructions()?;
-            let inst = insts.get(self.frame_pc()?);
-
-            if inst.is_some() {
-                return Ok(inst.cloned());
-            }
-            self.frames.pop();
         }
     }
 
@@ -213,10 +214,6 @@ impl Runtime {
 
     pub fn current_frame(&self) -> Result<&Frame> {
         self.frames.last().context("not found frame")
-    }
-
-    fn frame_pc(&mut self) -> Result<usize> {
-        Ok(self.frames.last_mut().context("not found frame")?.pc as usize)
     }
 
     fn frame_pc_inc(&mut self) -> Result<()> {
@@ -553,7 +550,7 @@ mod test {
             ("if", vec![1, 0], 0),
             ("if_else", vec![1], 1),
             ("if_else", vec![0], 0),
-            //("fib", vec![10], 55), // TODO: fix stack overflow
+            ("fib", vec![10], 55), // TODO: fix stack overflow
             ("fib", vec![1], 1),
             ("fib", vec![2], 1),
             ("fib", vec![4], 3),
