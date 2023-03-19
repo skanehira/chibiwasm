@@ -12,7 +12,7 @@ use std::io::Read;
 pub struct Runtime {
     pub exports: HashMap<String, ExportDesc>,
     pub functions: Vec<Function>, // for fetch instructions of function
-    pub frames: Vec<Frame>,       // stack frame
+    pub stack_frame: Vec<Frame>,       // stack frame
     pub value_stack: Vec<Value>,  // value stack
 }
 
@@ -44,7 +44,7 @@ impl Runtime {
         Ok(Self {
             exports,
             functions,
-            frames: vec![],
+            stack_frame: vec![],
             value_stack: vec![],
         })
     }
@@ -52,7 +52,7 @@ impl Runtime {
     pub fn invoke(&mut self, func_name: String, args: Vec<Value>) -> Result<Option<Value>> {
         let func = self.resolve_func(func_name)?;
         let frame = Frame::new(func.body.clone(), args);
-        self.frames.push(frame);
+        self.stack_frame.push(frame);
         self.execute()
     }
 
@@ -134,7 +134,7 @@ impl Runtime {
                 Instruction::F32Le | Instruction::F64Le => fle(self)?,
                 Instruction::F32Ge | Instruction::F64Ge => fge(self)?,
                 Instruction::Return => {
-                    self.frames.pop();
+                    self.stack_frame.pop();
                 }
                 Instruction::Void | Instruction::End => {
                     // do nothing
@@ -168,7 +168,7 @@ impl Runtime {
                         args.push(self.stack_pop()?);
                     }
                     let frame = Frame::new(body, args);
-                    self.frames.push(frame);
+                    self.stack_frame.push(frame);
                 }
                 _ => {
                     dbg!(inst);
@@ -182,7 +182,7 @@ impl Runtime {
 
     fn instruction(&mut self) -> Result<Option<Instruction>> {
         loop {
-            let frame = self.frames.last();
+            let frame = self.stack_frame.last();
             match frame {
                 Some(frame) => {
                     let insts = frame.instructions.clone();
@@ -191,7 +191,7 @@ impl Runtime {
                     if inst.is_some() {
                         return Ok(inst.cloned());
                     }
-                    self.frames.pop();
+                    self.stack_frame.pop();
                 }
                 None => return Ok(None),
             }
@@ -200,7 +200,7 @@ impl Runtime {
 
     fn instructions(&mut self) -> Result<Vec<Instruction>> {
         let insts = self
-            .frames
+            .stack_frame
             .last()
             .context("not found frame")?
             .instructions
@@ -209,11 +209,11 @@ impl Runtime {
     }
 
     pub fn current_frame(&self) -> Result<&Frame> {
-        self.frames.last().context("not found frame")
+        self.stack_frame.last().context("not found frame")
     }
 
     fn frame_pc_inc(&mut self) -> Result<()> {
-        self.frames.last_mut().context("not found frame")?.pc += 1;
+        self.stack_frame.last_mut().context("not found frame")?.pc += 1;
         Ok(())
     }
 }
