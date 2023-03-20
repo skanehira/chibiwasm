@@ -1,5 +1,5 @@
 use crate::{
-    section::{Export, FunctionBody, Section, SectionID},
+    section::{Export, FunctionBody, Mem, Section, SectionID},
     types::FuncType,
 };
 use anyhow::{bail, Result};
@@ -17,6 +17,7 @@ pub struct Module {
     pub function_section: Option<Vec<u32>>,
     pub code_section: Option<Vec<FunctionBody>>,
     pub export_section: Option<Vec<Export>>,
+    pub mem_section: Option<Vec<Mem>>,
 }
 
 impl Module {
@@ -26,6 +27,7 @@ impl Module {
             Section::Function(section) => self.function_section = Some(section),
             Section::Code(section) => self.code_section = Some(section),
             Section::Export(section) => self.export_section = Some(section),
+            Section::Mem(section) => self.mem_section = Some(section),
         };
     }
 }

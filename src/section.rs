@@ -1,3 +1,4 @@
+use crate::error::Error::InvalidMemoryCountError;
 use crate::instruction::{Instruction, Opcode};
 use crate::types::{FuncType, ValueType};
 use anyhow::{bail, Context, Result};
@@ -78,6 +79,18 @@ pub enum Section {
     Function(Vec<u32>),
     Code(Vec<FunctionBody>),
     Export(Vec<Export>),
+    Mem(Vec<Mem>),
+}
+
+#[derive(Debug)]
+pub struct Mem {
+    pub limits: Limits,
+}
+
+#[derive(Debug)]
+pub struct Limits {
+    pub min: u32,
+    pub max: Option<u32>,
 }
 
 pub struct ContentsReader {
@@ -139,9 +152,33 @@ impl Section {
             SectionID::Code => Section::decode_code_section(&mut reader)?,
             SectionID::Function => Section::decode_function_section(&mut reader)?,
             SectionID::Export => Section::decode_export_section(&mut reader)?,
+            SectionID::Memory => Section::decode_memory_section(&mut reader)?,
             _ => bail!("Unimplemented: {:x}", id as u8),
         };
         Ok(section)
+    }
+
+    fn decode_memory_section(reader: &mut ContentsReader) -> Result<Section> {
+        let count = reader.u32()?;
+        let mut mems: Vec<Mem> = vec![];
+        if count != 1 {
+            bail!(InvalidMemoryCountError);
+        }
+        for _ in 0..count {
+            let limits = reader.u32()?;
+            let min = reader.u32()?;
+            let max = if limits == 0x00 {
+                None
+            } else {
+                let max = reader.u32()?;
+                Some(max)
+            };
+            let mem = Mem {
+                limits: Limits { min, max },
+            };
+            mems.push(mem);
+        }
+        Ok(Self::Mem(mems))
     }
 
     fn decode_type_section(reader: &mut ContentsReader) -> Result<Section> {
