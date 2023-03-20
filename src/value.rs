@@ -11,6 +11,18 @@ pub enum Value {
     F64(f64),
 }
 
+impl Value {
+    pub fn is_true(&self) -> bool {
+        match *self {
+            Value::I32(v) => 1 == v,
+            Value::I64(v) => 1 == v,
+            _ => {
+                panic!("cannot call is_true() when value is f32 or f64");
+            }
+        }
+    }
+}
+
 impl Display for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

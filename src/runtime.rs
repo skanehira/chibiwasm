@@ -160,8 +160,9 @@ impl Runtime {
                     // do nothing
                 }
                 Instruction::If => {
-                    let v = self.stack_pop()?;
-                    if v != 1.into() {
+                    let value = self.stack_pop()?;
+                    // if value is not true, skip until else or end
+                    if !value.is_true() {
                         loop {
                             let ins = self.instruction()?.context("not found instruction")?;
                             match ins {
@@ -233,7 +234,10 @@ impl Runtime {
     }
 
     fn frame_pc_inc(&mut self) -> Result<()> {
-        self.stack_frame.last_mut().context("not found frame")?.pc += 1;
+        self.stack_frame
+            .last_mut()
+            .context("not found frame")?
+            .inc();
         Ok(())
     }
 }

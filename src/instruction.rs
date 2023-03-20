@@ -120,7 +120,7 @@ pub enum Opcode {
     Return = 0x0f,
     If = 0x04,
     Else = 0x05,
-    End = 0x0b,
+    End = 0x0B,
     Void = 0x40,
     Drop = 0x1A,
 }
