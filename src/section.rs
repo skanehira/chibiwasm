@@ -403,6 +403,7 @@ impl Section {
                 Opcode::F64Min => Instruction::F64Min,
                 Opcode::F64Max => Instruction::F64Max,
                 Opcode::F64Copysign => Instruction::F64Copysign,
+                Opcode::Drop => Instruction::Drop,
             };
             function_body.code.push(inst);
         }

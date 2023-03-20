@@ -153,6 +153,9 @@ impl Runtime {
                 Instruction::Return => {
                     self.stack_frame.pop();
                 }
+                Instruction::Drop => {
+                    self.stack_pop()?;
+                }
                 Instruction::Void | Instruction::End => {
                     // do nothing
                 }

@@ -122,6 +122,7 @@ pub enum Opcode {
     Else = 0x05,
     End = 0x0b,
     Void = 0x40,
+    Drop = 0x1A,
 }
 
 #[derive(Debug, Clone)]
@@ -241,6 +242,7 @@ pub enum Instruction {
     Else,
     End,
     Void,
+    Drop,
 }
 
 pub fn pop_rl(runtime: &mut Runtime) -> Result<(Value, Value)> {
