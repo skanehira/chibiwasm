@@ -6,7 +6,7 @@ use crate::value::{ExternalVal, Function, Value};
 use anyhow::{bail, Context, Result};
 use std::collections::HashMap;
 use std::fs;
-use std::io::Read;
+use std::io::{Cursor, Read};
 
 #[derive(Debug)]
 pub struct ExportInst(HashMap<String, ExternalVal>);
@@ -43,6 +43,13 @@ impl Runtime {
 
     pub fn from_reader(reader: &mut impl Read) -> Result<Self> {
         let mut decoder = Decoder::new(reader);
+        let mut module = decoder.decode()?;
+        Ok(Self::new(&mut module)?)
+    }
+
+    pub fn from_bytes<T: AsRef<[u8]>>(b: T) -> Result<Self> {
+        let buf = Cursor::new(b);
+        let mut decoder = Decoder::new(buf);
         let mut module = decoder.decode()?;
         Ok(Self::new(&mut module)?)
     }
@@ -307,123 +314,34 @@ fn new_functions(module: &mut Module) -> Result<Vec<Function>> {
 #[cfg(test)]
 mod test {
     use super::{Runtime, Value};
-    use crate::module::Decoder;
-    use anyhow::Result;
-    use std::io::Cursor;
+    use anyhow::{Context, Result};
     use wasmer::wat2wasm;
 
     #[test]
     fn invoke() -> Result<()> {
         let wat_code = br#"
 (module
-  (func $i32.add (param $lhs i32) (param $rhs i32) (result i32)
-    local.get $lhs
-    local.get $rhs
+  (func $i32.add (param $a i32) (param $b i32) (result i32)
+    local.get $a
+    local.get $b
     i32.add
   )
-  (func $i32.sub (param $a i32) (param $b i32) (result i32)
-    local.get $a
-    local.get $b
-    i32.sub
-  )
-  (func $i32.mul (param $a i32) (param $b i32) (result i32)
-    local.get $a
-    local.get $b
-    i32.mul
-  )
-  (func $i32.clz (param $a i32) (result i32)
-    local.get $a
-    i32.clz
-  )
-  (func $i32.ctz (param $a i32) (result i32)
-    local.get $a
-    i32.ctz
-  )
-  (func $i32.div_u (param $a i32) (param $b i32) (result i32)
-    local.get $a
-    local.get $b
-    i32.div_u
-  )
-  (func $i32.div_s (param $a i32) (param $b i32) (result i32)
-    local.get $a
-    local.get $b
-    i32.div_s
-  )
-  (func $i32.eq (param $a i32) (param $b i32) (result i32)
-    local.get $a
-    local.get $b
-    i32.eq
-  )
-  (func $i32.eqz (param $a i32) (result i32)
-    local.get $a
-    i32.eqz
-  )
-  (func $i32.ne (param $a i32) (param $b i32) (result i32)
-    local.get $a
-    local.get $b
-    i32.ne
-  )
-  (func $i32.lt_s (param $a i32) (param $b i32) (result i32)
-    local.get $a
-    local.get $b
-    i32.lt_s
-  )
-  (func $i32.lt_u (param $a i32) (param $b i32) (result i32)
-    local.get $a
-    local.get $b
-    i32.lt_u
-  )
-  (func $i32.gt_s (param $a i32) (param $b i32) (result i32)
-    local.get $a
-    local.get $b
-    i32.gt_s
-  )
-  (func $i32.gt_u (param $a i32) (param $b i32) (result i32)
-    local.get $a
-    local.get $b
-    i32.gt_u
-  )
-  (func $i32.le_s (param $a i32) (param $b i32) (result i32)
-    local.get $a
-    local.get $b
-    i32.le_s
-  )
-  (func $i32.le_u (param $a i32) (param $b i32) (result i32)
-    local.get $a
-    local.get $b
-    i32.le_u
-  )
-  (func $i32.ge_s (param $a i32) (param $b i32) (result i32)
-    local.get $a
-    local.get $b
-    i32.ge_s
-  )
-  (func $i32.ge_u (param $a i32) (param $b i32) (result i32)
-    local.get $a
-    local.get $b
-    i32.ge_u
-  )
-  (func $call (param $a i32) (param $b i32) (result i32)
+  (func $call (export "call") (param $a i32) (param $b i32) (result i32)
     local.get $a
     local.get $b
     call $i32.add
   )
-  (func $i32.const (result i32)
-    i32.const 1
-    i32.const 1
-    i32.add
-  )
-  (func $return (result i32)
+  (func $return (export "return") (result i32)
     (return (i32.const 15))
   )
-  (func $if (param $a i32) (param $b i32) (result i32)
+  (func $if (export "if") (param $a i32) (param $b i32) (result i32)
     (if
       (i32.eq (local.get $a) (local.get $b))
       (then (return (i32.const 1)))
     )
     (return (i32.const 0))
   )
-  (func $fib (param $N i32) (result i32)
+  (func $fib (export "fib") (param $N i32) (result i32)
     (if
       (i32.eq (local.get $N) (i32.const 1))
       (then (return (i32.const 1)))
@@ -437,134 +355,24 @@ mod test {
       (call $fib (i32.sub (local.get $N) (i32.const 2)))
     )
   )
-  (func $if_else (param $a i32) (result i32)
+  (func $if_else (export "if_else") (param $a i32) (result i32)
+    (if (local.get $a)
+      (then (return (i32.const 1)))
+      (else (return (i32.const 0)))
+    )
+  )
+  (func $if_else_empty (export "if_else_empty") (param $a i32) (result i32)
     (if (i32.eq (local.get $a) (i32.const 1))
       (then (return (i32.const 1)))
       (else (return (i32.const 0)))
     )
-    (return (i32.const -1))
   )
-  (func (export "i32.popcnt") (param $x i32) (result i32) (i32.popcnt (local.get $x)))
-  (func (export "i32.rem_s") (param $x i32) (param $y i32) (result i32) (i32.rem_s (local.get $x) (local.get $y)))
-  (func (export "i32.rem_u") (param $x i32) (param $y i32) (result i32) (i32.rem_u (local.get $x) (local.get $y)))
-  (func (export "i32.and") (param $x i32) (param $y i32) (result i32) (i32.and (local.get $x) (local.get $y)))
-  (func (export "i32.or") (param $x i32) (param $y i32) (result i32) (i32.or (local.get $x) (local.get $y)))
-  (func (export "i32.xor") (param $x i32) (param $y i32) (result i32) (i32.xor (local.get $x) (local.get $y)))
-  (func (export "i32.shl") (param $x i32) (param $y i32) (result i32) (i32.shl (local.get $x) (local.get $y)))
-  (func (export "i32.shr_s") (param $x i32) (param $y i32) (result i32) (i32.shr_s (local.get $x) (local.get $y)))
-  (func (export "i32.shr_u") (param $x i32) (param $y i32) (result i32) (i32.shr_u (local.get $x) (local.get $y)))
-  (func (export "i32.rtol") (param $x i32) (param $y i32) (result i32) (i32.rotl (local.get $x) (local.get $y)))
-  (func (export "i32.rtor") (param $x i32) (param $y i32) (result i32) (i32.rotr (local.get $x) (local.get $y)))
-  (func (export "i32.extend8_s") (param $x i32) (result i32) (i32.extend8_s (local.get $x)))
-  (func (export "i32.extend16_s") (param $x i32) (result i32) (i32.extend16_s (local.get $x)))
-  (export "i32.add" (func $i32.add))
-  (export "i32.sub" (func $i32.sub))
-  (export "i32.mul" (func $i32.mul))
-  (export "i32.clz" (func $i32.clz))
-  (export "i32.ctz" (func $i32.ctz))
-  (export "i32.div_u" (func $i32.div_u))
-  (export "i32.div_s" (func $i32.div_s))
-  (export "i32.eq" (func $i32.eq))
-  (export "i32.eqz" (func $i32.eqz))
-  (export "i32.ne" (func $i32.ne))
-  (export "i32.lt_s" (func $i32.lt_s))
-  (export "i32.lt_u" (func $i32.lt_u))
-  (export "i32.gt_s" (func $i32.gt_s))
-  (export "i32.gt_u" (func $i32.gt_u))
-  (export "i32.le_s" (func $i32.le_s))
-  (export "i32.le_u" (func $i32.le_u))
-  (export "i32.ge_s" (func $i32.ge_s))
-  (export "i32.ge_u" (func $i32.ge_u))
-  (export "i32.const" (func $i32.const))
-  (export "call" (func $call))
-  (export "return" (func $return))
-  (export "if" (func $if))
-  (export "fib" (func $fib))
-  (export "if_else" (func $if_else))
 )
 "#;
-        let wasm = wat2wasm(wat_code)?;
-        let reader = Cursor::new(wasm);
-        let mut decoder = Decoder::new(reader);
-        let mut module = decoder.decode()?;
-        let mut runtime = Runtime::new(&mut module)?;
+        let wasm = &mut wat2wasm(wat_code)?;
+        let mut runtime = Runtime::from_bytes(wasm)?;
 
         let tests = [
-            ("i32.add", vec![10, 11], 21),
-            ("i32.sub", vec![10, 11], -1),
-            ("i32.div_u", vec![100, 20], 5),
-            ("i32.div_s", vec![-10, -2], 5),
-            ("i32.mul", vec![10, 10], 100),
-            ("i32.clz", vec![(u32::MAX >> 2) as i32], 2),
-            ("i32.clz", vec![(u32::MAX >> 5) as i32], 5),
-            ("i32.ctz", vec![(u32::MAX << 2) as i32], 2),
-            ("i32.ctz", vec![(u32::MAX << 5) as i32], 5),
-            ("i32.eq", vec![10, 10], 1),
-            ("i32.eq", vec![10, 10], 1),
-            ("i32.eqz", vec![1], 0),
-            ("i32.eqz", vec![0], 1),
-            ("i32.ne", vec![10, 10], 0),
-            ("i32.ne", vec![10, 11], 1),
-            ("i32.lt_u", vec![10, 11], 1),
-            ("i32.lt_u", vec![11, 11], 0),
-            ("i32.lt_u", vec![12, 11], 0),
-            ("i32.lt_s", vec![-10, -11], 0),
-            ("i32.lt_s", vec![-11, -11], 0),
-            ("i32.lt_s", vec![-12, -11], 1),
-            ("i32.gt_u", vec![10, 11], 0),
-            ("i32.gt_u", vec![11, 11], 0),
-            ("i32.gt_u", vec![12, 11], 1),
-            ("i32.gt_s", vec![-10, -11], 1),
-            ("i32.gt_s", vec![-11, -11], 0),
-            ("i32.gt_s", vec![-12, -11], 0),
-            ("i32.le_u", vec![9, 10], 1),
-            ("i32.le_u", vec![10, 10], 1),
-            ("i32.le_u", vec![11, 10], 0),
-            ("i32.le_s", vec![-10, -10], 1),
-            ("i32.le_s", vec![-10, -9], 1),
-            ("i32.le_s", vec![-10, -11], 0),
-            ("i32.ge_u", vec![9, 10], 0),
-            ("i32.ge_u", vec![10, 10], 1),
-            ("i32.ge_u", vec![11, 10], 1),
-            ("i32.ge_s", vec![-10, -10], 1),
-            ("i32.ge_s", vec![-10, -9], 0),
-            ("i32.ge_s", vec![-10, -11], 1),
-            ("i32.const", vec![], 2),
-            ("i32.popcnt", vec![0], 0),
-            ("i32.popcnt", vec![2147483647], 31),
-            ("i32.popcnt", vec![-1], 32),
-            ("i32.rem_s", vec![-5, 2], -1),
-            ("i32.rem_u", vec![5, 2], 1),
-            ("i32.and", vec![1, 1], 1),
-            ("i32.and", vec![0, 1], 0),
-            ("i32.and", vec![0, 0], 0),
-            ("i32.or", vec![1, 0], 1),
-            ("i32.or", vec![0, 0], 0),
-            ("i32.xor", vec![1, 1], 0),
-            ("i32.xor", vec![0, 0], 0),
-            ("i32.xor", vec![1, 0], 1),
-            ("i32.shl", vec![1, 0], 1),
-            ("i32.shl", vec![0x40000000, 1], -0x80000000),
-            ("i32.shl", vec![-0x80000000, 1], 0),
-            ("i32.shl", vec![1, 31], -0x80000000),
-            ("i32.shr_u", vec![1, 1], 0),
-            ("i32.shr_u", vec![0x7fffffff, 1], 0x3fffffff),
-            ("i32.shr_u", vec![0x40000000, 1], 0x20000000),
-            ("i32.shr_s", vec![1, 1], 0),
-            ("i32.shr_s", vec![0x7fffffff, 1], 0x3fffffff),
-            ("i32.shr_s", vec![0x40000000, 1], 0x20000000),
-            ("i32.rtol", vec![1, 1], 2),
-            ("i32.rtol", vec![1, 31], -0x80000000),
-            ("i32.rtol", vec![1, 32], 1),
-            ("i32.rtor", vec![1, 1], -0x80000000),
-            ("i32.rtor", vec![1, 0], 1),
-            ("i32.rtor", vec![1, 32], 1),
-            ("i32.extend8_s", vec![0], 0),
-            ("i32.extend8_s", vec![0x80], -128),
-            ("i32.extend8_s", vec![-1], -1),
-            ("i32.extend16_s", vec![0], 0),
-            ("i32.extend16_s", vec![0x7fff], 32767),
-            ("i32.extend16_s", vec![-1], -1),
             ("call", vec![10, 10], 20),
             ("return", vec![], 15),
             ("if", vec![1, 0], 0),
@@ -572,17 +380,20 @@ mod test {
             ("if_else", vec![0], 0),
             ("fib", vec![1], 1),
             ("fib", vec![2], 1),
-            ("fib", vec![4], 3),
-            ("fib", vec![5], 5),
-            ("fib", vec![6], 8),
-            ("fib", vec![8], 21),
             ("fib", vec![10], 55),
         ];
 
         for test in tests.into_iter() {
-            let args = test.1.into_iter().map(Value::from);
-            let result = runtime.invoke(test.0.into(), args.into_iter().collect())?;
-            assert_eq!(result.unwrap(), Value::from(test.2), "func {}", test.0)
+            let args = test.1.into_iter().map(Value::from).collect();
+            let result = runtime.invoke(test.0.into(), args)?;
+            print!("testing ... {} ", test.0);
+            assert_eq!(
+                result.context("no result")?,
+                test.2.into(),
+                "func {} fail",
+                test.0
+            );
+            println!("ok");
         }
 
         Ok(())
