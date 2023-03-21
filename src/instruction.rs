@@ -9,6 +9,12 @@ use num_derive::FromPrimitive;
 pub enum Opcode {
     Unreachable = 0x00,
     Nop = 0x01,
+    Block = 0x02,
+    Loop = 0x03,
+    If = 0x04,
+    Else = 0x05,
+    End = 0x0B,
+    Br = 0x0C,
     LocalGet = 0x20,
     Call = 0x10,
     I32Const = 0x41,
@@ -118,9 +124,6 @@ pub enum Opcode {
     F64Ge = 0x66,
     F32Copysign = 0x98,
     Return = 0x0f,
-    If = 0x04,
-    Else = 0x05,
-    End = 0x0B,
     Void = 0x40,
     Drop = 0x1A,
 }
@@ -129,6 +132,12 @@ pub enum Opcode {
 pub enum Instruction {
     Unreachable,
     Nop,
+    Block,
+    Loop,
+    If,
+    Else,
+    End,
+    Br,
     LocalGet(u32),
     Call(u32),
     I32Const(i32),
@@ -238,16 +247,19 @@ pub enum Instruction {
     F64Le,
     F64Ge,
     Return,
-    If,
-    Else,
-    End,
     Void,
     Drop,
 }
 
 pub fn pop_rl(runtime: &mut Runtime) -> Result<(Value, Value)> {
-    let r = runtime.value_stack.pop().ok_or_else(|| Error::StackPopError)?;
-    let l = runtime.value_stack.pop().ok_or_else(|| Error::StackPopError)?;
+    let r = runtime
+        .value_stack
+        .pop()
+        .ok_or_else(|| Error::StackPopError)?;
+    let l = runtime
+        .value_stack
+        .pop()
+        .ok_or_else(|| Error::StackPopError)?;
     Ok((r, l))
 }
 
@@ -282,7 +294,10 @@ pub fn push<T: Into<Value>>(runtime: &mut Runtime, value: T) -> Result<()> {
 }
 
 pub fn i64extend_32s(runtime: &mut Runtime) -> Result<()> {
-    let value = runtime.value_stack.pop().ok_or_else(|| Error::StackPopError)?;
+    let value = runtime
+        .value_stack
+        .pop()
+        .ok_or_else(|| Error::StackPopError)?;
     match value {
         Value::I64(v) => {
             let result = v << 32 >> 32;

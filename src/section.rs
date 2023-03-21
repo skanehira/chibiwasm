@@ -275,6 +275,9 @@ impl Section {
             let inst = match op {
                 Opcode::Unreachable => Instruction::Unreachable,
                 Opcode::Nop => Instruction::Nop,
+                Opcode::Block => Instruction::Block,
+                Opcode::Loop => Instruction::Loop,
+                Opcode::Br => Instruction::Br,
                 Opcode::Call => {
                     let local_idx = reader.u32()?;
                     Instruction::Call(local_idx)
