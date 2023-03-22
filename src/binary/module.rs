@@ -98,12 +98,25 @@ impl<R: io::Read> Decoder<R> {
         };
         while self.is_end()? {
             let (id, size) = self.decode_section_header()?;
-            // TODO: decode custom section
-            if id == SectionID::Custom {
-                break;
+            // TODO: decode other sections
+            match id {
+                SectionID::Custom
+                | SectionID::Import
+                | SectionID::Table
+                | SectionID::Memory
+                | SectionID::Global
+                | SectionID::Export
+                | SectionID::Start
+                | SectionID::Element
+                | SectionID::Data => {
+                    break;
+                }
+                _ => {
+                    // do nothing
+                }
             }
-            let data = self.bytes(size as usize)?;
-            let section = Section::decode(id, data)?;
+            let bytes = self.bytes(size as usize)?;
+            let section = decode(id, bytes)?;
             module.add_section(section);
         }
         Ok(module)

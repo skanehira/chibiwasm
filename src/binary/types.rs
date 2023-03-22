@@ -5,9 +5,6 @@ pub enum ValueType {
     I64, // 0x7E
     F32, // 0x7D
     F64, // 0x7C
-    V128, // 0x7B
-    FuncRef, // 0x70
-    ExternRef, // 0x6F
 }
 
 impl From<u8> for ValueType {
@@ -17,10 +14,7 @@ impl From<u8> for ValueType {
             0x7E => Self::I64,
             0x7D => Self::F32,
             0x7C => Self::F64,
-            0x7B => Self::V128,
-            0x70 => Self::FuncRef,
-            0x6F => Self::ExternRef,
-            _ => panic!("Invalid value type: {}", value_type)
+            _ => panic!("Invalid value type: {}", value_type),
         }
     }
 }
