@@ -1,27 +1,26 @@
-// https://webassembly.github.io/spec/core/binary/types.html#number-types
+// https://webassembly.github.io/spec/core/binary/types.html#value-types
 #[derive(Debug, Clone)]
-pub enum NumberType {
+pub enum ValueType {
     I32, // 0x7F
     I64, // 0x7E
     F32, // 0x7D
     F64, // 0x7C
-}
-
-// https://webassembly.github.io/spec/core/binary/types.html#value-types
-#[derive(Debug, Clone)]
-pub enum ValueType {
-    NumberType(NumberType),
-    Unknown(u8),
+    V128, // 0x7B
+    FuncRef, // 0x70
+    ExternRef, // 0x6F
 }
 
 impl From<u8> for ValueType {
     fn from(value_type: u8) -> Self {
         match value_type {
-            0x7F => Self::NumberType(NumberType::I32),
-            0x7E => Self::NumberType(NumberType::I64),
-            0x7D => Self::NumberType(NumberType::F32),
-            0x7C => Self::NumberType(NumberType::F64),
-            _ => Self::Unknown(value_type),
+            0x7F => Self::I32,
+            0x7E => Self::I64,
+            0x7D => Self::F32,
+            0x7C => Self::F64,
+            0x7B => Self::V128,
+            0x70 => Self::FuncRef,
+            0x6F => Self::ExternRef,
+            _ => panic!("Invalid value type: {}", value_type)
         }
     }
 }
