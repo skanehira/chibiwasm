@@ -1,6 +1,6 @@
-use crate::error::Error::InvalidMemoryCountError;
-use crate::instruction::{Instruction, Opcode};
-use crate::types::{FuncType, ValueType};
+use super::error::Error::InvalidMemoryCountError;
+use super::instruction::{Instruction, Opcode};
+use super::types::{FuncType, ValueType};
 use anyhow::{bail, Context, Result};
 use num_traits::FromPrimitive;
 use std::io::{BufRead, Cursor, Read};

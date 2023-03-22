@@ -1,19 +1,20 @@
 #[cfg(test)]
 mod tests {
     use anyhow::*;
-    use chibiwasm::{runtime::Runtime, value::Value};
+    use chibiwasm::runtime::runtime::Runtime;
+    use chibiwasm::runtime::value::Value;
     use std::io::{Cursor, Read};
     use std::{fs, path::Path};
     use wabt::{script::*, Features};
 
-    fn into_wasm_value(values: Vec<wabt::script::Value>) -> Vec<chibiwasm::value::Value> {
+    fn into_wasm_value(values: Vec<wabt::script::Value>) -> Vec<Value> {
         values
             .into_iter()
             .map(|a| match a {
-                wabt::script::Value::I32(v) => chibiwasm::value::Value::I32(v),
-                wabt::script::Value::I64(v) => chibiwasm::value::Value::I64(v),
-                wabt::script::Value::F32(v) => chibiwasm::value::Value::F32(v),
-                wabt::script::Value::F64(v) => chibiwasm::value::Value::F64(v),
+                wabt::script::Value::I32(v) => Value::I32(v),
+                wabt::script::Value::I64(v) => Value::I64(v),
+                wabt::script::Value::F32(v) => Value::F32(v),
+                wabt::script::Value::F64(v) => Value::F64(v),
                 wabt::script::Value::V128(_) => todo!(),
             })
             .collect()

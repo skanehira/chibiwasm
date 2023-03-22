@@ -1,9 +1,10 @@
-use crate::instruction::*;
-use crate::module::{Decoder, Module};
-use crate::section::ExportDesc;
-use crate::types::FuncType;
-use crate::value::{ExternalVal, Function, Value};
-use anyhow::{bail, Context, Result};
+use super::op::*;
+use super::value::{ExternalVal, Function, Value};
+use crate::binary::instruction::*;
+use crate::binary::module::{Decoder, Module};
+use crate::binary::section::ExportDesc;
+use crate::binary::types::FuncType;
+use anyhow::{bail, Context as _, Result};
 use std::collections::HashMap;
 use std::fs;
 use std::io::{Cursor, Read};

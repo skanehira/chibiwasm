@@ -1,7 +1,4 @@
-use crate::{
-    section::{Export, FunctionBody, Mem, Section, SectionID},
-    types::FuncType,
-};
+use super::{section::*, types::*};
 use anyhow::{bail, Result};
 use std::io;
 use std::{
