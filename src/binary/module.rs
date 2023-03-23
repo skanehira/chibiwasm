@@ -6,7 +6,7 @@ use std::{
     u8,
 };
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 pub struct Module {
     pub magic: String,
     pub version: u32,
@@ -103,9 +103,7 @@ impl<R: io::Read> Decoder<R> {
                 SectionID::Custom
                 | SectionID::Import
                 | SectionID::Table
-                | SectionID::Memory
                 | SectionID::Global
-                | SectionID::Export
                 | SectionID::Start
                 | SectionID::Element
                 | SectionID::Data => {
@@ -120,5 +118,44 @@ impl<R: io::Read> Decoder<R> {
             module.add_section(section);
         }
         Ok(module)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::Decoder;
+    use anyhow::Result;
+    use insta::assert_debug_snapshot;
+    use wabt::wat2wasm;
+
+    #[test]
+    fn test_decode_module() -> Result<()> {
+        let source = r#"
+(module
+  (memory 1 256)
+  (func (export "test") (param i32)
+    (i32.add
+      (local.get 0)
+      (i32.const 1)
+    )
+    (drop)
+  )
+  (func (export "test2") (param i32) (param i32) (result i32)
+    (i32.add
+      (local.get 0)
+      (local.get 1)
+    )
+  )
+)
+            "#;
+        let wasm = wat2wasm(source)?;
+
+        let reader = std::io::Cursor::new(wasm);
+        let mut decoder = Decoder::new(reader);
+        let module = decoder.decode()?;
+
+        assert_debug_snapshot!(module);
+
+        Ok(())
     }
 }

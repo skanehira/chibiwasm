@@ -45,20 +45,20 @@ impl From<u8> for SectionID {
 }
 
 // https://webassembly.github.io/spec/core/binary/modules.html#binary-codesec
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 #[allow(dead_code)]
 pub struct FunctionLocal {
     type_count: u32,
     value_type: ValueType,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct FunctionBody {
     pub locals: Vec<FunctionLocal>,
     pub code: Vec<Instruction>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ExportDesc {
     Func(u32),
     Table(u32),
@@ -66,7 +66,7 @@ pub enum ExportDesc {
     Global(u32),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Export {
     pub name: String,
     pub desc: ExportDesc,
@@ -79,26 +79,26 @@ pub enum Section {
     Function(Vec<u32>),
     Code(Vec<FunctionBody>),
     Export(Vec<Export>),
-    Mem(Vec<Mem>),
+    Mem(Vec<Mem>), // only 1 memory
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Mem {
     pub limits: Limits,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Limits {
     pub min: u32,
     pub max: Option<u32>,
 }
 
-pub struct SectionReader {
-    buf: Cursor<Vec<u8>>,
+pub struct SectionReader<T> {
+    buf: Cursor<T>,
 }
 
-impl SectionReader {
-    fn new(buf: Vec<u8>) -> Self {
+impl<T: AsRef<[u8]>> SectionReader<T> {
+    fn new(buf: T) -> Self {
         Self {
             buf: Cursor::new(buf),
         }
@@ -144,7 +144,7 @@ impl SectionReader {
     }
 }
 
-pub fn decode(id: SectionID, data: Vec<u8>) -> Result<Section> {
+pub fn decode<T: AsRef<[u8]>>(id: SectionID, data: T) -> Result<Section> {
     let mut reader = SectionReader::new(data);
     let section = match id {
         SectionID::Type => decode_type_section(&mut reader)?,
@@ -157,7 +157,7 @@ pub fn decode(id: SectionID, data: Vec<u8>) -> Result<Section> {
     Ok(section)
 }
 
-fn decode_memory_section(reader: &mut SectionReader) -> Result<Section> {
+fn decode_memory_section<T: AsRef<[u8]>>(reader: &mut SectionReader<T>) -> Result<Section> {
     let count = reader.u32()?;
     let mut mems: Vec<Mem> = vec![];
     if count != 1 {
@@ -180,7 +180,7 @@ fn decode_memory_section(reader: &mut SectionReader) -> Result<Section> {
     Ok(Section::Mem(mems))
 }
 
-fn decode_type_section(reader: &mut SectionReader) -> Result<Section> {
+fn decode_type_section<T: AsRef<[u8]>>(reader: &mut SectionReader<T>) -> Result<Section> {
     let mut func_types: Vec<FuncType> = vec![];
 
     // size of function types
@@ -213,7 +213,7 @@ fn decode_type_section(reader: &mut SectionReader) -> Result<Section> {
     Ok(Section::Type(func_types))
 }
 
-fn decode_function_section(reader: &mut SectionReader) -> Result<Section> {
+fn decode_function_section<T: AsRef<[u8]>>(reader: &mut SectionReader<T>) -> Result<Section> {
     let mut func_idx: Vec<u32> = vec![];
     let count = reader.u32()?;
     for _ in 0..count {
@@ -222,7 +222,7 @@ fn decode_function_section(reader: &mut SectionReader) -> Result<Section> {
     Ok(Section::Function(func_idx))
 }
 
-fn decode_export_section(reader: &mut SectionReader) -> Result<Section> {
+fn decode_export_section<T: AsRef<[u8]>>(reader: &mut SectionReader<T>) -> Result<Section> {
     let count = reader.u32()?;
     let mut exports: Vec<Export> = vec![];
     for _ in 0..count {
@@ -243,7 +243,7 @@ fn decode_export_section(reader: &mut SectionReader) -> Result<Section> {
     Ok(Section::Export(exports))
 }
 
-fn decode_code_section(reader: &mut SectionReader) -> Result<Section> {
+fn decode_code_section<T: AsRef<[u8]>>(reader: &mut SectionReader<T>) -> Result<Section> {
     let mut functions: Vec<FunctionBody> = vec![];
     // size of function
     let count = reader.u32()?;
@@ -256,7 +256,7 @@ fn decode_code_section(reader: &mut SectionReader) -> Result<Section> {
     Ok(Section::Code(functions))
 }
 
-fn decode_function_body(reader: &mut SectionReader) -> Result<FunctionBody> {
+fn decode_function_body<T: AsRef<[u8]>>(reader: &mut SectionReader<T>) -> Result<FunctionBody> {
     let mut function_body = FunctionBody::default();
 
     // count of local variable declarations

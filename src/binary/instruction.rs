@@ -124,7 +124,7 @@ pub enum Opcode {
     Drop = 0x1A,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Instruction {
     Unreachable,
     Nop,

@@ -1,5 +1,5 @@
 // https://webassembly.github.io/spec/core/binary/types.html#value-types
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ValueType {
     I32, // 0x7F
     I64, // 0x7E
@@ -20,7 +20,7 @@ impl From<u8> for ValueType {
 }
 
 // https://webassembly.github.io/spec/core/binary/types.html#function-types
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct FuncType {
     pub params: Vec<ValueType>,
     pub results: Vec<ValueType>,

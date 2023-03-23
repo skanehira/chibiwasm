@@ -1,0 +1,92 @@
+---
+source: src/binary/module.rs
+expression: module
+---
+Module {
+    magic: "\0asm",
+    version: 1,
+    type_section: Some(
+        [
+            FuncType {
+                params: [
+                    I32,
+                ],
+                results: [],
+            },
+            FuncType {
+                params: [
+                    I32,
+                    I32,
+                ],
+                results: [
+                    I32,
+                ],
+            },
+        ],
+    ),
+    function_section: Some(
+        [
+            0,
+            1,
+        ],
+    ),
+    code_section: Some(
+        [
+            FunctionBody {
+                locals: [],
+                code: [
+                    LocalGet(
+                        0,
+                    ),
+                    I32Const(
+                        1,
+                    ),
+                    I32Add,
+                    Drop,
+                    End,
+                ],
+            },
+            FunctionBody {
+                locals: [],
+                code: [
+                    LocalGet(
+                        0,
+                    ),
+                    LocalGet(
+                        1,
+                    ),
+                    I32Add,
+                    End,
+                ],
+            },
+        ],
+    ),
+    export_section: Some(
+        [
+            Export {
+                name: "test",
+                desc: Func(
+                    0,
+                ),
+            },
+            Export {
+                name: "test2",
+                desc: Func(
+                    1,
+                ),
+            },
+        ],
+    ),
+    mem_section: Some(
+        [
+            Mem {
+                limits: Limits {
+                    min: 1,
+                    max: Some(
+                        256,
+                    ),
+                },
+            },
+        ],
+    ),
+}
