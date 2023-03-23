@@ -27,7 +27,6 @@ impl Module {
             Section::Export(section) => self.export_section = Some(section),
             Section::Mem(section) => self.mem_section = Some(section),
             Section::Table(section) => self.table_section = Some(section),
-
         };
     }
 }
@@ -108,15 +107,13 @@ impl<R: io::Read> Decoder<R> {
                 | SectionID::Global
                 | SectionID::Start
                 | SectionID::Element
-                | SectionID::Data => {
-                    unimplemented!();
-                }
+                | SectionID::Data => break,
                 _ => {
                     // do nothing
                 }
             }
             let bytes = self.bytes(size as usize)?;
-            let section = decode(id, bytes)?;
+            let section = decode(id, &bytes)?;
             module.add_section(section);
         }
         Ok(module)

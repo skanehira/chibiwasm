@@ -44,23 +44,12 @@ impl From<u8> for SectionID {
     }
 }
 
-// https://webassembly.github.io/spec/core/binary/modules.html#sections
-#[derive(Debug)]
-pub enum Section {
-    Type(Vec<FuncType>),
-    Function(Vec<u32>),
-    Code(Vec<FunctionBody>),
-    Export(Vec<Export>),
-    Mem(Vec<Mem>), // only 1 memory for now
-    Table(Vec<Table>),
+pub struct SectionReader<'a> {
+    buf: Cursor<&'a [u8]>,
 }
 
-pub struct SectionReader<T> {
-    buf: Cursor<T>,
-}
-
-impl<T: AsRef<[u8]>> SectionReader<T> {
-    fn new(buf: T) -> Self {
+impl<'a> SectionReader<'a> {
+    fn new(buf: &'a [u8]) -> Self {
         Self {
             buf: Cursor::new(buf),
         }
@@ -106,7 +95,18 @@ impl<T: AsRef<[u8]>> SectionReader<T> {
     }
 }
 
-pub fn decode<T: AsRef<[u8]>>(id: SectionID, data: T) -> Result<Section> {
+// https://webassembly.github.io/spec/core/binary/modules.html#sections
+#[derive(Debug)]
+pub enum Section {
+    Type(Vec<FuncType>),
+    Function(Vec<u32>),
+    Code(Vec<FunctionBody>),
+    Export(Vec<Export>),
+    Mem(Vec<Mem>), // only 1 memory for now
+    Table(Vec<Table>),
+}
+
+pub fn decode(id: SectionID, data: &[u8]) -> Result<Section> {
     let mut reader = SectionReader::new(data);
     let section = match id {
         SectionID::Type => decode_type_section(&mut reader)?,
@@ -120,7 +120,7 @@ pub fn decode<T: AsRef<[u8]>>(id: SectionID, data: T) -> Result<Section> {
     Ok(section)
 }
 
-fn decode_table_secttion<T: AsRef<[u8]>>(reader: &mut SectionReader<T>) -> Result<Section> {
+fn decode_table_secttion(reader: &mut SectionReader) -> Result<Section> {
     let count = reader.u32()?;
     if count != 1 {
         bail!(InvalidTableCountError);
@@ -141,7 +141,7 @@ fn decode_table_secttion<T: AsRef<[u8]>>(reader: &mut SectionReader<T>) -> Resul
     Ok(Section::Table(tables))
 }
 
-fn decode_limits<T: AsRef<[u8]>>(reader: &mut SectionReader<T>) -> Result<Limits> {
+fn decode_limits(reader: &mut SectionReader) -> Result<Limits> {
     let limits = reader.u32()?;
     let min = reader.u32()?;
     let max = if limits == 0x00 {
@@ -153,7 +153,7 @@ fn decode_limits<T: AsRef<[u8]>>(reader: &mut SectionReader<T>) -> Result<Limits
     Ok(Limits { min, max })
 }
 
-fn decode_memory_section<T: AsRef<[u8]>>(reader: &mut SectionReader<T>) -> Result<Section> {
+fn decode_memory_section(reader: &mut SectionReader) -> Result<Section> {
     let count = reader.u32()?;
     let mut mems: Vec<Mem> = vec![];
     if count != 1 {
@@ -167,7 +167,7 @@ fn decode_memory_section<T: AsRef<[u8]>>(reader: &mut SectionReader<T>) -> Resul
     Ok(Section::Mem(mems))
 }
 
-fn decode_type_section<T: AsRef<[u8]>>(reader: &mut SectionReader<T>) -> Result<Section> {
+fn decode_type_section(reader: &mut SectionReader) -> Result<Section> {
     let mut func_types: Vec<FuncType> = vec![];
 
     // size of function types
@@ -200,7 +200,7 @@ fn decode_type_section<T: AsRef<[u8]>>(reader: &mut SectionReader<T>) -> Result<
     Ok(Section::Type(func_types))
 }
 
-fn decode_function_section<T: AsRef<[u8]>>(reader: &mut SectionReader<T>) -> Result<Section> {
+fn decode_function_section(reader: &mut SectionReader) -> Result<Section> {
     let mut func_idx: Vec<u32> = vec![];
     let count = reader.u32()?;
     for _ in 0..count {
@@ -209,7 +209,7 @@ fn decode_function_section<T: AsRef<[u8]>>(reader: &mut SectionReader<T>) -> Res
     Ok(Section::Function(func_idx))
 }
 
-fn decode_export_section<T: AsRef<[u8]>>(reader: &mut SectionReader<T>) -> Result<Section> {
+fn decode_export_section(reader: &mut SectionReader) -> Result<Section> {
     let count = reader.u32()?;
     let mut exports: Vec<Export> = vec![];
     for _ in 0..count {
@@ -230,20 +230,21 @@ fn decode_export_section<T: AsRef<[u8]>>(reader: &mut SectionReader<T>) -> Resul
     Ok(Section::Export(exports))
 }
 
-fn decode_code_section<T: AsRef<[u8]>>(reader: &mut SectionReader<T>) -> Result<Section> {
+fn decode_code_section(reader: &mut SectionReader) -> Result<Section> {
     let mut functions: Vec<FunctionBody> = vec![];
     // size of function
     let count = reader.u32()?;
 
     for _ in 0..count {
         let func_body_size = reader.u32()?;
-        let mut body = SectionReader::new(reader.bytes(func_body_size as usize)?);
+        let bytes = reader.bytes(func_body_size as usize)?;
+        let mut body = SectionReader::new(&bytes);
         functions.push(decode_function_body(&mut body)?);
     }
     Ok(Section::Code(functions))
 }
 
-fn decode_function_body<T: AsRef<[u8]>>(reader: &mut SectionReader<T>) -> Result<FunctionBody> {
+fn decode_function_body(reader: &mut SectionReader) -> Result<FunctionBody> {
     let mut function_body = FunctionBody::default();
 
     // count of local variable declarations
