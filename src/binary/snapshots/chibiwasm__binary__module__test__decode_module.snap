@@ -148,6 +148,22 @@ Module {
             },
         ],
     ),
+    data: Some(
+        [
+            Data {
+                memory_index: 0,
+                offset: I32(
+                    1,
+                ),
+                init: [
+                    97,
+                    98,
+                    99,
+                    100,
+                ],
+            },
+        ],
+    ),
     code_section: Some(
         [
             FunctionBody {

@@ -126,3 +126,10 @@ pub struct Element {
     pub offset: ExprValue,
     pub init: Vec<u32>,
 }
+
+#[derive(Debug, PartialEq)]
+pub struct Data {
+    pub memory_index: u32,
+    pub offset: ExprValue,
+    pub init: Vec<u8>,
+}

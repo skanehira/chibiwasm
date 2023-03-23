@@ -7,7 +7,7 @@ use std::io::{BufRead, Cursor, Read};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum SectionID {
-    Custom,
+    // Custom doesn't include in wasm binary
     Type,
     Import,
     Function,
@@ -26,7 +26,7 @@ pub enum SectionID {
 impl From<u8> for SectionID {
     fn from(id: u8) -> Self {
         match id {
-            0x00 => SectionID::Custom,
+            //0x00 => SectionID::Custom,
             0x01 => SectionID::Type,
             0x02 => SectionID::Import,
             0x03 => SectionID::Function,
@@ -121,6 +121,7 @@ pub enum Section {
     Export(Vec<Export>),
     Start(u32),
     Element(Vec<Element>),
+    Data(Vec<Data>),
     Code(Vec<FunctionBody>),
 }
 
@@ -136,10 +137,33 @@ pub fn decode(id: SectionID, data: &[u8]) -> Result<Section> {
         SectionID::Export => decode_export_section(&mut reader)?,
         SectionID::Start => decode_start_section(&mut reader)?,
         SectionID::Element => decode_element_section(&mut reader)?,
+        SectionID::Data => decode_data_section(&mut reader)?,
         SectionID::Code => decode_code_section(&mut reader)?,
         _ => bail!("Unimplemented: {:x}", id as u8),
     };
     Ok(section)
+}
+
+fn decode_data_section(reader: &mut SectionReader) -> Result<Section> {
+    let mut data = vec![];
+    let count = reader.u32()?;
+    for _ in 0..count {
+        let mut init = vec![];
+        let memory_index = reader.u32()?;
+        let offset = decode_expr(reader)?;
+        let count = reader.u32()?;
+        for _ in 0..count {
+            let byte = reader.byte()?;
+            init.push(byte);
+        }
+        data.push(Data {
+            memory_index,
+            offset,
+            init,
+        });
+    }
+
+    Ok(Section::Data(data))
 }
 
 fn decode_element_section(reader: &mut SectionReader) -> Result<Section> {
