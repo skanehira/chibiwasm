@@ -24,10 +24,69 @@ Module {
             },
         ],
     ),
+    import_section: Some(
+        [
+            Import {
+                module_name: "test",
+                field_name: "print_i32",
+                kind: Func(
+                    0,
+                ),
+            },
+            Import {
+                module_name: "test",
+                field_name: "memory-2-inf",
+                kind: Table(
+                    Table {
+                        elem_type: FuncRef,
+                        limits: Limits {
+                            min: 10,
+                            max: None,
+                        },
+                    },
+                ),
+            },
+            Import {
+                module_name: "test",
+                field_name: "global-i32",
+                kind: Global(
+                    GlobalType {
+                        value_type: I32,
+                        mutability: Const,
+                    },
+                ),
+            },
+        ],
+    ),
     function_section: Some(
         [
             0,
             1,
+        ],
+    ),
+    table_section: Some(
+        [
+            Table {
+                elem_type: FuncRef,
+                limits: Limits {
+                    min: 1,
+                    max: Some(
+                        256,
+                    ),
+                },
+            },
+        ],
+    ),
+    memory_section: Some(
+        [
+            Mem {
+                limits: Limits {
+                    min: 1,
+                    max: Some(
+                        256,
+                    ),
+                },
+            },
         ],
     ),
     code_section: Some(
@@ -66,39 +125,14 @@ Module {
             Export {
                 name: "test",
                 desc: Func(
-                    0,
+                    1,
                 ),
             },
             Export {
                 name: "test2",
                 desc: Func(
-                    1,
+                    2,
                 ),
-            },
-        ],
-    ),
-    mem_section: Some(
-        [
-            Mem {
-                limits: Limits {
-                    min: 1,
-                    max: Some(
-                        256,
-                    ),
-                },
-            },
-        ],
-    ),
-    table_section: Some(
-        [
-            Table {
-                elem_type: FuncRef,
-                limits: Limits {
-                    min: 1,
-                    max: Some(
-                        256,
-                    ),
-                },
             },
         ],
     ),

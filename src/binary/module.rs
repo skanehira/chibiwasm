@@ -11,24 +11,26 @@ pub struct Module {
     pub magic: String,
     pub version: u32,
     pub type_section: Option<Vec<FuncType>>,
+    pub import_section: Option<Vec<Import>>,
     pub function_section: Option<Vec<u32>>,
-    pub code_section: Option<Vec<FunctionBody>>,
-    pub export_section: Option<Vec<Export>>,
-    pub mem_section: Option<Vec<Mem>>,
     pub table_section: Option<Vec<Table>>,
+    pub memory_section: Option<Vec<Memory>>,
     pub global_section: Option<Vec<Global>>,
+    pub export_section: Option<Vec<Export>>,
+    pub code_section: Option<Vec<FunctionBody>>,
 }
 
 impl Module {
     pub fn add_section(&mut self, section: Section) {
         match section {
             Section::Type(section) => self.type_section = Some(section),
+            Section::Import(section) => self.import_section = Some(section),
             Section::Function(section) => self.function_section = Some(section),
-            Section::Code(section) => self.code_section = Some(section),
-            Section::Export(section) => self.export_section = Some(section),
-            Section::Mem(section) => self.mem_section = Some(section),
             Section::Table(section) => self.table_section = Some(section),
+            Section::Memory(section) => self.memory_section = Some(section),
             Section::Global(section) => self.global_section = Some(section),
+            Section::Export(section) => self.export_section = Some(section),
+            Section::Code(section) => self.code_section = Some(section),
         };
     }
 }
@@ -104,11 +106,9 @@ impl<R: io::Read> Decoder<R> {
             let (id, size) = self.decode_section_header()?;
             // TODO: decode other sections
             match id {
-                SectionID::Custom
-                | SectionID::Import
-                | SectionID::Start
-                | SectionID::Element
-                | SectionID::Data => break,
+                SectionID::Custom | SectionID::Start | SectionID::Element | SectionID::Data => {
+                    break
+                }
                 _ => {
                     // do nothing
                 }
@@ -132,10 +132,22 @@ mod test {
     fn test_decode_module() -> Result<()> {
         let source = r#"
 (module
+  ;; import section
+  (import "test" "print_i32" (func $imported_print (param i32)))
+  (import "test" "memory-2-inf" (table 10 funcref))
+  (import "test" "global-i32" (global i32))
+
+  ;; memory section
   (memory 1 256)
+
+  ;; table section
   (table 1 256 funcref)
+
+  ;; global section
   (global $a i32 (i32.const -2))
   (global $x (mut f32) (f32.const 5.5))
+
+  ;; function section
   (func (export "test") (param i32)
     (i32.add
       (local.get 0)

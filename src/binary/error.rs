@@ -13,4 +13,6 @@ pub enum Error {
     InvalidInitExprOpcodeError(Opcode),
     #[error("invalid end instruction in expressions, got {0:?}")]
     InvalidInitExprEndOpcodeError(Opcode),
+    #[error("invalid import kind at import section, got {0}")]
+    InvalidImportKind(u8),
 }

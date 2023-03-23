@@ -98,6 +98,12 @@ impl<'a> SectionReader<'a> {
         Ok(buf)
     }
 
+    fn string(&mut self, size: usize) -> Result<String> {
+        let bytes = self.bytes(size)?;
+        let string = String::from_utf8(bytes)?;
+        Ok(string)
+    }
+
     fn is_end(&mut self) -> Result<bool> {
         Ok(self.buf.fill_buf().map(|b| !b.is_empty())?)
     }
@@ -110,37 +116,93 @@ pub enum Section {
     Function(Vec<u32>),
     Code(Vec<FunctionBody>),
     Export(Vec<Export>),
-    Mem(Vec<Mem>), // only 1 memory for now
+    Memory(Vec<Memory>), // only 1 memory for now
     Table(Vec<Table>),
     Global(Vec<Global>),
+    Import(Vec<Import>),
 }
 
 pub fn decode(id: SectionID, data: &[u8]) -> Result<Section> {
     let mut reader = SectionReader::new(data);
     let section = match id {
         SectionID::Type => decode_type_section(&mut reader)?,
-        SectionID::Code => decode_code_section(&mut reader)?,
         SectionID::Function => decode_function_section(&mut reader)?,
-        SectionID::Export => decode_export_section(&mut reader)?,
-        SectionID::Memory => decode_memory_section(&mut reader)?,
         SectionID::Table => decode_table_secttion(&mut reader)?,
+        SectionID::Memory => decode_memory_section(&mut reader)?,
         SectionID::Global => decode_global_section(&mut reader)?,
+        SectionID::Export => decode_export_section(&mut reader)?,
+        SectionID::Code => decode_code_section(&mut reader)?,
+        SectionID::Import => decode_import_section(&mut reader)?,
         _ => bail!("Unimplemented: {:x}", id as u8),
     };
     Ok(section)
+}
+
+fn decode_import_section(reader: &mut SectionReader) -> Result<Section> {
+    let count = reader.u32()?;
+    let mut imports = vec![];
+
+    for _ in 0..count {
+        // module name
+        let size = reader.u32()? as usize;
+        let module_name = reader.string(size)?;
+
+        // field name
+        let size = reader.u32()? as usize;
+        let field_name = reader.string(size)?;
+
+        // implrt kind
+        let import_kind = reader.byte()?;
+        let kind = match import_kind {
+            0x00 => {
+                // function
+                let type_index = reader.u32()?;
+                ImportKind::Func(type_index)
+            }
+            0x01 => {
+                // table
+                let table = decode_table(reader)?;
+                ImportKind::Table(table)
+            }
+            0x02 => {
+                // memory
+                let mem = decode_memory(reader)?;
+                ImportKind::Memory(mem)
+            }
+            0x03 => {
+                // global
+                let global_type = decode_global_type(reader)?;
+                ImportKind::Global(global_type)
+            }
+            _ => bail!(InvalidImportKind(import_kind)),
+        };
+
+        imports.push(Import {
+            module_name,
+            field_name,
+            kind,
+        })
+    }
+
+    Ok(Section::Import(imports))
+}
+
+fn decode_global_type(reader: &mut SectionReader) -> Result<GlobalType> {
+    let value_type = reader.byte()?;
+    let mutability = reader.byte()?;
+    let global_type = GlobalType {
+        value_type: value_type.into(),
+        mutability: FromPrimitive::from_u8(mutability).unwrap(),
+    };
+    Ok(global_type)
 }
 
 fn decode_global_section(reader: &mut SectionReader) -> Result<Section> {
     let count = reader.u32()?;
     let mut globals = vec![];
     for _ in 0..count {
-        let value_type = reader.byte()?;
-        let mutability = reader.byte()?;
+        let global_type = decode_global_type(reader)?;
         let init_expr = decode_init_expr(reader)?;
-        let global_type = GlobalType {
-            value_type: value_type.into(),
-            mutability: FromPrimitive::from_u8(mutability).unwrap(),
-        };
         let global = Global {
             global_type,
             init_expr,
@@ -179,6 +241,19 @@ fn decode_init_expr(reader: &mut SectionReader) -> Result<ExprValue> {
     Ok(value)
 }
 
+fn decode_table(reader: &mut SectionReader) -> Result<Table> {
+    let elem_type = reader.byte()?;
+    if elem_type != 0x70 {
+        bail!(InvalidElmTypeError(elem_type));
+    }
+    let limits = decode_limits(reader)?;
+    let table = Table {
+        elem_type: FromPrimitive::from_u8(elem_type).unwrap(),
+        limits,
+    };
+    Ok(table)
+}
+
 fn decode_table_secttion(reader: &mut SectionReader) -> Result<Section> {
     let count = reader.u32()?;
     if count != 1 {
@@ -186,15 +261,7 @@ fn decode_table_secttion(reader: &mut SectionReader) -> Result<Section> {
     }
     let mut tables = vec![];
     for _ in 0..count {
-        let elem_type = reader.byte()?;
-        if elem_type != 0x70 {
-            bail!(InvalidElmTypeError(elem_type));
-        }
-        let limits = decode_limits(reader)?;
-        let table = Table {
-            elem_type: FromPrimitive::from_u8(elem_type).unwrap(),
-            limits,
-        };
+        let table = decode_table(reader)?;
         tables.push(table);
     }
     Ok(Section::Table(tables))
@@ -212,18 +279,21 @@ fn decode_limits(reader: &mut SectionReader) -> Result<Limits> {
     Ok(Limits { min, max })
 }
 
+fn decode_memory(reader: &mut SectionReader) -> Result<Memory> {
+    let limits = decode_limits(reader)?;
+    Ok(Memory { limits })
+}
+
 fn decode_memory_section(reader: &mut SectionReader) -> Result<Section> {
     let count = reader.u32()?;
-    let mut mems: Vec<Mem> = vec![];
+    let mut mems: Vec<Memory> = vec![];
     if count != 1 {
         bail!(InvalidMemoryCountError);
     }
     for _ in 0..count {
-        let limits = decode_limits(reader)?;
-        let mem = Mem { limits };
-        mems.push(mem);
+        mems.push(decode_memory(reader)?);
     }
-    Ok(Section::Mem(mems))
+    Ok(Section::Memory(mems))
 }
 
 fn decode_type_section(reader: &mut SectionReader) -> Result<Section> {

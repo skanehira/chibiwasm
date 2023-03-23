@@ -69,7 +69,7 @@ pub struct Table {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Mem {
+pub struct Memory {
     pub limits: Limits,
 }
 
@@ -103,4 +103,19 @@ pub enum ExprValue {
 pub struct Global {
     pub global_type: GlobalType,
     pub init_expr: ExprValue,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ImportKind {
+    Func(u32),
+    Table(Table),
+    Memory(Memory),
+    Global(GlobalType),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Import {
+    pub module_name: String,
+    pub field_name: String,
+    pub kind: ImportKind,
 }
