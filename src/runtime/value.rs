@@ -1,6 +1,6 @@
 use super::{float::*, integer::*};
 use crate::binary::instruction::*;
-use crate::binary::section::ExportDesc;
+use crate::binary::types::ExportDesc;
 use crate::binary::types::FuncType;
 use anyhow::Result;
 use std::fmt::Display;

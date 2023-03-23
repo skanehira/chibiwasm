@@ -1,8 +1,7 @@
 use super::error::Error::*;
 use super::instruction::{Instruction, Opcode};
-use super::types::{FuncType, ValueType};
+use super::types::*;
 use anyhow::{bail, Context, Result};
-use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use std::io::{BufRead, Cursor, Read};
 
@@ -45,34 +44,6 @@ impl From<u8> for SectionID {
     }
 }
 
-// https://webassembly.github.io/spec/core/binary/modules.html#binary-codesec
-#[derive(Debug, Clone, PartialEq)]
-#[allow(dead_code)]
-pub struct FunctionLocal {
-    type_count: u32,
-    value_type: ValueType,
-}
-
-#[derive(Debug, Default, Clone, PartialEq)]
-pub struct FunctionBody {
-    pub locals: Vec<FunctionLocal>,
-    pub code: Vec<Instruction>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum ExportDesc {
-    Func(u32),
-    Table(u32),
-    Memory(u32),
-    Global(u32),
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Export {
-    pub name: String,
-    pub desc: ExportDesc,
-}
-
 // https://webassembly.github.io/spec/core/binary/modules.html#sections
 #[derive(Debug)]
 pub enum Section {
@@ -82,28 +53,6 @@ pub enum Section {
     Export(Vec<Export>),
     Mem(Vec<Mem>), // only 1 memory for now
     Table(Vec<Table>),
-}
-
-#[derive(Debug, PartialEq, FromPrimitive)]
-pub enum ElemType {
-    FuncRef = 0x70,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Table {
-    pub elem_type: ElemType,
-    pub limits: Limits,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Mem {
-    pub limits: Limits,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Limits {
-    pub min: u32,
-    pub max: Option<u32>,
 }
 
 pub struct SectionReader<T> {

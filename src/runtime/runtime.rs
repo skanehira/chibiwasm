@@ -2,7 +2,7 @@ use super::op::*;
 use super::value::{ExternalVal, Function, Value};
 use crate::binary::instruction::*;
 use crate::binary::module::{Decoder, Module};
-use crate::binary::section::ExportDesc;
+use crate::binary::types::ExportDesc;
 use crate::binary::types::FuncType;
 use anyhow::{bail, Context as _, Result};
 use std::collections::HashMap;
