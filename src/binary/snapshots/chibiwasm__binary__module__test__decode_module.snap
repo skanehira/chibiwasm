@@ -89,4 +89,17 @@ Module {
             },
         ],
     ),
+    table_section: Some(
+        [
+            Table {
+                elem_type: FuncRef,
+                limits: Limits {
+                    min: 1,
+                    max: Some(
+                        256,
+                    ),
+                },
+            },
+        ],
+    ),
 }

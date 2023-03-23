@@ -1,7 +1,8 @@
-use super::error::Error::InvalidMemoryCountError;
+use super::error::Error::*;
 use super::instruction::{Instruction, Opcode};
 use super::types::{FuncType, ValueType};
 use anyhow::{bail, Context, Result};
+use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use std::io::{BufRead, Cursor, Read};
 
@@ -79,7 +80,19 @@ pub enum Section {
     Function(Vec<u32>),
     Code(Vec<FunctionBody>),
     Export(Vec<Export>),
-    Mem(Vec<Mem>), // only 1 memory
+    Mem(Vec<Mem>), // only 1 memory for now
+    Table(Vec<Table>),
+}
+
+#[derive(Debug, PartialEq, FromPrimitive)]
+pub enum ElemType {
+    FuncRef = 0x70,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Table {
+    pub elem_type: ElemType,
+    pub limits: Limits,
 }
 
 #[derive(Debug, PartialEq)]
@@ -152,9 +165,43 @@ pub fn decode<T: AsRef<[u8]>>(id: SectionID, data: T) -> Result<Section> {
         SectionID::Function => decode_function_section(&mut reader)?,
         SectionID::Export => decode_export_section(&mut reader)?,
         SectionID::Memory => decode_memory_section(&mut reader)?,
+        SectionID::Table => decode_table_secttion(&mut reader)?,
         _ => bail!("Unimplemented: {:x}", id as u8),
     };
     Ok(section)
+}
+
+fn decode_table_secttion<T: AsRef<[u8]>>(reader: &mut SectionReader<T>) -> Result<Section> {
+    let count = reader.u32()?;
+    if count != 1 {
+        bail!(InvalidTableCountError);
+    }
+    let mut tables = vec![];
+    for _ in 0..count {
+        let elem_type = reader.byte()?;
+        if elem_type != 0x70 {
+            bail!(InvalidElmTypeError(elem_type));
+        }
+        let limits = decode_limits(reader)?;
+        let table = Table {
+            elem_type: FromPrimitive::from_u8(elem_type).unwrap(),
+            limits,
+        };
+        tables.push(table);
+    }
+    Ok(Section::Table(tables))
+}
+
+fn decode_limits<T: AsRef<[u8]>>(reader: &mut SectionReader<T>) -> Result<Limits> {
+    let limits = reader.u32()?;
+    let min = reader.u32()?;
+    let max = if limits == 0x00 {
+        None
+    } else {
+        let max = reader.u32()?;
+        Some(max)
+    };
+    Ok(Limits { min, max })
 }
 
 fn decode_memory_section<T: AsRef<[u8]>>(reader: &mut SectionReader<T>) -> Result<Section> {
@@ -164,17 +211,8 @@ fn decode_memory_section<T: AsRef<[u8]>>(reader: &mut SectionReader<T>) -> Resul
         bail!(InvalidMemoryCountError);
     }
     for _ in 0..count {
-        let limits = reader.u32()?;
-        let min = reader.u32()?;
-        let max = if limits == 0x00 {
-            None
-        } else {
-            let max = reader.u32()?;
-            Some(max)
-        };
-        let mem = Mem {
-            limits: Limits { min, max },
-        };
+        let limits = decode_limits(reader)?;
+        let mem = Mem { limits };
         mems.push(mem);
     }
     Ok(Section::Mem(mems))

@@ -15,6 +15,7 @@ pub struct Module {
     pub code_section: Option<Vec<FunctionBody>>,
     pub export_section: Option<Vec<Export>>,
     pub mem_section: Option<Vec<Mem>>,
+    pub table_section: Option<Vec<Table>>,
 }
 
 impl Module {
@@ -25,6 +26,8 @@ impl Module {
             Section::Code(section) => self.code_section = Some(section),
             Section::Export(section) => self.export_section = Some(section),
             Section::Mem(section) => self.mem_section = Some(section),
+            Section::Table(section) => self.table_section = Some(section),
+
         };
     }
 }
@@ -102,12 +105,11 @@ impl<R: io::Read> Decoder<R> {
             match id {
                 SectionID::Custom
                 | SectionID::Import
-                | SectionID::Table
                 | SectionID::Global
                 | SectionID::Start
                 | SectionID::Element
                 | SectionID::Data => {
-                    break;
+                    unimplemented!();
                 }
                 _ => {
                     // do nothing
@@ -133,6 +135,7 @@ mod test {
         let source = r#"
 (module
   (memory 1 256)
+  (table 1 256 funcref)
   (func (export "test") (param i32)
     (i32.add
       (local.get 0)
