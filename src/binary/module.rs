@@ -18,6 +18,7 @@ pub struct Module {
     pub global_section: Option<Vec<Global>>,
     pub export_section: Option<Vec<Export>>,
     pub start_section: Option<u32>,
+    pub element_section: Option<Vec<Element>>,
     pub code_section: Option<Vec<FunctionBody>>,
 }
 
@@ -32,6 +33,7 @@ impl Module {
             Section::Global(section) => self.global_section = Some(section),
             Section::Export(section) => self.export_section = Some(section),
             Section::Code(section) => self.code_section = Some(section),
+            Section::Element(section) => self.element_section = Some(section),
             Section::Start(section) => self.start_section = Some(section),
         };
     }
@@ -108,7 +110,7 @@ impl<R: io::Read> Decoder<R> {
             let (id, size) = self.decode_section_header()?;
             // TODO: decode other sections
             match id {
-                SectionID::Custom | SectionID::Element | SectionID::Data => break,
+                SectionID::Custom | SectionID::Data => break,
                 _ => {
                     // do nothing
                 }
@@ -162,6 +164,7 @@ mod test {
     )
   )
   (func $main (call $print_i32 (i32.const 2)))
+  (elem (i32.const 0) $main)
   (start $main)
 )
             "#;

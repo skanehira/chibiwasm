@@ -119,8 +119,9 @@ pub enum Section {
     Memory(Vec<Memory>), // only 1 memory for now
     Global(Vec<Global>),
     Export(Vec<Export>),
-    Code(Vec<FunctionBody>),
     Start(u32),
+    Element(Vec<Element>),
+    Code(Vec<FunctionBody>),
 }
 
 pub fn decode(id: SectionID, data: &[u8]) -> Result<Section> {
@@ -134,10 +135,33 @@ pub fn decode(id: SectionID, data: &[u8]) -> Result<Section> {
         SectionID::Global => decode_global_section(&mut reader)?,
         SectionID::Export => decode_export_section(&mut reader)?,
         SectionID::Start => decode_start_section(&mut reader)?,
+        SectionID::Element => decode_element_section(&mut reader)?,
         SectionID::Code => decode_code_section(&mut reader)?,
         _ => bail!("Unimplemented: {:x}", id as u8),
     };
     Ok(section)
+}
+
+fn decode_element_section(reader: &mut SectionReader) -> Result<Section> {
+    let mut elements = vec![];
+    let count = reader.u32()?;
+    for _ in 0..count {
+        let mut init = vec![];
+        let table_index = reader.u32()?;
+        let offset = decode_expr(reader)?;
+        let count = reader.u32()?;
+        for _ in 0..count {
+            let index = reader.u32()?;
+            init.push(index);
+        }
+        elements.push(Element {
+            table_index,
+            offset,
+            init,
+        });
+    }
+
+    Ok(Section::Element(elements))
 }
 
 fn decode_start_section(reader: &mut SectionReader) -> Result<Section> {
@@ -209,7 +233,7 @@ fn decode_global_section(reader: &mut SectionReader) -> Result<Section> {
     let mut globals = vec![];
     for _ in 0..count {
         let global_type = decode_global_type(reader)?;
-        let init_expr = decode_init_expr(reader)?;
+        let init_expr = decode_expr(reader)?;
         let global = Global {
             global_type,
             init_expr,
@@ -219,7 +243,7 @@ fn decode_global_section(reader: &mut SectionReader) -> Result<Section> {
     Ok(Section::Global(globals))
 }
 
-fn decode_init_expr(reader: &mut SectionReader) -> Result<ExprValue> {
+fn decode_expr(reader: &mut SectionReader) -> Result<ExprValue> {
     let opcode = FromPrimitive::from_u8(reader.byte()?).unwrap();
     let value = match opcode {
         Opcode::I32Const => {

@@ -119,3 +119,10 @@ pub struct Import {
     pub field_name: String,
     pub kind: ImportKind,
 }
+
+#[derive(Debug, PartialEq)]
+pub struct Element {
+    pub table_index: u32,
+    pub offset: ExprValue,
+    pub init: Vec<u32>,
+}
