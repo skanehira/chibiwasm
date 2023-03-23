@@ -5,6 +5,7 @@ expression: module
 Module {
     magic: "\0asm",
     version: 1,
+    custom_section: None,
     type_section: Some(
         [
             FuncType {

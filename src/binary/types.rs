@@ -133,3 +133,9 @@ pub struct Data {
     pub offset: ExprValue,
     pub init: Vec<u8>,
 }
+
+#[derive(Default, Debug, PartialEq)]
+pub struct Custom {
+    name: String,
+    data: Vec<u8>,
+}

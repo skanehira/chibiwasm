@@ -2,31 +2,30 @@ use super::error::Error::*;
 use super::instruction::{Instruction, Opcode};
 use super::types::*;
 use anyhow::{bail, Context, Result};
+use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use std::io::{BufRead, Cursor, Read};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, FromPrimitive)]
 pub enum SectionID {
-    // Custom doesn't include in wasm binary
-    Type,
-    Import,
-    Function,
-    Table,
-    Memory,
-    Global,
-    Export,
-    Start,
-    Element,
-    Code,
-    Data,
-    DataCount,
-    Unknown,
+    Custom = 0x00,
+    Type = 0x01,
+    Import = 0x02,
+    Function = 0x03,
+    Table = 0x04,
+    Memory = 0x05,
+    Global = 0x06,
+    Export = 0x07,
+    Start = 0x08,
+    Element = 0x09,
+    Code = 0x0a,
+    Data = 0x0b,
 }
 
 impl From<u8> for SectionID {
     fn from(id: u8) -> Self {
         match id {
-            //0x00 => SectionID::Custom,
+            0x00 => SectionID::Custom,
             0x01 => SectionID::Type,
             0x02 => SectionID::Import,
             0x03 => SectionID::Function,
@@ -36,10 +35,9 @@ impl From<u8> for SectionID {
             0x07 => SectionID::Export,
             0x08 => SectionID::Start,
             0x09 => SectionID::Element,
-            0x0a => SectionID::Code,
             0x0b => SectionID::Data,
-            0x0c => SectionID::DataCount,
-            _ => SectionID::Unknown,
+            0x0a => SectionID::Code,
+            _ => panic!("unknown section id: {}", id),
         }
     }
 }
@@ -112,6 +110,7 @@ impl<'a> SectionReader<'a> {
 // https://webassembly.github.io/spec/core/binary/modules.html#sections
 #[derive(Debug)]
 pub enum Section {
+    Custom(Custom),
     Type(Vec<FuncType>),
     Import(Vec<Import>),
     Function(Vec<u32>),
@@ -128,6 +127,10 @@ pub enum Section {
 pub fn decode(id: SectionID, data: &[u8]) -> Result<Section> {
     let mut reader = SectionReader::new(data);
     let section = match id {
+        SectionID::Custom => {
+            // TODO
+            Section::Custom(Custom::default())
+        }
         SectionID::Type => decode_type_section(&mut reader)?,
         SectionID::Import => decode_import_section(&mut reader)?,
         SectionID::Function => decode_function_section(&mut reader)?,
@@ -139,7 +142,6 @@ pub fn decode(id: SectionID, data: &[u8]) -> Result<Section> {
         SectionID::Element => decode_element_section(&mut reader)?,
         SectionID::Data => decode_data_section(&mut reader)?,
         SectionID::Code => decode_code_section(&mut reader)?,
-        _ => bail!("Unimplemented: {:x}", id as u8),
     };
     Ok(section)
 }

@@ -1,5 +1,6 @@
 use super::{section::*, types::*};
 use anyhow::{bail, Result};
+use num_traits::FromPrimitive;
 use std::io;
 use std::{
     io::{BufRead, BufReader, Read},
@@ -10,6 +11,7 @@ use std::{
 pub struct Module {
     pub magic: String,
     pub version: u32,
+    pub custom_section: Option<Custom>,
     pub type_section: Option<Vec<FuncType>>,
     pub import_section: Option<Vec<Import>>,
     pub function_section: Option<Vec<u32>>,
@@ -26,6 +28,7 @@ pub struct Module {
 impl Module {
     pub fn add_section(&mut self, section: Section) {
         match section {
+            Section::Custom(section) => self.custom_section = Some(section),
             Section::Type(section) => self.type_section = Some(section),
             Section::Import(section) => self.import_section = Some(section),
             Section::Function(section) => self.function_section = Some(section),
@@ -83,7 +86,7 @@ impl<R: io::Read> Decoder<R> {
     }
 
     pub fn decode_section_header(&mut self) -> Result<(SectionID, u32)> {
-        let id: SectionID = self.byte()?.into();
+        let id: SectionID = FromPrimitive::from_u8(self.byte()?.into()).unwrap();
         let size: u32 = self.u32()?;
         Ok((id, size))
     }
