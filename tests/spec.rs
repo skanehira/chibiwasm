@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use anyhow::*;
-    use chibiwasm::runtime::runtime::Runtime;
+    use chibiwasm::runtime::Runtime;
     use chibiwasm::runtime::value::Value;
     use std::io::{Cursor, Read};
     use std::{fs, path::Path};

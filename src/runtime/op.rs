@@ -1,5 +1,5 @@
 use super::error::Error;
-use super::{runtime::Runtime, value::Value};
+use super::{Runtime, value::Value};
 use anyhow::{bail, Context as _, Result};
 
 pub fn pop_rl(runtime: &mut Runtime) -> Result<(Value, Value)> {
