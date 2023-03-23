@@ -1,6 +1,6 @@
 use num_derive::FromPrimitive;
 // https://webassembly.github.io/spec/core/binary/instructions.html#expressions
-#[derive(Debug, FromPrimitive)]
+#[derive(Debug, FromPrimitive, PartialEq)]
 #[repr(u8)]
 pub enum Opcode {
     Unreachable = 0x00,
@@ -79,6 +79,7 @@ pub enum Opcode {
     I64Extend16S = 0xC3,
     I64Extend32S = 0xC4,
     F32Const = 0x43,
+    F64Const = 0x44,
     F32Eq = 0x5B,
     F32Ne = 0x5C,
     F32Lt = 0x5D,
@@ -242,6 +243,7 @@ pub enum Instruction {
     F64Gt,
     F64Le,
     F64Ge,
+    F64Const(f64),
     Return,
     Void,
     Drop,

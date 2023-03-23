@@ -1,3 +1,4 @@
+use super::instruction::Opcode;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -8,4 +9,8 @@ pub enum Error {
     InvalidTableCountError,
     #[error("invalid elemtype of table, must be funcref, got {0}")]
     InvalidElmTypeError(u8),
+    #[error("invalid init expr instruction in expressions, got {0:?}")]
+    InvalidInitExprOpcodeError(Opcode),
+    #[error("invalid end instruction in expressions, got {0:?}")]
+    InvalidInitExprEndOpcodeError(Opcode),
 }

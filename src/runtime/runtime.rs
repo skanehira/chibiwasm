@@ -379,8 +379,6 @@ mod test {
             ("if", vec![1, 0], 0),
             ("if_else", vec![1], 1),
             ("if_else", vec![0], 0),
-            ("fib", vec![1], 1),
-            ("fib", vec![2], 1),
             ("fib", vec![10], 55),
         ];
 

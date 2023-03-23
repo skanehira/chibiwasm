@@ -67,12 +67,20 @@ impl<'a> SectionReader<'a> {
         Ok(num)
     }
 
+    // https://www.w3.org/TR/wasm-core-1/#floating-point%E2%91%A4
     fn f32(&mut self) -> Result<f32> {
-        let num = leb128::read::unsigned(&mut self.buf)?;
-        let num = f32::from_bits(num as u32);
-        Ok(num)
+        let buf = &mut [0u8; 4];
+        self.buf.read_exact(buf)?;
+        Ok(f32::from_le_bytes(*buf))
     }
 
+    fn f64(&mut self) -> Result<f64> {
+        let buf = &mut [0u8; 8];
+        self.buf.read_exact(buf)?;
+        Ok(f64::from_le_bytes(*buf))
+    }
+
+    // https://www.w3.org/TR/wasm-core-1/#integers%E2%91%A4
     fn i32(&mut self) -> Result<i32> {
         let num = leb128::read::signed(&mut self.buf)?;
         let num = i32::try_from(num)?;
@@ -104,6 +112,7 @@ pub enum Section {
     Export(Vec<Export>),
     Mem(Vec<Mem>), // only 1 memory for now
     Table(Vec<Table>),
+    Global(Vec<Global>),
 }
 
 pub fn decode(id: SectionID, data: &[u8]) -> Result<Section> {
@@ -115,9 +124,59 @@ pub fn decode(id: SectionID, data: &[u8]) -> Result<Section> {
         SectionID::Export => decode_export_section(&mut reader)?,
         SectionID::Memory => decode_memory_section(&mut reader)?,
         SectionID::Table => decode_table_secttion(&mut reader)?,
+        SectionID::Global => decode_global_section(&mut reader)?,
         _ => bail!("Unimplemented: {:x}", id as u8),
     };
     Ok(section)
+}
+
+fn decode_global_section(reader: &mut SectionReader) -> Result<Section> {
+    let count = reader.u32()?;
+    let mut globals = vec![];
+    for _ in 0..count {
+        let value_type = reader.byte()?;
+        let mutability = reader.byte()?;
+        let init_expr = decode_init_expr(reader)?;
+        let global_type = GlobalType {
+            value_type: value_type.into(),
+            mutability: FromPrimitive::from_u8(mutability).unwrap(),
+        };
+        let global = Global {
+            global_type,
+            init_expr,
+        };
+        globals.push(global);
+    }
+    Ok(Section::Global(globals))
+}
+
+fn decode_init_expr(reader: &mut SectionReader) -> Result<ExprValue> {
+    let opcode = FromPrimitive::from_u8(reader.byte()?).unwrap();
+    let value = match opcode {
+        Opcode::I32Const => {
+            let value = reader.i32()?;
+            ExprValue::I32(value)
+        }
+        Opcode::I64Const => {
+            let value = reader.i64()?;
+            ExprValue::I64(value)
+        }
+        Opcode::F32Const => {
+            let value = reader.f32()?;
+            ExprValue::F32(value)
+        }
+        Opcode::F64Const => {
+            let value = reader.f64()?;
+            ExprValue::F64(value)
+        }
+        _ => bail!(InvalidInitExprOpcodeError(opcode)),
+    };
+
+    let end_opcode = FromPrimitive::from_u8(reader.byte()?).unwrap();
+    if end_opcode != Opcode::End {
+        bail!(InvalidInitExprEndOpcodeError(end_opcode));
+    }
+    Ok(value)
 }
 
 fn decode_table_secttion(reader: &mut SectionReader) -> Result<Section> {
@@ -398,6 +457,10 @@ fn decode_function_body(reader: &mut SectionReader) -> Result<FunctionBody> {
             Opcode::F64Min => Instruction::F64Min,
             Opcode::F64Max => Instruction::F64Max,
             Opcode::F64Copysign => Instruction::F64Copysign,
+            Opcode::F64Const => {
+                let num = reader.f64()?;
+                Instruction::F64Const(num)
+            }
             Opcode::Drop => Instruction::Drop,
         };
         function_body.code.push(inst);

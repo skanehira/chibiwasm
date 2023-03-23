@@ -102,4 +102,26 @@ Module {
             },
         ],
     ),
+    global_section: Some(
+        [
+            Global {
+                global_type: GlobalType {
+                    value_type: I32,
+                    mutability: Const,
+                },
+                init_expr: I32(
+                    -2,
+                ),
+            },
+            Global {
+                global_type: GlobalType {
+                    value_type: F32,
+                    mutability: Var,
+                },
+                init_expr: F32(
+                    5.5,
+                ),
+            },
+        ],
+    ),
 }

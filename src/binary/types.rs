@@ -78,3 +78,29 @@ pub struct Limits {
     pub min: u32,
     pub max: Option<u32>,
 }
+
+#[derive(Debug, PartialEq, FromPrimitive)]
+pub enum Mutability {
+    Const = 0x00,
+    Var = 0x01,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct GlobalType {
+    pub value_type: ValueType,
+    pub mutability: Mutability,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ExprValue {
+    I32(i32),
+    I64(i64),
+    F32(f32),
+    F64(f64),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Global {
+    pub global_type: GlobalType,
+    pub init_expr: ExprValue,
+}

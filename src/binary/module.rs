@@ -16,6 +16,7 @@ pub struct Module {
     pub export_section: Option<Vec<Export>>,
     pub mem_section: Option<Vec<Mem>>,
     pub table_section: Option<Vec<Table>>,
+    pub global_section: Option<Vec<Global>>,
 }
 
 impl Module {
@@ -27,6 +28,7 @@ impl Module {
             Section::Export(section) => self.export_section = Some(section),
             Section::Mem(section) => self.mem_section = Some(section),
             Section::Table(section) => self.table_section = Some(section),
+            Section::Global(section) => self.global_section = Some(section),
         };
     }
 }
@@ -104,7 +106,6 @@ impl<R: io::Read> Decoder<R> {
             match id {
                 SectionID::Custom
                 | SectionID::Import
-                | SectionID::Global
                 | SectionID::Start
                 | SectionID::Element
                 | SectionID::Data => break,
@@ -133,6 +134,8 @@ mod test {
 (module
   (memory 1 256)
   (table 1 256 funcref)
+  (global $a i32 (i32.const -2))
+  (global $x (mut f32) (f32.const 5.5))
   (func (export "test") (param i32)
     (i32.add
       (local.get 0)
