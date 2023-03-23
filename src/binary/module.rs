@@ -17,6 +17,7 @@ pub struct Module {
     pub memory_section: Option<Vec<Memory>>,
     pub global_section: Option<Vec<Global>>,
     pub export_section: Option<Vec<Export>>,
+    pub start_section: Option<u32>,
     pub code_section: Option<Vec<FunctionBody>>,
 }
 
@@ -31,6 +32,7 @@ impl Module {
             Section::Global(section) => self.global_section = Some(section),
             Section::Export(section) => self.export_section = Some(section),
             Section::Code(section) => self.code_section = Some(section),
+            Section::Start(section) => self.start_section = Some(section),
         };
     }
 }
@@ -106,9 +108,7 @@ impl<R: io::Read> Decoder<R> {
             let (id, size) = self.decode_section_header()?;
             // TODO: decode other sections
             match id {
-                SectionID::Custom | SectionID::Start | SectionID::Element | SectionID::Data => {
-                    break
-                }
+                SectionID::Custom | SectionID::Element | SectionID::Data => break,
                 _ => {
                     // do nothing
                 }
@@ -133,7 +133,7 @@ mod test {
         let source = r#"
 (module
   ;; import section
-  (import "test" "print_i32" (func $imported_print (param i32)))
+  (import "test" "print_i32" (func $print_i32 (param i32)))
   (import "test" "memory-2-inf" (table 10 funcref))
   (import "test" "global-i32" (global i32))
 
@@ -161,6 +161,8 @@ mod test {
       (local.get 1)
     )
   )
+  (func $main (call $print_i32 (i32.const 2)))
+  (start $main)
 )
             "#;
         let wasm = wat2wasm(source)?;

@@ -113,29 +113,36 @@ impl<'a> SectionReader<'a> {
 #[derive(Debug)]
 pub enum Section {
     Type(Vec<FuncType>),
-    Function(Vec<u32>),
-    Code(Vec<FunctionBody>),
-    Export(Vec<Export>),
-    Memory(Vec<Memory>), // only 1 memory for now
-    Table(Vec<Table>),
-    Global(Vec<Global>),
     Import(Vec<Import>),
+    Function(Vec<u32>),
+    Table(Vec<Table>),
+    Memory(Vec<Memory>), // only 1 memory for now
+    Global(Vec<Global>),
+    Export(Vec<Export>),
+    Code(Vec<FunctionBody>),
+    Start(u32),
 }
 
 pub fn decode(id: SectionID, data: &[u8]) -> Result<Section> {
     let mut reader = SectionReader::new(data);
     let section = match id {
         SectionID::Type => decode_type_section(&mut reader)?,
+        SectionID::Import => decode_import_section(&mut reader)?,
         SectionID::Function => decode_function_section(&mut reader)?,
         SectionID::Table => decode_table_secttion(&mut reader)?,
         SectionID::Memory => decode_memory_section(&mut reader)?,
         SectionID::Global => decode_global_section(&mut reader)?,
         SectionID::Export => decode_export_section(&mut reader)?,
+        SectionID::Start => decode_start_section(&mut reader)?,
         SectionID::Code => decode_code_section(&mut reader)?,
-        SectionID::Import => decode_import_section(&mut reader)?,
         _ => bail!("Unimplemented: {:x}", id as u8),
     };
     Ok(section)
+}
+
+fn decode_start_section(reader: &mut SectionReader) -> Result<Section> {
+    let index = reader.u32()?;
+    Ok(Section::Start(index))
 }
 
 fn decode_import_section(reader: &mut SectionReader) -> Result<Section> {

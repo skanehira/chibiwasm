@@ -22,6 +22,10 @@ Module {
                     I32,
                 ],
             },
+            FuncType {
+                params: [],
+                results: [],
+            },
         ],
     ),
     import_section: Some(
@@ -62,6 +66,7 @@ Module {
         [
             0,
             1,
+            2,
         ],
     ),
     table_section: Some(
@@ -79,7 +84,7 @@ Module {
     ),
     memory_section: Some(
         [
-            Mem {
+            Memory {
                 limits: Limits {
                     min: 1,
                     max: Some(
@@ -88,6 +93,47 @@ Module {
                 },
             },
         ],
+    ),
+    global_section: Some(
+        [
+            Global {
+                global_type: GlobalType {
+                    value_type: I32,
+                    mutability: Const,
+                },
+                init_expr: I32(
+                    -2,
+                ),
+            },
+            Global {
+                global_type: GlobalType {
+                    value_type: F32,
+                    mutability: Var,
+                },
+                init_expr: F32(
+                    5.5,
+                ),
+            },
+        ],
+    ),
+    export_section: Some(
+        [
+            Export {
+                name: "test",
+                desc: Func(
+                    1,
+                ),
+            },
+            Export {
+                name: "test2",
+                desc: Func(
+                    2,
+                ),
+            },
+        ],
+    ),
+    start_section: Some(
+        3,
     ),
     code_section: Some(
         [
@@ -118,43 +164,17 @@ Module {
                     End,
                 ],
             },
-        ],
-    ),
-    export_section: Some(
-        [
-            Export {
-                name: "test",
-                desc: Func(
-                    1,
-                ),
-            },
-            Export {
-                name: "test2",
-                desc: Func(
-                    2,
-                ),
-            },
-        ],
-    ),
-    global_section: Some(
-        [
-            Global {
-                global_type: GlobalType {
-                    value_type: I32,
-                    mutability: Const,
-                },
-                init_expr: I32(
-                    -2,
-                ),
-            },
-            Global {
-                global_type: GlobalType {
-                    value_type: F32,
-                    mutability: Var,
-                },
-                init_expr: F32(
-                    5.5,
-                ),
+            FunctionBody {
+                locals: [],
+                code: [
+                    I32Const(
+                        2,
+                    ),
+                    Call(
+                        0,
+                    ),
+                    End,
+                ],
             },
         ],
     ),
