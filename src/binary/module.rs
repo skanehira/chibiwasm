@@ -183,6 +183,7 @@ mod test {
 
         Ok(())
     }
+
     #[test]
     fn test_nested_if() -> Result<()> {
         let source = r#"

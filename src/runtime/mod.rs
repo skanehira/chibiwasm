@@ -165,6 +165,9 @@ impl Runtime {
                 Instruction::F32Le | Instruction::F64Le => fle(self)?,
                 Instruction::F32Ge | Instruction::F64Ge => fge(self)?,
                 Instruction::Return => {
+                    // FIXME: we make stack frame in the if/else, so we need to pop stack
+                    // frame tow times
+                    self.stack_frame.pop();
                     self.stack_frame.pop();
                 }
                 Instruction::Drop => {
