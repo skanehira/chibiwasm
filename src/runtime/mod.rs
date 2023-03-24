@@ -365,10 +365,10 @@ mod test {
       (else (return (i32.const 0)))
     )
   )
-  (func $if_else_empty (export "if_else_empty") (param $a i32) (result i32)
-    (if (i32.eq (local.get $a) (i32.const 1))
-      (then (return (i32.const 1)))
-      (else (return (i32.const 0)))
+  (func $if_else_empty (export "if_else_empty")
+    (if (i32.const 1)
+      (then)
+      (else)
     )
   )
 )
@@ -376,26 +376,35 @@ mod test {
         let wasm = &mut wat2wasm(wat_code)?;
         let mut runtime = Runtime::from_bytes(wasm)?;
 
-        let tests = [
-            ("call", vec![10, 10], 20),
-            ("return", vec![], 15),
-            ("if", vec![1, 0], 0),
-            ("if_else", vec![1], 1),
-            ("if_else", vec![0], 0),
-            ("fib", vec![10], 55),
-        ];
+        // expect some return value
+        {
+            let tests = [
+                ("call", vec![10, 10], 20),
+                ("return", vec![], 15),
+                ("if", vec![1, 0], 0),
+                ("if_else", vec![1], 1),
+                ("if_else", vec![0], 0),
+                ("fib", vec![10], 55),
+            ];
 
-        for test in tests.into_iter() {
-            let args = test.1.into_iter().map(Value::from).collect();
-            let result = runtime.invoke(test.0.into(), args)?;
-            print!("testing ... {} ", test.0);
-            assert_eq!(
-                result.context("no result")?,
-                test.2.into(),
-                "func {} fail",
-                test.0
-            );
-            println!("ok");
+            for test in tests.into_iter() {
+                let args = test.1.into_iter().map(Value::from).collect();
+                let result = runtime.invoke(test.0.into(), args)?;
+                print!("testing ... {} ", test.0);
+                assert_eq!(
+                    result.context("no return value")?,
+                    test.2.into(),
+                    "func {} fail",
+                    test.0
+                );
+                println!("ok");
+            }
+        }
+
+        // none return value
+        {
+            let result = runtime.invoke("if_else_empty".into(), vec![])?;
+            assert_eq!(result, None);
         }
 
         Ok(())
