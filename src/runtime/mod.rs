@@ -1,19 +1,19 @@
 pub mod error;
 pub(crate) mod float;
-pub(crate) mod op;
 pub(crate) mod integer;
+pub(crate) mod op;
 pub mod value;
 
-use op::*;
-use value::{ExternalVal, Function, Value};
 use crate::binary::instruction::*;
 use crate::binary::module::{Decoder, Module};
 use crate::binary::types::ExportDesc;
 use crate::binary::types::FuncType;
 use anyhow::{bail, Context as _, Result};
+use op::*;
 use std::collections::HashMap;
 use std::fs;
 use std::io::{Cursor, Read};
+use value::{ExternalVal, Function, Value};
 
 #[derive(Debug)]
 pub struct ExportInst(HashMap<String, ExternalVal>);
@@ -173,22 +173,16 @@ impl Runtime {
                 Instruction::Void | Instruction::End => {
                     // do nothing
                 }
-                Instruction::If => {
+                Instruction::If(block) => {
                     let value = self.stack_pop()?;
                     // if value is not true, skip until else or end
-                    if !value.is_true() {
-                        loop {
-                            let ins = self.instruction()?.context("not found instruction")?;
-                            match ins {
-                                Instruction::End | Instruction::Else => {
-                                    self.frame_pc_inc()?;
-                                    break;
-                                }
-                                _ => {
-                                    self.frame_pc_inc()?;
-                                }
-                            }
-                        }
+                    if value.is_true() {
+                        // FIXME: we shouldn't use stack frame for if
+                        let frame = Frame::new(block.then_body, vec![]);
+                        self.stack_frame.push(frame);
+                    } else {
+                        let frame = Frame::new(block.else_body, vec![]);
+                        self.stack_frame.push(frame);
                     }
                 }
                 Instruction::Call(func_idx) => {

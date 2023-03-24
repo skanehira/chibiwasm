@@ -1,0 +1,234 @@
+---
+source: src/binary/module.rs
+expression: module
+---
+Module {
+    magic: "\0asm",
+    version: 1,
+    custom_section: None,
+    type_section: Some(
+        [
+            FuncType {
+                params: [],
+                results: [],
+            },
+            FuncType {
+                params: [
+                    I32,
+                    I32,
+                ],
+                results: [
+                    I32,
+                ],
+            },
+        ],
+    ),
+    import_section: None,
+    function_section: Some(
+        [
+            0,
+            1,
+        ],
+    ),
+    table_section: None,
+    memory_section: Some(
+        [
+            Memory {
+                limits: Limits {
+                    min: 1,
+                    max: None,
+                },
+            },
+        ],
+    ),
+    global_section: None,
+    export_section: Some(
+        [
+            Export {
+                name: "nested",
+                desc: Func(
+                    1,
+                ),
+            },
+        ],
+    ),
+    start_section: None,
+    element_section: None,
+    data: None,
+    code_section: Some(
+        [
+            FunctionBody {
+                locals: [],
+                code: [
+                    End,
+                ],
+            },
+            FunctionBody {
+                locals: [],
+                code: [
+                    LocalGet(
+                        0,
+                    ),
+                    If(
+                        Block {
+                            block_type: Value(
+                                [
+                                    I32,
+                                ],
+                            ),
+                            then_body: [
+                                LocalGet(
+                                    1,
+                                ),
+                                If(
+                                    Block {
+                                        block_type: Empty,
+                                        then_body: [
+                                            Call(
+                                                0,
+                                            ),
+                                            Block(
+                                                Block {
+                                                    block_type: Empty,
+                                                    then_body: [],
+                                                    else_body: [],
+                                                },
+                                            ),
+                                            Nop,
+                                        ],
+                                        else_body: [],
+                                    },
+                                ),
+                                LocalGet(
+                                    1,
+                                ),
+                                If(
+                                    Block {
+                                        block_type: Empty,
+                                        then_body: [],
+                                        else_body: [
+                                            Call(
+                                                0,
+                                            ),
+                                            Block(
+                                                Block {
+                                                    block_type: Empty,
+                                                    then_body: [],
+                                                    else_body: [],
+                                                },
+                                            ),
+                                            Nop,
+                                        ],
+                                    },
+                                ),
+                                LocalGet(
+                                    1,
+                                ),
+                                If(
+                                    Block {
+                                        block_type: Value(
+                                            [
+                                                I32,
+                                            ],
+                                        ),
+                                        then_body: [
+                                            Call(
+                                                0,
+                                            ),
+                                            I32Const(
+                                                9,
+                                            ),
+                                        ],
+                                        else_body: [
+                                            Call(
+                                                0,
+                                            ),
+                                            I32Const(
+                                                10,
+                                            ),
+                                        ],
+                                    },
+                                ),
+                            ],
+                            else_body: [
+                                LocalGet(
+                                    1,
+                                ),
+                                If(
+                                    Block {
+                                        block_type: Empty,
+                                        then_body: [
+                                            Call(
+                                                0,
+                                            ),
+                                            Block(
+                                                Block {
+                                                    block_type: Empty,
+                                                    then_body: [],
+                                                    else_body: [],
+                                                },
+                                            ),
+                                            Nop,
+                                        ],
+                                        else_body: [],
+                                    },
+                                ),
+                                LocalGet(
+                                    1,
+                                ),
+                                If(
+                                    Block {
+                                        block_type: Empty,
+                                        then_body: [],
+                                        else_body: [
+                                            Call(
+                                                0,
+                                            ),
+                                            Block(
+                                                Block {
+                                                    block_type: Empty,
+                                                    then_body: [],
+                                                    else_body: [],
+                                                },
+                                            ),
+                                            Nop,
+                                        ],
+                                    },
+                                ),
+                                LocalGet(
+                                    1,
+                                ),
+                                If(
+                                    Block {
+                                        block_type: Value(
+                                            [
+                                                I32,
+                                            ],
+                                        ),
+                                        then_body: [
+                                            Call(
+                                                0,
+                                            ),
+                                            I32Const(
+                                                10,
+                                            ),
+                                        ],
+                                        else_body: [
+                                            Call(
+                                                0,
+                                            ),
+                                            I32Const(
+                                                11,
+                                            ),
+                                        ],
+                                    },
+                                ),
+                            ],
+                        },
+                    ),
+                    End,
+                ],
+            },
+        ],
+    ),
+}

@@ -1,4 +1,6 @@
+use super::types::Block;
 use num_derive::FromPrimitive;
+
 // https://webassembly.github.io/spec/core/binary/instructions.html#expressions
 #[derive(Debug, FromPrimitive, PartialEq)]
 #[repr(u8)]
@@ -129,9 +131,9 @@ pub enum Opcode {
 pub enum Instruction {
     Unreachable,
     Nop,
-    Block,
-    Loop,
-    If,
+    Block(Block),
+    Loop(Block),
+    If(Block),
     Else,
     End,
     Br,

@@ -1,9 +1,9 @@
 use super::error::Error::*;
 use super::instruction::{Instruction, Opcode};
 use super::types::*;
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Result};
 use num_derive::FromPrimitive;
-use num_traits::FromPrimitive;
+use num_traits::FromPrimitive as _;
 use std::io::{BufRead, Cursor, Read};
 
 #[derive(Debug, PartialEq, Eq, FromPrimitive)]
@@ -249,7 +249,7 @@ fn decode_global_type(reader: &mut SectionReader) -> Result<GlobalType> {
     let mutability = reader.byte()?;
     let global_type = GlobalType {
         value_type: value_type.into(),
-        mutability: FromPrimitive::from_u8(mutability).unwrap(),
+        mutability: Mutability::from_u8(mutability).unwrap(),
     };
     Ok(global_type)
 }
@@ -270,7 +270,7 @@ fn decode_global_section(reader: &mut SectionReader) -> Result<Section> {
 }
 
 fn decode_expr(reader: &mut SectionReader) -> Result<ExprValue> {
-    let opcode = FromPrimitive::from_u8(reader.byte()?).unwrap();
+    let opcode = Opcode::from_u8(reader.byte()?).unwrap();
     let value = match opcode {
         Opcode::I32Const => {
             let value = reader.i32()?;
@@ -291,7 +291,7 @@ fn decode_expr(reader: &mut SectionReader) -> Result<ExprValue> {
         _ => bail!(InvalidInitExprOpcodeError(opcode)),
     };
 
-    let end_opcode = FromPrimitive::from_u8(reader.byte()?).unwrap();
+    let end_opcode = Opcode::from_u8(reader.byte()?).unwrap();
     if end_opcode != Opcode::End {
         bail!(InvalidInitExprEndOpcodeError(end_opcode));
     }
@@ -305,7 +305,7 @@ fn decode_table(reader: &mut SectionReader) -> Result<Table> {
     }
     let limits = decode_limits(reader)?;
     let table = Table {
-        elem_type: FromPrimitive::from_u8(elem_type).unwrap(),
+        elem_type: ElemType::from_u8(elem_type).unwrap(),
         limits,
     };
     Ok(table)
@@ -445,153 +445,205 @@ fn decode_function_body(reader: &mut SectionReader) -> Result<FunctionBody> {
     }
 
     while reader.is_end()? {
-        let op = reader.byte()?;
-
-        let op: Opcode =
-            FromPrimitive::from_u8(op).context(format!("unsupported opcode: {op:X}"))?;
-
-        let inst = match op {
-            Opcode::Unreachable => Instruction::Unreachable,
-            Opcode::Nop => Instruction::Nop,
-            Opcode::Block => Instruction::Block,
-            Opcode::Loop => Instruction::Loop,
-            Opcode::Br => Instruction::Br,
-            Opcode::Call => {
-                let local_idx = reader.u32()?;
-                Instruction::Call(local_idx)
-            }
-            Opcode::Return => Instruction::Return,
-            Opcode::If => Instruction::If,
-            Opcode::Else => Instruction::Else,
-            Opcode::End => Instruction::End,
-            Opcode::Void => Instruction::Void,
-            Opcode::LocalGet => {
-                let local_idx = reader.u32()?;
-                Instruction::LocalGet(local_idx)
-            }
-            Opcode::I32Sub => Instruction::I32Sub,
-            Opcode::I32Add => Instruction::I32Add,
-            Opcode::I32Mul => Instruction::I32Mul,
-            Opcode::I32Clz => Instruction::I32Clz,
-            Opcode::I32Ctz => Instruction::I32Ctz,
-            Opcode::I32DivU => Instruction::I32DivU,
-            Opcode::I32DivS => Instruction::I32DivS,
-            Opcode::I32Eq => Instruction::I32Eq,
-            Opcode::I32Eqz => Instruction::I32Eqz,
-            Opcode::I32Ne => Instruction::I32Ne,
-            Opcode::I32LtS => Instruction::I32LtS,
-            Opcode::I32LtU => Instruction::I32LtU,
-            Opcode::I32GtS => Instruction::I32GtS,
-            Opcode::I32GtU => Instruction::I32GtU,
-            Opcode::I32LeS => Instruction::I32LeS,
-            Opcode::I32GeU => Instruction::I32GeU,
-            Opcode::I32GeS => Instruction::I32GeS,
-            Opcode::I32LeU => Instruction::I32LeU,
-            Opcode::I32Popcnt => Instruction::I32Popcnt,
-            Opcode::I32RemS => Instruction::I32RemS,
-            Opcode::I32RemU => Instruction::I32RemU,
-            Opcode::I32And => Instruction::I32And,
-            Opcode::I32Or => Instruction::I32Or,
-            Opcode::I32Xor => Instruction::I32Xor,
-            Opcode::I32ShL => Instruction::I32ShL,
-            Opcode::I32ShrS => Instruction::I32ShrS,
-            Opcode::I32ShrU => Instruction::I32ShrU,
-            Opcode::I32RtoL => Instruction::I32RtoL,
-            Opcode::I32RtoR => Instruction::I32RtoR,
-            Opcode::I32Extend8S => Instruction::I32Extend8S,
-            Opcode::I32Extend16S => Instruction::I32Extend16S,
-            Opcode::I32Const => {
-                let value = reader.i32()?;
-                Instruction::I32Const(value)
-            }
-            Opcode::I64Sub => Instruction::I64Sub,
-            Opcode::I64Add => Instruction::I64Add,
-            Opcode::I64Mul => Instruction::I64Mul,
-            Opcode::I64Clz => Instruction::I64Clz,
-            Opcode::I64Ctz => Instruction::I64Ctz,
-            Opcode::I64DivU => Instruction::I64DivU,
-            Opcode::I64DivS => Instruction::I64DivS,
-            Opcode::I64Eq => Instruction::I64Eq,
-            Opcode::I64Eqz => Instruction::I64Eqz,
-            Opcode::I64Ne => Instruction::I64Ne,
-            Opcode::I64LtS => Instruction::I64LtS,
-            Opcode::I64LtU => Instruction::I64LtU,
-            Opcode::I64GtS => Instruction::I64GtS,
-            Opcode::I64GtU => Instruction::I64GtU,
-            Opcode::I64LeS => Instruction::I64LeS,
-            Opcode::I64GeU => Instruction::I64GeU,
-            Opcode::I64GeS => Instruction::I64GeS,
-            Opcode::I64LeU => Instruction::I64LeU,
-            Opcode::I64Popcnt => Instruction::I64Popcnt,
-            Opcode::I64RemS => Instruction::I64RemS,
-            Opcode::I64RemU => Instruction::I64RemU,
-            Opcode::I64And => Instruction::I64And,
-            Opcode::I64Or => Instruction::I64Or,
-            Opcode::I64Xor => Instruction::I64Xor,
-            Opcode::I64ShL => Instruction::I64ShL,
-            Opcode::I64ShrS => Instruction::I64ShrS,
-            Opcode::I64ShrU => Instruction::I64ShrU,
-            Opcode::I64RtoL => Instruction::I64RtoL,
-            Opcode::I64RtoR => Instruction::I64RtoR,
-            Opcode::I64Extend8S => Instruction::I64Extend8S,
-            Opcode::I64Extend16S => Instruction::I64Extend16S,
-            Opcode::I64Extend32S => Instruction::I64Extend32S,
-            Opcode::I64Const => {
-                let value = reader.i64()?;
-                Instruction::I64Const(value)
-            }
-            Opcode::F32Const => {
-                let num = reader.f32()?;
-                Instruction::F32Const(num)
-            }
-            Opcode::F32Eq => Instruction::F32Eq,
-            Opcode::F32Ne => Instruction::F32Ne,
-            Opcode::F32Lt => Instruction::F32Lt,
-            Opcode::F32Gt => Instruction::F32Gt,
-            Opcode::F32Le => Instruction::F32Le,
-            Opcode::F32Ge => Instruction::F32Ge,
-            Opcode::F32Abs => Instruction::F32Abs,
-            Opcode::F32Neg => Instruction::F32Neg,
-            Opcode::F32Ceil => Instruction::F32Ceil,
-            Opcode::F32Floor => Instruction::F32Floor,
-            Opcode::F32Trunc => Instruction::F32Trunc,
-            Opcode::F32Nearest => Instruction::F32Nearest,
-            Opcode::F32Sqrt => Instruction::F32Sqrt,
-            Opcode::F32Add => Instruction::F32Add,
-            Opcode::F32Sub => Instruction::F32Sub,
-            Opcode::F32Mul => Instruction::F32Mul,
-            Opcode::F32Div => Instruction::F32Div,
-            Opcode::F32Min => Instruction::F32Min,
-            Opcode::F32Max => Instruction::F32Max,
-            Opcode::F32Copysign => Instruction::F32Copysign,
-            Opcode::F64Eq => Instruction::F64Eq,
-            Opcode::F64Ne => Instruction::F64Ne,
-            Opcode::F64Lt => Instruction::F64Lt,
-            Opcode::F64Gt => Instruction::F64Gt,
-            Opcode::F64Le => Instruction::F64Le,
-            Opcode::F64Ge => Instruction::F64Ge,
-            Opcode::F64Abs => Instruction::F64Abs,
-            Opcode::F64Neg => Instruction::F64Neg,
-            Opcode::F64Ceil => Instruction::F64Ceil,
-            Opcode::F64Floor => Instruction::F64Floor,
-            Opcode::F64Trunc => Instruction::F64Trunc,
-            Opcode::F64Nearest => Instruction::F64Nearest,
-            Opcode::F64Sqrt => Instruction::F64Sqrt,
-            Opcode::F64Add => Instruction::F64Add,
-            Opcode::F64Sub => Instruction::F64Sub,
-            Opcode::F64Mul => Instruction::F64Mul,
-            Opcode::F64Div => Instruction::F64Div,
-            Opcode::F64Min => Instruction::F64Min,
-            Opcode::F64Max => Instruction::F64Max,
-            Opcode::F64Copysign => Instruction::F64Copysign,
-            Opcode::F64Const => {
-                let num = reader.f64()?;
-                Instruction::F64Const(num)
-            }
-            Opcode::Drop => Instruction::Drop,
-        };
+        let inst = decode_instruction(reader)?;
         function_body.code.push(inst);
     }
 
     Ok(function_body)
+}
+
+fn decode_block_type(reader: &mut SectionReader) -> Result<BlockType> {
+    let byte = reader.byte()?;
+    let block_type = if byte == 0x40 {
+        BlockType::Empty
+    } else {
+        let value_type = byte.into();
+        BlockType::Value(vec![value_type])
+    };
+    Ok(block_type)
+}
+
+fn decode_block(reader: &mut SectionReader) -> Result<Block> {
+    let block_type = decode_block_type(reader)?;
+    let mut then_body = vec![];
+    let mut else_body = vec![];
+
+    // blockの命令部分をデコードする
+    loop {
+        let inst = decode_instruction(reader)?;
+
+        // elseがあったら、elseの命令部分をデコードする
+        if inst == Instruction::Else {
+            loop {
+                let inst = decode_instruction(reader)?;
+                if inst == Instruction::End {
+                    break;
+                }
+                else_body.push(inst);
+            }
+            break;
+        }
+
+        // endがあったら、命令部分のデコードを終了する
+        if inst == Instruction::End {
+            break;
+        }
+
+        // それ以外はthenの命令部分として追加する
+        then_body.push(inst);
+    }
+
+    let block = Block {
+        block_type,
+        then_body,
+        else_body,
+    };
+
+    Ok(block)
+}
+
+fn decode_instruction(reader: &mut SectionReader) -> Result<Instruction> {
+    let op = reader.byte()?;
+    let op: Opcode = Opcode::from_u8(op).unwrap();
+    let inst = match op {
+        Opcode::Unreachable => Instruction::Unreachable,
+        Opcode::Nop => Instruction::Nop,
+        Opcode::Block => Instruction::Block(decode_block(reader)?),
+        Opcode::Loop => Instruction::Loop(decode_block(reader)?),
+        Opcode::If => Instruction::If(decode_block(reader)?),
+        Opcode::Else => Instruction::Else,
+        Opcode::End => Instruction::End,
+        Opcode::Br => Instruction::Br,
+        Opcode::Call => {
+            let local_idx = reader.u32()?;
+            Instruction::Call(local_idx)
+        }
+        Opcode::Return => Instruction::Return,
+        Opcode::Void => Instruction::Void,
+        Opcode::LocalGet => {
+            let local_idx = reader.u32()?;
+            Instruction::LocalGet(local_idx)
+        }
+        Opcode::I32Sub => Instruction::I32Sub,
+        Opcode::I32Add => Instruction::I32Add,
+        Opcode::I32Mul => Instruction::I32Mul,
+        Opcode::I32Clz => Instruction::I32Clz,
+        Opcode::I32Ctz => Instruction::I32Ctz,
+        Opcode::I32DivU => Instruction::I32DivU,
+        Opcode::I32DivS => Instruction::I32DivS,
+        Opcode::I32Eq => Instruction::I32Eq,
+        Opcode::I32Eqz => Instruction::I32Eqz,
+        Opcode::I32Ne => Instruction::I32Ne,
+        Opcode::I32LtS => Instruction::I32LtS,
+        Opcode::I32LtU => Instruction::I32LtU,
+        Opcode::I32GtS => Instruction::I32GtS,
+        Opcode::I32GtU => Instruction::I32GtU,
+        Opcode::I32LeS => Instruction::I32LeS,
+        Opcode::I32GeU => Instruction::I32GeU,
+        Opcode::I32GeS => Instruction::I32GeS,
+        Opcode::I32LeU => Instruction::I32LeU,
+        Opcode::I32Popcnt => Instruction::I32Popcnt,
+        Opcode::I32RemS => Instruction::I32RemS,
+        Opcode::I32RemU => Instruction::I32RemU,
+        Opcode::I32And => Instruction::I32And,
+        Opcode::I32Or => Instruction::I32Or,
+        Opcode::I32Xor => Instruction::I32Xor,
+        Opcode::I32ShL => Instruction::I32ShL,
+        Opcode::I32ShrS => Instruction::I32ShrS,
+        Opcode::I32ShrU => Instruction::I32ShrU,
+        Opcode::I32RtoL => Instruction::I32RtoL,
+        Opcode::I32RtoR => Instruction::I32RtoR,
+        Opcode::I32Extend8S => Instruction::I32Extend8S,
+        Opcode::I32Extend16S => Instruction::I32Extend16S,
+        Opcode::I32Const => {
+            let value = reader.i32()?;
+            Instruction::I32Const(value)
+        }
+        Opcode::I64Sub => Instruction::I64Sub,
+        Opcode::I64Add => Instruction::I64Add,
+        Opcode::I64Mul => Instruction::I64Mul,
+        Opcode::I64Clz => Instruction::I64Clz,
+        Opcode::I64Ctz => Instruction::I64Ctz,
+        Opcode::I64DivU => Instruction::I64DivU,
+        Opcode::I64DivS => Instruction::I64DivS,
+        Opcode::I64Eq => Instruction::I64Eq,
+        Opcode::I64Eqz => Instruction::I64Eqz,
+        Opcode::I64Ne => Instruction::I64Ne,
+        Opcode::I64LtS => Instruction::I64LtS,
+        Opcode::I64LtU => Instruction::I64LtU,
+        Opcode::I64GtS => Instruction::I64GtS,
+        Opcode::I64GtU => Instruction::I64GtU,
+        Opcode::I64LeS => Instruction::I64LeS,
+        Opcode::I64GeU => Instruction::I64GeU,
+        Opcode::I64GeS => Instruction::I64GeS,
+        Opcode::I64LeU => Instruction::I64LeU,
+        Opcode::I64Popcnt => Instruction::I64Popcnt,
+        Opcode::I64RemS => Instruction::I64RemS,
+        Opcode::I64RemU => Instruction::I64RemU,
+        Opcode::I64And => Instruction::I64And,
+        Opcode::I64Or => Instruction::I64Or,
+        Opcode::I64Xor => Instruction::I64Xor,
+        Opcode::I64ShL => Instruction::I64ShL,
+        Opcode::I64ShrS => Instruction::I64ShrS,
+        Opcode::I64ShrU => Instruction::I64ShrU,
+        Opcode::I64RtoL => Instruction::I64RtoL,
+        Opcode::I64RtoR => Instruction::I64RtoR,
+        Opcode::I64Extend8S => Instruction::I64Extend8S,
+        Opcode::I64Extend16S => Instruction::I64Extend16S,
+        Opcode::I64Extend32S => Instruction::I64Extend32S,
+        Opcode::I64Const => {
+            let value = reader.i64()?;
+            Instruction::I64Const(value)
+        }
+        Opcode::F32Const => {
+            let num = reader.f32()?;
+            Instruction::F32Const(num)
+        }
+        Opcode::F32Eq => Instruction::F32Eq,
+        Opcode::F32Ne => Instruction::F32Ne,
+        Opcode::F32Lt => Instruction::F32Lt,
+        Opcode::F32Gt => Instruction::F32Gt,
+        Opcode::F32Le => Instruction::F32Le,
+        Opcode::F32Ge => Instruction::F32Ge,
+        Opcode::F32Abs => Instruction::F32Abs,
+        Opcode::F32Neg => Instruction::F32Neg,
+        Opcode::F32Ceil => Instruction::F32Ceil,
+        Opcode::F32Floor => Instruction::F32Floor,
+        Opcode::F32Trunc => Instruction::F32Trunc,
+        Opcode::F32Nearest => Instruction::F32Nearest,
+        Opcode::F32Sqrt => Instruction::F32Sqrt,
+        Opcode::F32Add => Instruction::F32Add,
+        Opcode::F32Sub => Instruction::F32Sub,
+        Opcode::F32Mul => Instruction::F32Mul,
+        Opcode::F32Div => Instruction::F32Div,
+        Opcode::F32Min => Instruction::F32Min,
+        Opcode::F32Max => Instruction::F32Max,
+        Opcode::F32Copysign => Instruction::F32Copysign,
+        Opcode::F64Eq => Instruction::F64Eq,
+        Opcode::F64Ne => Instruction::F64Ne,
+        Opcode::F64Lt => Instruction::F64Lt,
+        Opcode::F64Gt => Instruction::F64Gt,
+        Opcode::F64Le => Instruction::F64Le,
+        Opcode::F64Ge => Instruction::F64Ge,
+        Opcode::F64Abs => Instruction::F64Abs,
+        Opcode::F64Neg => Instruction::F64Neg,
+        Opcode::F64Ceil => Instruction::F64Ceil,
+        Opcode::F64Floor => Instruction::F64Floor,
+        Opcode::F64Trunc => Instruction::F64Trunc,
+        Opcode::F64Nearest => Instruction::F64Nearest,
+        Opcode::F64Sqrt => Instruction::F64Sqrt,
+        Opcode::F64Add => Instruction::F64Add,
+        Opcode::F64Sub => Instruction::F64Sub,
+        Opcode::F64Mul => Instruction::F64Mul,
+        Opcode::F64Div => Instruction::F64Div,
+        Opcode::F64Min => Instruction::F64Min,
+        Opcode::F64Max => Instruction::F64Max,
+        Opcode::F64Copysign => Instruction::F64Copysign,
+        Opcode::F64Const => {
+            let num = reader.f64()?;
+            Instruction::F64Const(num)
+        }
+        Opcode::Drop => Instruction::Drop,
+    };
+    Ok(inst)
 }

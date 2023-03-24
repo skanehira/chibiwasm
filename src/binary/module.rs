@@ -183,4 +183,44 @@ mod test {
 
         Ok(())
     }
+    #[test]
+    fn test_nested_if() -> Result<()> {
+        let source = r#"
+(module
+  ;; Auxiliary definition
+  (memory 1)
+
+  (func $dummy)
+  (func (export "nested") (param i32 i32) (result i32)
+    (if (result i32) (local.get 0)
+      (then
+        (if (local.get 1) (then (call $dummy) (block) (nop)))
+        (if (local.get 1) (then) (else (call $dummy) (block) (nop)))
+        (if (result i32) (local.get 1)
+          (then (call $dummy) (i32.const 9))
+          (else (call $dummy) (i32.const 10))
+        )
+      )
+      (else
+        (if (local.get 1) (then (call $dummy) (block) (nop)))
+        (if (local.get 1) (then) (else (call $dummy) (block) (nop)))
+        (if (result i32) (local.get 1)
+          (then (call $dummy) (i32.const 10))
+          (else (call $dummy) (i32.const 11))
+        )
+      )
+    )
+  )
+)
+            "#;
+        let wasm = wat2wasm(source)?;
+
+        let reader = std::io::Cursor::new(wasm);
+        let mut decoder = Decoder::new(reader);
+        let module = decoder.decode()?;
+
+        assert_debug_snapshot!(module);
+
+        Ok(())
+    }
 }

@@ -17,7 +17,7 @@ impl From<u8> for ValueType {
             0x7E => Self::I64,
             0x7D => Self::F32,
             0x7C => Self::F64,
-            _ => panic!("Invalid value type: {}", value_type),
+            _ => panic!("Invalid value type: {:X}", value_type),
         }
     }
 }
@@ -138,4 +138,18 @@ pub struct Data {
 pub struct Custom {
     name: String,
     data: Vec<u8>,
+}
+
+// https://www.w3.org/TR/wasm-core-1/#binary-blocktype
+#[derive(Debug, Clone, PartialEq)]
+pub enum BlockType {
+    Empty,
+    Value(Vec<ValueType>), // only one value type is allowed now
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Block {
+    pub block_type: BlockType,
+    pub then_body: Vec<Instruction>,
+    pub else_body: Vec<Instruction>,
 }
