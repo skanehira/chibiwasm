@@ -99,31 +99,26 @@ impl Runtime {
             .collect();
 
         let arity = func.func_type.results.len();
-        let frame = Frame { arity, locals };
 
-        self.frame_idxs.push(self.stack.len());
-        self.stack.push(frame.into());
+        push_frame(self, arity, locals)?;
 
         execute(self, &func.code.body)?;
 
         let result = if arity > 0 {
+            // NOTE: only returns one value now
             let value: Value = self.stack.pop1()?;
             Some(value)
         } else {
             None
         };
 
-        // back to the prev frame
-        loop {
-            let value = self.stack.pop().context("no any frame in the stack");
-            match value {
-                Ok(StackValue::Frame(_)) => {
-                    self.frame_idxs.pop();
-                    break;
-                }
-                _ => {}
-            }
-        }
+        // pop current frame
+        let idx = self
+            .frame_idxs
+            .pop()
+            .with_context(|| format!("no any frame in the stack, stack: {:?}", self.stack))?;
+        self.stack.split_off(idx);
+
         Ok(result)
     }
 
@@ -187,36 +182,26 @@ fn pop_label(runtime: &mut Runtime) -> Result<()> {
 }
 
 fn pop_frame(runtime: &mut Runtime) -> Result<()> {
-    let mut tmp = vec![];
-    loop {
-        let value = runtime.stack.pop1()?;
-        match value {
-            StackValue::Value(value) => {
-                tmp.push(value);
-            }
-            StackValue::Label(_) => {
-                // do nothing
-            }
-            StackValue::Frame(frame) => {
-                if frame.arity != tmp.len() {
-                    panic!(
-                        "expect {} values, but got {} values, values: {:?}, stack: {:?}",
-                        frame.arity,
-                        tmp.len(),
-                        tmp,
-                        runtime.stack,
-                    );
-                }
-                let values = &mut tmp[..frame.arity];
-                values.reverse();
-                for v in values.iter() {
-                    runtime.stack.push(v.to_owned().into());
-                }
-                runtime.frame_idxs.pop();
-                break;
-            }
-        }
+    let arity = runtime.current_frame().arity;
+
+    // pop frame from stack
+    let idx = runtime.frame_idxs.pop().context("not found frame index")?;
+    let values = &mut runtime.stack.split_off(idx);
+
+    // push results to stack
+    for _ in 0..arity {
+        runtime
+            .stack
+            .push(values.pop().context("not found frame result")?);
     }
+
+    Ok(())
+}
+
+fn push_frame(runtime: &mut Runtime, arity: usize, locals: Vec<Value>) -> Result<()> {
+    let frame = Frame { arity, locals };
+    runtime.frame_idxs.push(runtime.stack.len());
+    runtime.stack.push(frame.into());
     Ok(())
 }
 
