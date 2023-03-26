@@ -1,6 +1,6 @@
 use anyhow::Result;
-use chibiwasm::execution::value::Value;
 use chibiwasm::execution::runtime::Runtime;
+use chibiwasm::execution::value::Value;
 use clap::Parser;
 
 #[derive(Debug, Parser)]
