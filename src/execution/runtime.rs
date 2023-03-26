@@ -85,7 +85,6 @@ impl Runtime {
 
         match self.invoke(idx) {
             Ok(value) => {
-                self.stack = vec![];
                 Ok(value)
             }
             Err(e) => {
@@ -295,14 +294,13 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
             }
             Instruction::Loop(block) => {
                 // if br 0, jump to the latest label in the stack
-                let label: StackValue = Label {
-                    arity: block.block_type.result_count(),
-                }
-                .into();
+                let arity = block.block_type.result_count();
+                let label: StackValue = Label { arity }.into();
                 loop {
                     runtime.stack.push(label.clone());
                     match execute(runtime, &block.then_body)? {
                         State::Continue => {
+                            pop_label(runtime, arity > 0)?;
                             break;
                         }
                         State::Break(0) => {
@@ -348,7 +346,9 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
 
                 let result = execute(runtime, &block.then_body)?;
                 match result {
-                    State::Continue => {}
+                    State::Continue => {
+                        pop_label(runtime, arity > 0)?;
+                    }
                     State::Return => return Ok(State::Return),
                     State::Break(0) => {
                         pop_label(runtime, arity > 0)?; // pop current label
@@ -484,6 +484,51 @@ mod test {
     )
     (local.get 1)
   )
+  (func (export "as-if-then-return") (param i32 i32) (result i32)
+    (if (result i32)
+      (local.get 0) 
+        (then 
+          (i32.const 1)
+          (i32.const 2)
+          (return (i32.const 3))
+        )
+        (else (local.get 1))
+    )
+  )
+
+  (func (export "call-nested") (param i32 i32) (result i32)
+    (if (result i32) (local.get 0)
+      (then
+        (if (local.get 1) (then (call $dummy) (block) (nop)))
+        (if (local.get 1) (then) (else (call $dummy) (block) (nop)))
+        (if (result i32) (local.get 1)
+          (then (call $dummy) (i32.const 9))
+          (else (call $dummy) (i32.const 10))
+        )
+      )
+      (else
+        (if (local.get 1) (then (call $dummy) (block) (nop)))
+        (if (local.get 1) (then) (else (call $dummy) (block) (nop)))
+        (if (result i32) (local.get 1)
+          (then (call $dummy) (i32.const 10))
+          (else (call $dummy) (i32.const 11))
+        )
+      )
+    )
+  )
+
+  (func (export "br-nested") (result i32)
+    (block
+      (block
+        (block
+          (block 
+            br 3
+          )
+        )
+      )
+    )
+    (i32.const 1)
+  )
 )
 "#;
         let wasm = &mut wat2wasm(wat_code)?;
@@ -508,6 +553,9 @@ mod test {
                 ("as-if-cond", vec![], 2),
                 ("as-br_if-value", vec![], 8),
                 ("while", vec![5], 120),
+                ("as-if-then-return", vec![1, 2], 3),
+                ("call-nested", vec![1, 0], 10),
+                ("br-nested", vec![], 1),
             ];
 
             for test in tests.into_iter() {
