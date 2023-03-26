@@ -20,7 +20,7 @@ pub struct Runtime {
     pub module: Rc<ModuleInst>,
     pub pc: usize,
     pub stack: Vec<StackValue>,
-    pub sp: usize, // for get current frame
+    pub frame_idxs: Vec<usize>, // frame index, the last one is the current frame
 }
 
 impl Runtime {
@@ -58,7 +58,8 @@ impl Runtime {
     }
 
     pub fn current_frame(&self) -> &Frame {
-        let value = self.stack.get(self.sp);
+        let idx = self.frame_idxs.last().unwrap();
+        let value = self.stack.get(*idx);
         match value {
             Some(StackValue::Frame(frame)) => frame,
             _ => panic!("not found current frame"),
@@ -100,6 +101,7 @@ impl Runtime {
         let arity = func.func_type.results.len();
         let frame = Frame { arity, locals };
 
+        self.frame_idxs.push(self.stack.len());
         self.stack.push(frame.into());
 
         execute(self, &func.code.body)?;
@@ -111,13 +113,16 @@ impl Runtime {
             None
         };
 
-        let value = self.stack.pop().context("no any frame in the stack");
-        match value {
-            Ok(StackValue::Frame(_)) => {}
-            _ => panic!(
-                "stack bottom must be frame, value: {:?}, stack: {:?}",
-                value, self.stack
-            ),
+        // back to the prev frame
+        loop {
+            let value = self.stack.pop().context("no any frame in the stack");
+            match value {
+                Ok(StackValue::Frame(_)) => {
+                    self.frame_idxs.pop();
+                    break
+                },
+                _ => {}
+            }
         }
         Ok(result)
     }
@@ -250,6 +255,7 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                 // TODO
             }
             Instruction::Loop(block) => {
+                // if br 0, jump to the latest label in 
                 let label = Label {
                     arity: block.block_type.result_count(),
                 };
@@ -261,7 +267,7 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                             break;
                         }
                         State::Break(0) => {
-                            // TODO: pop label
+                            pop_label(runtime)?; // pop current label
                         }
                         State::Break(level) => return Ok(State::Break(level - 1)),
                         State::Return => {
@@ -326,6 +332,7 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                                     for v in values.iter() {
                                         runtime.stack.push(v.to_owned().into());
                                     }
+                                    runtime.frame_idxs.pop();
                                     break;
                                 }
                             }
@@ -447,7 +454,7 @@ mod test {
                 ("as-if-then", vec![], 1),
                 ("as-if-else", vec![], 1),
                 ("if", vec![1, 0], 0),
-                //("fib", vec![10], 55),
+                ("fib", vec![10], 55),
             ];
 
             for test in tests.into_iter() {
