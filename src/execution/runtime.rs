@@ -119,8 +119,8 @@ impl Runtime {
             match value {
                 Ok(StackValue::Frame(_)) => {
                     self.frame_idxs.pop();
-                    break
-                },
+                    break;
+                }
                 _ => {}
             }
         }
@@ -180,6 +180,40 @@ fn pop_label(runtime: &mut Runtime) -> Result<()> {
                     "expect value or label when pop label from stack, but got frame: {:?}",
                     frame
                 );
+            }
+        }
+    }
+    Ok(())
+}
+
+fn pop_frame(runtime: &mut Runtime) -> Result<()> {
+    let mut tmp = vec![];
+    loop {
+        let value = runtime.stack.pop1()?;
+        match value {
+            StackValue::Value(value) => {
+                tmp.push(value);
+            }
+            StackValue::Label(_) => {
+                // do nothing
+            }
+            StackValue::Frame(frame) => {
+                if frame.arity != tmp.len() {
+                    panic!(
+                        "expect {} values, but got {} values, values: {:?}, stack: {:?}",
+                        frame.arity,
+                        tmp.len(),
+                        tmp,
+                        runtime.stack,
+                    );
+                }
+                let values = &mut tmp[..frame.arity];
+                values.reverse();
+                for v in values.iter() {
+                    runtime.stack.push(v.to_owned().into());
+                }
+                runtime.frame_idxs.pop();
+                break;
             }
         }
     }
@@ -255,7 +289,7 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                 // TODO
             }
             Instruction::Loop(block) => {
-                // if br 0, jump to the latest label in 
+                // if br 0, jump to the latest label in the stack
                 let label = Label {
                     arity: block.block_type.result_count(),
                 };
@@ -294,10 +328,7 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
             }
             Instruction::Block(block) => {
                 let arity = block.block_type.result_count();
-                let label = Label {
-                    arity,
-                    //insts,
-                };
+                let label = Label { arity };
 
                 runtime.stack.push(label.into());
 
@@ -307,36 +338,7 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                         pop_label(runtime)?;
                     }
                     State::Return => {
-                        let mut tmp = vec![];
-                        loop {
-                            let value = runtime.stack.pop1()?;
-                            match value {
-                                StackValue::Value(value) => {
-                                    tmp.push(value);
-                                }
-                                StackValue::Label(_) => {
-                                    // do nothing
-                                }
-                                StackValue::Frame(frame) => {
-                                    if frame.arity != tmp.len() {
-                                        panic!(
-                                            "expect {} values, but got {} values, values: {:?}, stack: {:?}",
-                                            frame.arity,
-                                            tmp.len(),
-                                            tmp,
-                                            runtime.stack,
-                                        );
-                                    }
-                                    let values = &mut tmp[..frame.arity];
-                                    values.reverse();
-                                    for v in values.iter() {
-                                        runtime.stack.push(v.to_owned().into());
-                                    }
-                                    runtime.frame_idxs.pop();
-                                    break;
-                                }
-                            }
-                        }
+                        pop_frame(runtime)?;
                     }
                     State::Break(0) => {}
                     State::Break(level) => {}
@@ -436,6 +438,49 @@ mod test {
   (func (export "as-if-else") (result i32)
     (if (result i32) (i32.const 0) (then (i32.const 2)) (else (block (result i32) (i32.const 1))))
   )
+  (func (export "deep") (result i32)
+    (loop (result i32) (block (result i32)
+      (loop (result i32) (block (result i32)
+        (loop (result i32) (block (result i32)
+          (loop (result i32) (block (result i32)
+            (loop (result i32) (block (result i32)
+              (loop (result i32) (block (result i32)
+                (loop (result i32) (block (result i32)
+                  (loop (result i32) (block (result i32)
+                    (loop (result i32) (block (result i32)
+                      (loop (result i32) (block (result i32)
+                        (loop (result i32) (block (result i32)
+                          (loop (result i32) (block (result i32)
+                            (loop (result i32) (block (result i32)
+                              (loop (result i32) (block (result i32)
+                                (loop (result i32) (block (result i32)
+                                  (loop (result i32) (block (result i32)
+                                    (loop (result i32) (block (result i32)
+                                      (loop (result i32) (block (result i32)
+                                        (loop (result i32) (block (result i32)
+                                          (loop (result i32) (block (result i32)
+                                            (call $dummy) (i32.const 150)
+                                          ))
+                                        ))
+                                      ))
+                                    ))
+                                  ))
+                                ))
+                              ))
+                            ))
+                          ))
+                        ))
+                      ))
+                    ))
+                  ))
+                ))
+              ))
+            ))
+          ))
+        ))
+      ))
+    ))
+  )
 )
 "#;
         let wasm = &mut wat2wasm(wat_code)?;
@@ -455,6 +500,7 @@ mod test {
                 ("as-if-else", vec![], 1),
                 ("if", vec![1, 0], 0),
                 ("fib", vec![10], 55),
+                ("deep", vec![], 150),
             ];
 
             for test in tests.into_iter() {
