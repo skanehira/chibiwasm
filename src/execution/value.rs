@@ -51,14 +51,14 @@ impl Display for Value {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Label {
     //pub pc: usize,               // current instruction pointer
     pub arity: usize, // argument or result? arity
                       //pub insts: Vec<Instruction>, // current instructions
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Frame {
     pub arity: usize, // result arity
     pub locals: Vec<Value>, // local variables
@@ -66,7 +66,7 @@ pub struct Frame {
 }
 
 // https://www.w3.org/TR/wasm-core-1/#stack%E2%91%A0
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum StackValue {
     Value(Value),
     Label(Label),
@@ -86,8 +86,8 @@ impl StackAccess for Vec<StackValue> {
     }
 
     fn pop_rl<T: From<StackValue> + std::fmt::Debug>(&mut self) -> Result<(T, T)> {
-        let l = self.pop1()?;
         let r = self.pop1()?;
+        let l = self.pop1()?;
         Ok((r, l))
     }
 }

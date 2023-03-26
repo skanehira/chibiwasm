@@ -78,7 +78,7 @@ impl Runtime {
         match self.invoke(idx) {
             Ok(value) => Ok(value),
             Err(e) => {
-                self.stack = vec![];
+                self.stack = vec![]; // when traped, need to cleanup stack
                 Err(e)
             }
         }
@@ -87,11 +87,15 @@ impl Runtime {
     // https://www.w3.org/TR/wasm-core-1/#exec-invoke
     fn invoke(&mut self, idx: usize) -> Result<Option<Value>> {
         let func = self.resolve_by_idx(idx)?;
-        let mut locals = vec![];
-        for _ in 0..func.func_type.params.len() {
-            let value = self.stack.pop().context("not found value")?;
-            locals.push(value.into());
-        }
+
+        // push the arguments to frame local
+        let bottom = self.stack.len() - func.func_type.params.len();
+        let locals = self
+            .stack
+            .split_off(bottom)
+            .into_iter()
+            .map(Into::into)
+            .collect();
 
         let arity = func.func_type.results.len();
         let frame = Frame { arity, locals };
@@ -100,7 +104,6 @@ impl Runtime {
 
         execute(self, &func.code.body)?;
 
-        // stack will be frame + [result]
         let result = if arity > 0 {
             let value: Value = self.stack.pop1()?;
             Some(value)
@@ -108,7 +111,7 @@ impl Runtime {
             None
         };
 
-        let value = self.stack.pop().context("not found frame");
+        let value = self.stack.pop().context("no any frame in the stack");
         match value {
             Ok(StackValue::Frame(_)) => {}
             _ => panic!(
@@ -159,7 +162,9 @@ fn pop_label(runtime: &mut Runtime) -> Result<()> {
             }
             StackValue::Label(label) => {
                 if label.arity > 0 {
-                    for v in tmp[..label.arity].iter() {
+                    let values = &mut tmp[..label.arity];
+                    values.reverse();
+                    for v in values.iter() {
                         runtime.stack.push(v.to_owned().into());
                     }
                 }
@@ -316,7 +321,9 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                                             runtime.stack,
                                         );
                                     }
-                                    for v in tmp[..frame.arity].iter() {
+                                    let values = &mut tmp[..frame.arity];
+                                    values.reverse();
+                                    for v in values.iter() {
                                         runtime.stack.push(v.to_owned().into());
                                     }
                                     break;
