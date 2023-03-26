@@ -1,8 +1,10 @@
+#![allow(unused)]
+
 #[cfg(test)]
 mod tests {
     use anyhow::*;
-    use chibiwasm::runtime::Runtime;
-    use chibiwasm::runtime::value::Value;
+    use chibiwasm::execution::runtime::Runtime;
+    use chibiwasm::execution::value::Value;
     use std::io::{Cursor, Read};
     use std::{fs, path::Path};
     use wabt::{script::*, Features};
@@ -53,11 +55,11 @@ mod tests {
                 CommandKind::AssertReturn { action, expected } => match action {
                     Action::Invoke { field, args, .. } => {
                         let args = into_wasm_value(args);
-                        let result = runtime.invoke(field, args.clone())?;
+                        let result = runtime.call(field.clone(), args.clone())?;
                         if result.is_none() {
                             continue;
                         }
-                        let result = match result.unwrap() {
+                        let got = match result.unwrap() {
                             Value::I32(v) => {
                                 vec![wabt::script::Value::I32(v)]
                             }
@@ -80,7 +82,7 @@ mod tests {
                             }
                         };
 
-                        let expected: Vec<_> = expected
+                        let want: Vec<_> = expected
                             .into_iter()
                             .map(|e| match e {
                                 wabt::script::Value::F32(v) => {
@@ -99,7 +101,12 @@ mod tests {
                             })
                             .collect();
 
-                        assert_eq!(expected, result, "args: {:?}", args);
+                        assert_eq!(
+                                    want,
+                                    got,
+                                    "unexpect result, want={want:?}, got={got:?}, test: {field}, args: {args:?}",
+                                );
+                        //assert_eq!(expected, result, "args: {:?}", args);
                     }
                     Action::Get { .. } => todo!(),
                 },
@@ -112,11 +119,17 @@ mod tests {
                 CommandKind::AssertTrap { action, message } => match action {
                     Action::Invoke { field, args, .. } => {
                         let args = into_wasm_value(args);
-                        let result = runtime.invoke(field.clone(), args);
+                        let result = runtime.call(field.clone(), args.clone());
 
                         match result {
                             Err(err) => {
-                                assert_eq!(message, err.to_string());
+                                let want = message;
+                                let got = err.to_string();
+                                assert_eq!(
+                                    want,
+                                    got,
+                                    "unexpect result, want={want}, got={got}, test: {field}, args: {args:?}",
+                                );
                             }
                             _ => {
                                 panic!("test must be fail: {}", field);

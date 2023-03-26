@@ -147,6 +147,15 @@ pub enum BlockType {
     Value(Vec<ValueType>), // only one value type is allowed now
 }
 
+impl BlockType {
+    pub fn result_count(&self) -> usize {
+        match self {
+            Self::Empty => 0,
+            Self::Value(value_types) => value_types.len(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Block {
     pub block_type: BlockType,

@@ -1,5 +1,6 @@
 use anyhow::Result;
-use chibiwasm::runtime::{value::Value, Runtime};
+use chibiwasm::execution::value::Value;
+use chibiwasm::execution::runtime::Runtime;
 use clap::Parser;
 
 #[derive(Debug, Parser)]
@@ -16,7 +17,7 @@ fn main() -> Result<()> {
     let args = Args::parse();
     let mut runtime = Runtime::from_file(&args.file)?;
     let func_args: Vec<Value> = args.func_args.into_iter().map(Value::from).collect();
-    let result = runtime.invoke(args.func, func_args);
-    println!("{}", result?.unwrap());
+    let result = runtime.call(args.func, func_args)?;
+    println!("{:?}", result);
     Ok(())
 }

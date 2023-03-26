@@ -1,53 +1,50 @@
-use super::error::Error;
-use super::{Runtime, value::Value};
+use super::value::StackAccess as _;
+use super::value::StackValue;
+use super::{runtime::Runtime, value::Value};
 use anyhow::{bail, Context as _, Result};
-
-pub fn pop_rl(runtime: &mut Runtime) -> Result<(Value, Value)> {
-    let r = runtime
-        .value_stack
-        .pop()
-        .ok_or_else(|| Error::StackPopError)?;
-    let l = runtime
-        .value_stack
-        .pop()
-        .ok_or_else(|| Error::StackPopError)?;
-    Ok((r, l))
-}
 
 pub fn local_get(runtime: &mut Runtime, idx: usize) -> Result<()> {
     let value = runtime
-        .current_frame()?
-        .local_stack
+        .current_frame()
+        .locals
         .get(idx)
         .context("not found local variable")?;
-    runtime.value_stack.push(value.clone());
+    runtime.stack.push(StackValue::Value(value.clone()));
     Ok(())
 }
 
 pub fn popcnt(runtime: &mut Runtime) -> Result<()> {
-    let value = runtime.stack_pop()?;
+    let value = runtime
+        .stack
+        .pop1()
+        .context("not found value in the stack")?;
+
     match value {
-        Value::I32(v) => runtime.value_stack.push(v.count_ones().into()),
-        Value::I64(v) => runtime.value_stack.push((v.count_ones() as i64).into()),
+        Value::I32(v) => {
+            let value: Value = v.count_ones().into();
+            runtime.stack.push(value.into());
+        }
+        Value::I64(v) => {
+            let value: Value = (v.count_ones() as i64).into();
+            runtime.stack.push(value.into());
+        }
         _ => bail!("unexpected value"),
     }
     Ok(())
 }
 
-pub fn push<T: Into<Value>>(runtime: &mut Runtime, value: T) -> Result<()> {
-    runtime.value_stack.push(value.into());
+pub fn push<T: Into<StackValue>>(runtime: &mut Runtime, value: T) -> Result<()> {
+    runtime.stack.push(value.into());
     Ok(())
 }
 
 pub fn i64extend_32s(runtime: &mut Runtime) -> Result<()> {
-    let value = runtime
-        .value_stack
-        .pop()
-        .ok_or_else(|| Error::StackPopError)?;
+    let value = runtime.stack.pop1()?;
     match value {
         Value::I64(v) => {
             let result = v << 32 >> 32;
-            runtime.value_stack.push(result.into());
+            let value: Value = result.into();
+            runtime.stack.push(value.into());
         }
         _ => bail!("unexpected value type"),
     }
@@ -58,8 +55,9 @@ macro_rules! impl_binary_operation {
     ($($op: ident),*) => {
         $(
             pub fn $op(runtime: &mut Runtime) -> Result<()> {
-                let (r, l) = pop_rl(runtime)?;
-                runtime.value_stack.push(l.$op(&r)?);
+                let (r, l): (Value, Value) = runtime.stack.pop_rl()?;
+                let value = l.$op(&r)?;
+                runtime.stack.push(value.into());
                 Ok(())
             }
         )*
@@ -70,8 +68,9 @@ macro_rules! impl_unary_operation {
     ($($op: ident),*) => {
         $(
             pub fn $op(runtime: &mut Runtime) -> Result<()> {
-                let value = runtime.value_stack.pop().ok_or_else(|| Error::StackPopError)?;
-                runtime.value_stack.push(value.$op()?);
+                let value: Value = runtime.stack.pop1()?;
+                let value = value.$op()?;
+                runtime.stack.push(value.into());
                 Ok(())
             }
          )*
@@ -83,6 +82,7 @@ impl_unary_operation!(
     clz, ctz, extend8_s, extend16_s, // iunop
     abs, neg, sqrt, ceil, floor, trunc, nearest // funop
 );
+
 impl_binary_operation!(
     add, sub, mul, // binop
     div_s, div_u, rem_s, rem_u, and, or, xor, shl, shr_u, shr_s, rotl, rotr, // ibinop

@@ -224,4 +224,24 @@ mod test {
 
         Ok(())
     }
+
+    #[test]
+    fn test_return() -> Result<()> {
+        let source = r#"
+(module
+  (func (export "type-i32-value") (result i32)
+    (block (result i32) (i32.ctz (return (i32.const 1))))
+  )
+)
+            "#;
+        let wasm = wat2wasm(source)?;
+
+        let reader = std::io::Cursor::new(wasm);
+        let mut decoder = Decoder::new(reader);
+        let module = decoder.decode()?;
+
+        assert_debug_snapshot!(module);
+
+        Ok(())
+    }
 }

@@ -1,9 +1,15 @@
+#![allow(unused)]
+
+use super::indices::*;
+use super::instance::ModuleInst;
 use super::{float::*, integer::*};
 use crate::binary::instruction::*;
 use crate::binary::types::ExportDesc;
 use crate::binary::types::FuncType;
-use anyhow::Result;
+use anyhow::{Context as _, Result};
 use std::fmt::Display;
+use std::i64;
+use std::rc::Rc;
 
 // https://webassembly.github.io/spec/core/exec/runtime.html#syntax-val
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -45,6 +51,86 @@ impl Display for Value {
     }
 }
 
+#[derive(Debug)]
+pub struct Label {
+    //pub pc: usize,               // current instruction pointer
+    pub arity: usize, // argument or result? arity
+                      //pub insts: Vec<Instruction>, // current instructions
+}
+
+#[derive(Debug, Default)]
+pub struct Frame {
+    pub arity: usize, // result arity
+    pub locals: Vec<Value>, // local variables
+                      // pub module: Rc<ModuleInst>, // TODO: add module reference
+}
+
+// https://www.w3.org/TR/wasm-core-1/#stack%E2%91%A0
+#[derive(Debug)]
+pub enum StackValue {
+    Value(Value),
+    Label(Label),
+    Frame(Frame),
+}
+
+// trait for stack access
+pub trait StackAccess {
+    fn pop1<T: From<StackValue> + std::fmt::Debug>(&mut self) -> Result<T>;
+    fn pop_rl<T: From<StackValue> + std::fmt::Debug>(&mut self) -> Result<(T, T)>;
+}
+
+impl StackAccess for Vec<StackValue> {
+    fn pop1<T: From<StackValue> + std::fmt::Debug>(&mut self) -> Result<T> {
+        let value = self.pop().context("no value in the stack")?.into();
+        Ok(value)
+    }
+
+    fn pop_rl<T: From<StackValue> + std::fmt::Debug>(&mut self) -> Result<(T, T)> {
+        let l = self.pop1()?;
+        let r = self.pop1()?;
+        Ok((r, l))
+    }
+}
+
+impl From<StackValue> for Value {
+    fn from(value: StackValue) -> Self {
+        match value {
+            StackValue::Value(v) => v,
+            _ => panic!("unexpected value: {:?}", value),
+        }
+    }
+}
+
+impl From<Value> for StackValue {
+    fn from(value: Value) -> Self {
+        Self::Value(value)
+    }
+}
+
+impl From<Frame> for StackValue {
+    fn from(value: Frame) -> Self {
+        Self::Frame(value)
+    }
+}
+
+impl From<Label> for StackValue {
+    fn from(value: Label) -> Self {
+        Self::Label(value)
+    }
+}
+
+impl From<i32> for StackValue {
+    fn from(value: i32) -> Self {
+        Self::Value(value.into())
+    }
+}
+
+impl From<i64> for StackValue {
+    fn from(value: i64) -> Self {
+        Self::Value(value.into())
+    }
+}
+
 impl From<i32> for Value {
     fn from(v: i32) -> Self {
         Self::I32(v)
@@ -78,17 +164,11 @@ impl From<u64> for Value {
 }
 
 #[derive(Debug)]
-pub struct Function {
-    pub func_type: FuncType,
-    pub body: Vec<Instruction>,
-}
-
-#[derive(Debug)]
 pub enum ExternalVal {
-    Func(u32),
-    Table(u32),
-    Memory(u32),
-    Global(u32),
+    Func(FuncIdx),
+    Table(TableIdx),
+    Memory(MemoryIdx),
+    Global(GlobalIdx),
 }
 
 impl From<ExportDesc> for ExternalVal {
@@ -100,6 +180,13 @@ impl From<ExportDesc> for ExternalVal {
             ExportDesc::Global(addr) => Self::Global(addr),
         }
     }
+}
+
+#[derive(Debug)]
+pub enum State {
+    Continue,     // continue to next instruction
+    Return,       // return from current frame
+    Break(usize), // jump to the label
 }
 
 macro_rules! binop {

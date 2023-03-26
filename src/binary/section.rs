@@ -519,7 +519,7 @@ fn decode_instruction(reader: &mut SectionReader) -> Result<Instruction> {
             Instruction::Call(local_idx)
         }
         Opcode::Return => Instruction::Return,
-        Opcode::Void => Instruction::Void,
+        Opcode::MemoryGrow => Instruction::MemoryGrow,
         Opcode::LocalGet => {
             let local_idx = reader.u32()?;
             Instruction::LocalGet(local_idx)
