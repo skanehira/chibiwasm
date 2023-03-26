@@ -59,8 +59,15 @@ impl Runtime {
 
     pub fn current_frame(&self) -> &Frame {
         let idx = self.frame_idxs.last().unwrap();
-        let value = self.stack.get(*idx);
-        match value {
+        match self.stack.get(*idx) {
+            Some(StackValue::Frame(frame)) => frame,
+            _ => panic!("not found current frame"),
+        }
+    }
+
+    pub fn current_frame_mut(&mut self) -> &mut Frame {
+        let idx = self.frame_idxs.last().unwrap();
+        match self.stack.get_mut(*idx) {
             Some(StackValue::Frame(frame)) => frame,
             _ => panic!("not found current frame"),
         }
@@ -77,7 +84,10 @@ impl Runtime {
         }
 
         match self.invoke(idx) {
-            Ok(value) => Ok(value),
+            Ok(value) => {
+                self.stack = vec![];
+                Ok(value)
+            }
             Err(e) => {
                 self.stack = vec![]; // when traped, need to cleanup stack
                 Err(e)
@@ -152,7 +162,7 @@ impl Runtime {
     }
 }
 
-fn pop_label(runtime: &mut Runtime) -> Result<()> {
+fn pop_label(runtime: &mut Runtime, has_result: bool) -> Result<()> {
     let mut tmp = vec![];
     loop {
         let value = runtime.stack.pop1()?;
@@ -161,7 +171,7 @@ fn pop_label(runtime: &mut Runtime) -> Result<()> {
                 tmp.push(value);
             }
             StackValue::Label(label) => {
-                if label.arity > 0 {
+                if has_result && label.arity > 0 {
                     let values = &mut tmp[..label.arity];
                     values.reverse();
                     for v in values.iter() {
@@ -210,6 +220,7 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
         match inst {
             Instruction::Nop => {}
             Instruction::LocalGet(idx) => local_get(runtime, *idx as usize)?,
+            Instruction::LocalSet(idx) => local_set(runtime, *idx as usize)?,
             Instruction::I32Add | Instruction::I64Add => add(runtime)?,
             Instruction::I32Sub | Instruction::I64Sub => sub(runtime)?,
             Instruction::I32Mul | Instruction::I64Mul => mul(runtime)?,
@@ -264,29 +275,38 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
             Instruction::F32Gt | Instruction::F64Gt => fgt(runtime)?,
             Instruction::F32Le | Instruction::F64Le => fle(runtime)?,
             Instruction::F32Ge | Instruction::F64Ge => fge(runtime)?,
-            Instruction::Return => {
-                return Ok(State::Return);
-            }
             Instruction::Drop => {
                 runtime.stack.pop();
             }
             Instruction::MemoryGrow => {
                 // TODO
             }
+            Instruction::Return => {
+                return Ok(State::Return);
+            }
+            Instruction::Br(level) => {
+                return Ok(State::Break(*level as usize));
+            }
+            Instruction::BrIf(level) => {
+                let value: Value = runtime.stack.pop1()?;
+                if value.is_true() {
+                    return Ok(State::Break(*level as usize));
+                }
+            }
             Instruction::Loop(block) => {
                 // if br 0, jump to the latest label in the stack
-                let label = Label {
+                let label: StackValue = Label {
                     arity: block.block_type.result_count(),
-                };
-                runtime.stack.push(label.into());
+                }
+                .into();
                 loop {
+                    runtime.stack.push(label.clone());
                     match execute(runtime, &block.then_body)? {
                         State::Continue => {
-                            pop_label(runtime)?;
                             break;
                         }
                         State::Break(0) => {
-                            pop_label(runtime)?; // pop current label
+                            pop_label(runtime, false)?; // pop current label
                         }
                         State::Break(level) => return Ok(State::Break(level - 1)),
                         State::Return => {
@@ -297,14 +317,23 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
             }
             Instruction::If(block) => {
                 let value: Value = runtime.stack.pop1()?;
-                // if value is not true, skip until else or end
+
+                let arity = block.block_type.result_count();
+                let label = Label { arity };
+                runtime.stack.push(label.into());
+
                 let result = if value.is_true() {
                     execute(runtime, &block.then_body)?
                 } else {
                     execute(runtime, &block.else_body)?
                 };
                 match result {
-                    State::Continue => {}
+                    State::Continue => {
+                        pop_label(runtime, arity > 0)?;
+                    }
+                    State::Break(0) => {
+                        pop_label(runtime, arity > 0)?;
+                    }
                     State::Break(level) => return Ok(State::Break(level)),
                     State::Return => {
                         return Ok(State::Return);
@@ -319,14 +348,12 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
 
                 let result = execute(runtime, &block.then_body)?;
                 match result {
-                    State::Continue => {
-                        pop_label(runtime)?;
+                    State::Continue => {}
+                    State::Return => return Ok(State::Return),
+                    State::Break(0) => {
+                        pop_label(runtime, arity > 0)?; // pop current label
                     }
-                    State::Return => {
-                        pop_frame(runtime)?;
-                    }
-                    State::Break(0) => {}
-                    State::Break(level) => {}
+                    State::Break(level) => return Ok(State::Break(level - 1)),
                 }
             }
             Instruction::Call(idx) => {
@@ -423,48 +450,39 @@ mod test {
   (func (export "as-if-else") (result i32)
     (if (result i32) (i32.const 0) (then (i32.const 2)) (else (block (result i32) (i32.const 1))))
   )
-  (func (export "deep") (result i32)
-    (loop (result i32) (block (result i32)
-      (loop (result i32) (block (result i32)
-        (loop (result i32) (block (result i32)
-          (loop (result i32) (block (result i32)
-            (loop (result i32) (block (result i32)
-              (loop (result i32) (block (result i32)
-                (loop (result i32) (block (result i32)
-                  (loop (result i32) (block (result i32)
-                    (loop (result i32) (block (result i32)
-                      (loop (result i32) (block (result i32)
-                        (loop (result i32) (block (result i32)
-                          (loop (result i32) (block (result i32)
-                            (loop (result i32) (block (result i32)
-                              (loop (result i32) (block (result i32)
-                                (loop (result i32) (block (result i32)
-                                  (loop (result i32) (block (result i32)
-                                    (loop (result i32) (block (result i32)
-                                      (loop (result i32) (block (result i32)
-                                        (loop (result i32) (block (result i32)
-                                          (loop (result i32) (block (result i32)
-                                            (call $dummy) (i32.const 150)
-                                          ))
-                                        ))
-                                      ))
-                                    ))
-                                  ))
-                                ))
-                              ))
-                            ))
-                          ))
-                        ))
-                      ))
-                    ))
-                  ))
-                ))
-              ))
-            ))
-          ))
-        ))
-      ))
-    ))
+  (func (export "as-br-value") (result i32)
+    (block (result i32) (br 0 (br 0 (i32.const 9))))
+  )
+  (func (export "as-br-last") (result i32)
+    (block (result i32)
+      (loop (result i32) (nop) (call $dummy) (br 1 (i32.const 5)))
+    )
+  )
+  (func (export "as-if-cond") (result i32)
+    (block (result i32)
+      (if (result i32) (br 0 (i32.const 2))
+        (then (i32.const 0))
+        (else (i32.const 1))
+      )
+    )
+  )
+  (func (export "as-br_if-value") (result i32)
+    (block (result i32)
+      (drop (br_if 0 (br 0 (i32.const 8)) (i32.const 1))) (i32.const 7)
+    )
+  )
+  (func (export "while") (param i32) (result i32)
+    (local i32)
+    (local.set 1 (i32.const 1))
+    (block
+      (loop
+        (br_if 1 (i32.eqz (local.get 0)))
+        (local.set 1 (i32.mul (local.get 0) (local.get 1)))
+        (local.set 0 (i32.sub (local.get 0) (i32.const 1)))
+        (br 0)
+      )
+    )
+    (local.get 1)
   )
 )
 "#;
@@ -485,7 +503,11 @@ mod test {
                 ("as-if-else", vec![], 1),
                 ("if", vec![1, 0], 0),
                 ("fib", vec![10], 55),
-                ("deep", vec![], 150),
+                ("as-br-value", vec![], 9),
+                ("as-br-last", vec![], 5),
+                ("as-if-cond", vec![], 2),
+                ("as-br_if-value", vec![], 8),
+                ("while", vec![5], 120),
             ];
 
             for test in tests.into_iter() {

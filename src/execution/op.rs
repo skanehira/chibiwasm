@@ -13,6 +13,16 @@ pub fn local_get(runtime: &mut Runtime, idx: usize) -> Result<()> {
     Ok(())
 }
 
+pub fn local_set(runtime: &mut Runtime, idx: usize) -> Result<()> {
+    let value: Value = runtime.stack.pop1()?;
+    let frame = runtime.current_frame_mut();
+    frame.locals.insert(idx, value.into());
+    if frame.locals.len() > idx + 1 {
+        frame.locals.remove(idx + 1);
+    }
+    Ok(())
+}
+
 pub fn popcnt(runtime: &mut Runtime) -> Result<()> {
     let value = runtime
         .stack

@@ -198,7 +198,7 @@ macro_rules! binop {
                     (Value::I64(l), Value::I64(r)) => Ok(Value::I64(l.$op(*r)?)),
                     (Value::F32(l), Value::F32(r)) => Ok(Value::F32(l.$op(*r)?)),
                     (Value::F64(l), Value::F64(r)) => Ok(Value::F64(l.$op(*r)?)),
-                    _ => unimplemented!("unimplemented for Value")
+                    _ => panic!("unexpected value. left: {self} right: {rhs}")
                 }
             }
         )*
@@ -212,7 +212,7 @@ macro_rules! ibinop {
                 match (self, rhs) {
                     (Value::I32(l), Value::I32(r)) => Ok(Value::I32(l.$op(*r)?)),
                     (Value::I64(l), Value::I64(r)) => Ok(Value::I64(l.$op(*r)?)),
-                    _ => unimplemented!("unimplemented for Value")
+                    _ => panic!("unexpected value. left: {self} right: {rhs}")
                 }
             }
         )*
@@ -226,7 +226,7 @@ macro_rules! fbinop {
                 match (self, rhs) {
                     (Value::F32(l), Value::F32(r)) => Ok(Value::F32(l.$op(*r)?)),
                     (Value::F64(l), Value::F64(r)) => Ok(Value::F64(l.$op(*r)?)),
-                    _ => unimplemented!("unimplemented for Value")
+                    _ => panic!("unexpected value. left: {self} right: {rhs}")
                 }
             }
         )*
@@ -242,7 +242,7 @@ macro_rules! relop {
                     (Value::I64(l), Value::I64(r)) => Ok(Value::I32(l.$op(*r)? as i32)),
                     (Value::F32(l), Value::F32(r)) => Ok(Value::I32(l.$op(*r)? as i32)),
                     (Value::F64(l), Value::F64(r)) => Ok(Value::I32(l.$op(*r)? as i32)),
-                    _ => unimplemented!("unimplemented div_s for Value")
+                    _ => panic!("unexpected value. left: {self} right: {rhs}")
                 }
             }
         )*
@@ -256,7 +256,7 @@ macro_rules! irelop {
                 match (self, rhs) {
                     (Value::I32(l), Value::I32(r)) => Ok(Value::I32(l.$op(*r)?)),
                     (Value::I64(l), Value::I64(r)) => Ok(Value::I32(l.$op(*r)? as i32)),
-                    _ => unimplemented!("unimplemented div_s for Value")
+                    _ => panic!("unexpected value. left: {self} right: {rhs}")
                 }
             }
         )*
@@ -270,7 +270,7 @@ macro_rules! frelop {
                 match (self, rhs) {
                     (Value::F32(l), Value::F32(r)) => Ok(Value::I32(l.$op(*r)? as i32)),
                     (Value::F64(l), Value::F64(r)) => Ok(Value::I32(l.$op(*r)? as i32)),
-                    _ => unimplemented!("unimplemented div_s for Value")
+                    _ => panic!("unexpected value. left: {self} right: {rhs}")
                 }
             }
         )*
@@ -284,7 +284,7 @@ macro_rules! iunop {
                 match self {
                     Value::I32(l) => Ok(Value::I32(l.$op()?)),
                     Value::I64(l) => Ok(Value::I64(l.$op()?)),
-                    _ => unimplemented!("unimplemented for Value")
+                    _ => panic!("unexpected value. {self}")
                 }
             }
         )*
@@ -298,7 +298,7 @@ macro_rules! itestop {
                 match self {
                     Value::I32(l) => Ok(Value::I32(l.$op()?)),
                     Value::I64(l) => Ok(Value::I32(l.$op()? as i32)),
-                    _ => unimplemented!("unimplemented for Value")
+                    _ => panic!("unexpected value. {self}")
                 }
             }
         )*
@@ -312,7 +312,7 @@ macro_rules! funop {
                 match self {
                     Value::F32(l) => Ok(Value::F32(l.$op()?)),
                     Value::F64(l) => Ok(Value::F64(l.$op()?)),
-                    _ => unimplemented!("unimplemented for Value")
+                    _ => panic!("unexpected value. {self}")
                 }
             }
         )*

@@ -1,7 +1,7 @@
 use super::error::Error::*;
 use super::instruction::{Instruction, Opcode};
 use super::types::*;
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive as _;
 use std::io::{BufRead, Cursor, Read};
@@ -504,7 +504,9 @@ fn decode_block(reader: &mut SectionReader) -> Result<Block> {
 
 fn decode_instruction(reader: &mut SectionReader) -> Result<Instruction> {
     let op = reader.byte()?;
-    let op: Opcode = Opcode::from_u8(op).unwrap();
+    let op: Opcode =
+        Opcode::from_u8(op).with_context(|| format!("unimplemented opcode: {:x}", op))?;
+
     let inst = match op {
         Opcode::Unreachable => Instruction::Unreachable,
         Opcode::Nop => Instruction::Nop,
@@ -513,7 +515,8 @@ fn decode_instruction(reader: &mut SectionReader) -> Result<Instruction> {
         Opcode::If => Instruction::If(decode_block(reader)?),
         Opcode::Else => Instruction::Else,
         Opcode::End => Instruction::End,
-        Opcode::Br => Instruction::Br,
+        Opcode::Br => Instruction::Br(reader.u32()?),
+        Opcode::BrIf => Instruction::BrIf(reader.u32()?),
         Opcode::Call => {
             let local_idx = reader.u32()?;
             Instruction::Call(local_idx)
@@ -524,6 +527,7 @@ fn decode_instruction(reader: &mut SectionReader) -> Result<Instruction> {
             let local_idx = reader.u32()?;
             Instruction::LocalGet(local_idx)
         }
+        Opcode::LocalSet => Instruction::LocalSet(reader.u32()?),
         Opcode::I32Sub => Instruction::I32Sub,
         Opcode::I32Add => Instruction::I32Add,
         Opcode::I32Mul => Instruction::I32Mul,
