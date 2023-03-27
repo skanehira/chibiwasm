@@ -84,9 +84,7 @@ impl Runtime {
         }
 
         match self.invoke(idx) {
-            Ok(value) => {
-                Ok(value)
-            }
+            Ok(value) => Ok(value),
             Err(e) => {
                 self.stack = vec![]; // when traped, need to cleanup stack
                 Err(e)
@@ -529,6 +527,43 @@ mod test {
     )
     (i32.const 1)
   )
+
+  (func (export "if1") (result i32)
+    (local $i i32)
+    (local.set $i (i32.const 0))
+    (block
+      (if $l
+        (i32.const 1)
+        (then (br $l) (local.set $i (i32.const 666)))
+      )
+      (local.set $i (i32.add (local.get $i) (i32.const 1)))
+      (if $l
+        (i32.const 1)
+        (then (br $l) (local.set $i (i32.const 666)))
+        (else (local.set $i (i32.const 888)))
+      )
+      (local.set $i (i32.add (local.get $i) (i32.const 1)))
+      (if $l
+        (i32.const 1)
+        (then (br $l) (local.set $i (i32.const 666)))
+        (else (local.set $i (i32.const 888)))
+      )
+      (local.set $i (i32.add (local.get $i) (i32.const 1)))
+      (if $l
+        (i32.const 0)
+        (then (local.set $i (i32.const 888)))
+        (else (br $l) (local.set $i (i32.const 666)))
+      )
+      (local.set $i (i32.add (local.get $i) (i32.const 1)))
+      (if $l
+        (i32.const 0)
+        (then (local.set $i (i32.const 888)))
+        (else (br $l) (local.set $i (i32.const 666)))
+      )
+      (local.set $i (i32.add (local.get $i) (i32.const 1)))
+    )
+    (local.get $i)
+  )
 )
 "#;
         let wasm = &mut wat2wasm(wat_code)?;
@@ -556,6 +591,7 @@ mod test {
                 ("as-if-then-return", vec![1, 2], 3),
                 ("call-nested", vec![1, 0], 10),
                 ("br-nested", vec![], 1),
+                ("if1", vec![], 5),
             ];
 
             for test in tests.into_iter() {
