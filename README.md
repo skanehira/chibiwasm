@@ -1,13 +1,14 @@
 # chibiwasm (WIP)
-Implementation for understanding how Wasm Runtime works
+This repository was created for the purpose of learning how Wasm works.
+Please do not use it in production.
 
 ## Spec
-Implementation base on core 1.
+Base on core 1.
 
 https://www.w3.org/TR/wasm-core-1/
 
 # tests
-Base on https://github.com/WebAssembly/spec/tree/wg-1.0/test/core
+The list is base on https://github.com/WebAssembly/spec/tree/wg-1.0/test/core
 
 - [ ] address.wast
 - [ ] align.wast
@@ -82,3 +83,6 @@ Base on https://github.com/WebAssembly/spec/tree/wg-1.0/test/core
 - [ ] utf8-import-field.wast
 - [ ] utf8-import-module.wast
 - [ ] utf8-invalid-encoding.wast
+
+## LICENSE
+This software includes the work that is distributed in the Apache License 2.0.
