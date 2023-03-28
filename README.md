@@ -2,6 +2,12 @@
 This repository was created for the purpose of learning how Wasm works.
 Please do not use it in production.
 
+## Usage
+```sh
+$ cargo run -- add.wasm 1 2
+I32(2)
+```
+
 ## Spec
 Base on core 1.
 
