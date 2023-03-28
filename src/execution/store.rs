@@ -1,4 +1,4 @@
-use super::{instance::*, value::Value};
+use super::{module::*, value::Value};
 use crate::binary::{
     module::Module,
     types::{ExprValue, Mutability},

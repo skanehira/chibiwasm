@@ -1,7 +1,7 @@
 #![allow(unused)]
 
 use super::indices::*;
-use super::instance::ModuleInst;
+use super::module::ModuleInst;
 use super::{float::*, integer::*};
 use crate::binary::instruction::*;
 use crate::binary::types::ExportDesc;

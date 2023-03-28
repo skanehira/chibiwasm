@@ -1,7 +1,7 @@
 #![allow(unused)]
 
 use super::error::Error;
-use super::instance::{FuncInst, ModuleInst};
+use super::module::{FuncInst, ModuleInst};
 use super::op::*;
 use super::store::Store;
 use super::value::{ExternalVal, State, Value};
