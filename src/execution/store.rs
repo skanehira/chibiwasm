@@ -1,11 +1,12 @@
-use anyhow::{Context, Result};
-
+use super::{instance::*, value::Value};
 use crate::binary::{
     module::Module,
     types::{ExprValue, Mutability},
 };
+use anyhow::{Context, Result};
 
-use super::{instance::*, value::Value};
+// https://www.w3.org/TR/wasm-core-1/#memory-instances%E2%91%A0
+const PAGE_SIZE: u32 = 65536; // 64Ki
 
 #[derive(Debug, Default)]
 pub struct Store {
@@ -60,21 +61,26 @@ impl Store {
             funcs.push(func_inst);
         }
 
-        let max = match &module.memory_section {
+        // NOTE: only support one memory now
+        let memories = match &module.memory_section {
             Some(memory) => {
                 let memory = memory.get(0);
-
                 match memory {
-                    Some(memory) => memory.limits.max,
-                    None => None,
+                    Some(memory) => {
+                        // https://www.w3.org/TR/wasm-core-1/#memories%E2%91%A5
+                        let min = memory.limits.min * PAGE_SIZE;
+                        vec![MemoryInst {
+                            data: vec![0; min as usize],
+                            max: memory.limits.max,
+                        }]
+                    }
+                    None => vec![],
                 }
             }
-            None => None,
+            _ => {
+                vec![]
+            }
         };
-        let memories = vec![MemoryInst {
-            data: vec![0; 65536],
-            max,
-        }];
 
         let globals = match &module.global_section {
             Some(globals) => globals

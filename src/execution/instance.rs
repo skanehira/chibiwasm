@@ -36,9 +36,6 @@ pub struct TableInst {
     pub max: Option<u32>,
 }
 
-// https://www.w3.org/TR/wasm-core-1/#memory-instances%E2%91%A0
-const PAGE_SIZE: usize = 65536; // 64Ki
-
 #[derive(Debug)]
 pub struct MemoryInst {
     pub data: Vec<u8>,
