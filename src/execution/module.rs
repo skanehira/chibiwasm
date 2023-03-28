@@ -65,7 +65,100 @@ pub struct ModuleInst {
 }
 
 impl ModuleInst {
-    pub fn new(store: &Store, module: &Module) -> Self {
+    // https://www.w3.org/TR/wasm-core-1/#modules%E2%91%A6
+    pub fn allocate(module: &Module) -> Self {
+        let func_types = Self::into_func_types(module);
+        let exports = Self::into_exports(module);
+        let func_addrs = Self::into_func_addrs(module);
+        let table_addrs = Self::into_table_addrs(module);
+        let memory_addrs = Self::into_memory_addrs(module);
+        let global_addrs = Self::into_global_addrs(module);
+
+        let module_inst = ModuleInst {
+            func_types,
+            func_addrs,
+            table_addrs,
+            memory_addrs,
+            global_addrs,
+            exports,
+        };
+        module_inst
+    }
+
+    fn into_func_types(module: &Module) -> Vec<FuncType> {
+        let mut types = vec![];
+        match module.type_section {
+            Some(ref func_types) => {
+                for ty in func_types {
+                    let func_type = FuncType {
+                        params: ty.params.clone(),
+                        results: ty.results.clone(),
+                    };
+                    types.push(func_type);
+                }
+            }
+            None => {}
+        };
+        types
+    }
+
+    fn into_func_addrs(module: &Module) -> Vec<FuncAddr> {
+        let mut func_addrs = vec![];
+        match module.function_section {
+            Some(ref functions) => {
+                for addr in 0..functions.len() {
+                    func_addrs.push(addr);
+                }
+            }
+            None => {}
+        }
+
+        func_addrs
+    }
+
+    fn into_table_addrs(module: &Module) -> Vec<TableAddr> {
+        let mut table_addrs = vec![];
+        match module.table_section {
+            Some(ref tables) => {
+                for addr in 0..tables.len() {
+                    table_addrs.push(addr);
+                }
+            }
+            None => {}
+        }
+
+        table_addrs
+    }
+
+    fn into_memory_addrs(module: &Module) -> Vec<MemoryAddr> {
+        let mut memory_addrs = vec![];
+        match module.memory_section {
+            Some(ref memories) => {
+                for addr in 0..memories.len() {
+                    memory_addrs.push(addr);
+                }
+            }
+            None => {}
+        }
+
+        memory_addrs
+    }
+
+    fn into_global_addrs(module: &Module) -> Vec<GlobalAddr> {
+        let mut global_addrs = vec![];
+        match module.global_section {
+            Some(ref globals) => {
+                for addr in 0..globals.len() {
+                    global_addrs.push(addr);
+                }
+            }
+            None => {}
+        }
+
+        global_addrs
+    }
+
+    fn into_exports(module: &Module) -> HashMap<String, ExportInst> {
         let mut exports = HashMap::default();
 
         match module.export_section.as_ref() {
@@ -86,16 +179,7 @@ impl ModuleInst {
                 }
             }
             None => {}
-        }
-
-        let module_inst = ModuleInst {
-            func_types: vec![],
-            func_addrs: vec![],
-            table_addrs: vec![],
-            memory_addrs: vec![],
-            global_addrs: vec![],
-            exports,
         };
-        module_inst
+        exports
     }
 }

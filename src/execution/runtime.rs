@@ -46,7 +46,7 @@ impl Runtime {
 
     pub fn instantiate(module: &mut Module) -> Result<Self> {
         let store = Store::new(module)?;
-        let module = ModuleInst::new(&store, &module);
+        let module = ModuleInst::allocate(&module);
 
         let runtime = Self {
             store,
