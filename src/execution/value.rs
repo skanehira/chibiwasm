@@ -53,16 +53,14 @@ impl Display for Value {
 
 #[derive(Debug, Clone)]
 pub struct Label {
-    //pub pc: usize,               // current instruction pointer
     pub arity: usize, // argument or result? arity
-                      //pub insts: Vec<Instruction>, // current instructions
 }
 
 #[derive(Clone, Debug, Default)]
 pub struct Frame {
-    pub arity: usize, // result arity
+    pub arity: usize,       // result arity
     pub locals: Vec<Value>, // local variables
-                      // pub module: Rc<ModuleInst>, // TODO: add module reference
+    pub labels: Vec<Label>,
 }
 
 // https://www.w3.org/TR/wasm-core-1/#stack%E2%91%A0

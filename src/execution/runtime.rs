@@ -18,9 +18,9 @@ use std::rc::Rc;
 pub struct Runtime {
     pub store: Store,
     pub module: Rc<ModuleInst>,
-    pub pc: usize,
     pub stack: Vec<StackValue>,
-    pub frame_idxs: Vec<usize>, // frame index, the last one is the current frame
+    pub label_stack: Vec<Label>,
+    pub call_stack: Vec<Frame>,
 }
 
 impl Runtime {
@@ -57,20 +57,51 @@ impl Runtime {
         Ok(runtime)
     }
 
-    pub fn current_frame(&self) -> &Frame {
-        let idx = self.frame_idxs.last().unwrap();
-        match self.stack.get(*idx) {
-            Some(StackValue::Frame(frame)) => frame,
-            _ => panic!("not found current frame"),
-        }
+    pub fn current_frame(&self) -> Result<&Frame> {
+        let frame = self
+            .call_stack
+            .last()
+            .with_context(|| format!("call stack is empty",))?;
+        Ok(frame)
     }
 
-    pub fn current_frame_mut(&mut self) -> &mut Frame {
-        let idx = self.frame_idxs.last().unwrap();
-        match self.stack.get_mut(*idx) {
-            Some(StackValue::Frame(frame)) => frame,
-            _ => panic!("not found current frame"),
-        }
+    pub fn current_frame_mut(&mut self) -> Result<&mut Frame> {
+        let frame = self
+            .call_stack
+            .last_mut()
+            .with_context(|| format!("call stack is emtpy"))?;
+        Ok(frame)
+    }
+
+    fn push_label(&mut self, arity: usize) -> Result<()> {
+        let label = Label { arity };
+        let frame = self.current_frame_mut()?;
+        frame.labels.push(label);
+        Ok(())
+    }
+
+    fn pop_label(&mut self) -> Result<Label> {
+        let frame = self.current_frame_mut()?;
+        let label = frame
+            .labels
+            .pop()
+            .with_context(|| format!("no label in the frame. frame: {:?}", frame))?;
+        Ok(label)
+    }
+
+    fn push_frame(&mut self, arity: usize, locals: Vec<Value>) {
+        let frame = Frame {
+            arity,
+            locals,
+            labels: vec![],
+        };
+        self.call_stack.push(frame);
+    }
+
+    fn pop_frame(&mut self) -> Result<Frame> {
+        self.call_stack
+            .pop()
+            .with_context(|| format!("no frame in the call stack, call stack: {:?}", self.stack))
     }
 
     pub fn call(&mut self, name: String, args: Vec<Value>) -> Result<Option<Value>> {
@@ -94,9 +125,10 @@ impl Runtime {
 
     // https://www.w3.org/TR/wasm-core-1/#exec-invoke
     fn invoke(&mut self, idx: usize) -> Result<Option<Value>> {
+        // 1. get function instance from store
         let func = self.resolve_by_idx(idx)?;
 
-        // push the arguments to frame local
+        // 2. push the arguments to frame local
         let bottom = self.stack.len() - func.func_type.params.len();
         let locals = self
             .stack
@@ -105,12 +137,15 @@ impl Runtime {
             .map(Into::into)
             .collect();
 
+        // 3. push a frame
         let arity = func.func_type.results.len();
+        self.push_frame(arity, locals);
 
-        push_frame(self, arity, locals)?;
+        // 4. execute instruction of function
+        // TODO: check state
+        let _ = execute(self, &func.code.body)?;
 
-        execute(self, &func.code.body)?;
-
+        // 5. if the function has return value, pop it from stack
         let result = if arity > 0 {
             // NOTE: only returns one value now
             let value: Value = self.stack.pop1()?;
@@ -119,12 +154,8 @@ impl Runtime {
             None
         };
 
-        // pop current frame
-        let idx = self
-            .frame_idxs
-            .pop()
-            .with_context(|| format!("no any frame in the stack, stack: {:?}", self.stack))?;
-        self.stack.split_off(idx);
+        // 6. pop current frame
+        let _ = self.pop_frame()?;
 
         Ok(result)
     }
@@ -159,63 +190,10 @@ impl Runtime {
     }
 }
 
-fn pop_label(runtime: &mut Runtime, has_result: bool) -> Result<()> {
-    let mut tmp = vec![];
-    loop {
-        let value = runtime.stack.pop1()?;
-        match value {
-            StackValue::Value(value) => {
-                tmp.push(value);
-            }
-            StackValue::Label(label) => {
-                if has_result && label.arity > 0 {
-                    let values = &mut tmp[..label.arity];
-                    values.reverse();
-                    for v in values.iter() {
-                        runtime.stack.push(v.to_owned().into());
-                    }
-                }
-                break;
-            }
-            StackValue::Frame(frame) => {
-                panic!(
-                    "expect value or label when pop label from stack, but got frame: {:?}",
-                    frame
-                );
-            }
-        }
-    }
-    Ok(())
-}
-
-fn pop_frame(runtime: &mut Runtime) -> Result<()> {
-    let arity = runtime.current_frame().arity;
-
-    // pop frame from stack
-    let idx = runtime.frame_idxs.pop().context("not found frame index")?;
-    let values = &mut runtime.stack.split_off(idx);
-
-    // push results to stack
-    for _ in 0..arity {
-        runtime
-            .stack
-            .push(values.pop().context("not found frame result")?);
-    }
-
-    Ok(())
-}
-
-fn push_frame(runtime: &mut Runtime, arity: usize, locals: Vec<Value>) -> Result<()> {
-    let frame = Frame { arity, locals };
-    runtime.frame_idxs.push(runtime.stack.len());
-    runtime.stack.push(frame.into());
-    Ok(())
-}
-
 fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
     for inst in insts {
         match inst {
-            Instruction::Nop => {}
+            Instruction::Nop | Instruction::End => {}
             Instruction::LocalGet(idx) => local_get(runtime, *idx as usize)?,
             Instruction::LocalSet(idx) => local_set(runtime, *idx as usize)?,
             Instruction::I32Add | Instruction::I64Add => add(runtime)?,
@@ -291,66 +269,81 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                 }
             }
             Instruction::Loop(block) => {
-                // if br 0, jump to the latest label in the stack
+                // 1. push a label to the stack
                 let arity = block.block_type.result_count();
-                let label: StackValue = Label { arity }.into();
+                runtime.push_label(arity);
+
+                // 2. execute the loop body
                 loop {
-                    runtime.stack.push(label.clone());
                     match execute(runtime, &block.then_body)? {
-                        State::Continue => {
-                            pop_label(runtime, arity > 0)?;
-                            break;
-                        }
+                        // break current loop
                         State::Break(0) => {
-                            pop_label(runtime, false)?; // pop current label
+                            // break to the current loop
+                            // it's mean we need start loop again
                         }
-                        State::Break(level) => return Ok(State::Break(level - 1)),
-                        State::Return => {
-                            return Ok(State::Return);
+                        state => {
+                            let _ = runtime.pop_label()?;
+                            match state {
+                                State::Continue => {
+                                    // 3. pop the label from the stack
+                                    break;
+                                }
+                                State::Return => {
+                                    // break current loop and return
+                                    return Ok(State::Return);
+                                }
+                                State::Break(level) => {
+                                    // break outer block
+                                    return Ok(State::Break(level - 1));
+                                }
+                                _ => {
+                                    unreachable!()
+                                }
+                            }
                         }
                     }
                 }
             }
             Instruction::If(block) => {
+                // 1. pop the value from the stack for check if true
                 let value: Value = runtime.stack.pop1()?;
 
+                // 2. push a label to the stack
                 let arity = block.block_type.result_count();
-                let label = Label { arity };
-                runtime.stack.push(label.into());
+                runtime.push_label(arity);
 
+                // 3. if true, execute the then_body, otherwise execute the else_body
                 let result = if value.is_true() {
                     execute(runtime, &block.then_body)?
                 } else {
                     execute(runtime, &block.else_body)?
                 };
+
+                // 4. pop the label from the Stack
+                let _ = runtime.pop_label()?;
+
                 match result {
-                    State::Continue => {
-                        pop_label(runtime, arity > 0)?;
-                    }
-                    State::Break(0) => {
-                        pop_label(runtime, arity > 0)?;
-                    }
+                    State::Continue => {}
+                    State::Return => return Ok(State::Return),
+                    State::Break(0) => {}
                     State::Break(level) => return Ok(State::Break(level)),
-                    State::Return => {
-                        return Ok(State::Return);
-                    }
                 }
             }
             Instruction::Block(block) => {
+                // 1. push a label to the stack
                 let arity = block.block_type.result_count();
-                let label = Label { arity };
+                runtime.push_label(arity);
 
-                runtime.stack.push(label.into());
-
+                // 2. execute the block body
                 let result = execute(runtime, &block.then_body)?;
+
+                // 3. pop the label from the stack
+                let _ = runtime.pop_label()?;
+
                 match result {
-                    State::Continue => {
-                        pop_label(runtime, arity > 0)?;
-                    }
+                    State::Continue => {}
                     State::Return => return Ok(State::Return),
-                    State::Break(0) => {
-                        pop_label(runtime, arity > 0)?; // pop current label
-                    }
+                    State::Break(0) => {}
                     State::Break(level) => return Ok(State::Break(level - 1)),
                 }
             }
@@ -364,8 +357,7 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                 }
             }
             _ => {
-                // do nothing
-                //unimplemented!("{:?}", inst);
+                unimplemented!("{:?}", inst);
             }
         };
     }
@@ -520,12 +512,12 @@ mod test {
       (block
         (block
           (block 
+            (i32.const 1)
             br 3
           )
         )
       )
     )
-    (i32.const 1)
   )
 
   (func (export "if1") (result i32)
@@ -590,8 +582,8 @@ mod test {
                 ("while", vec![5], 120),
                 ("as-if-then-return", vec![1, 2], 3),
                 ("call-nested", vec![1, 0], 10),
-                ("br-nested", vec![], 1),
                 ("if1", vec![], 5),
+                ("br-nested", vec![], 1),
             ];
 
             for test in tests.into_iter() {

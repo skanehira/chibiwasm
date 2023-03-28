@@ -5,7 +5,7 @@ use anyhow::{bail, Context as _, Result};
 
 pub fn local_get(runtime: &mut Runtime, idx: usize) -> Result<()> {
     let value = runtime
-        .current_frame()
+        .current_frame()?
         .locals
         .get(idx)
         .context("not found local variable")?;
@@ -15,7 +15,7 @@ pub fn local_get(runtime: &mut Runtime, idx: usize) -> Result<()> {
 
 pub fn local_set(runtime: &mut Runtime, idx: usize) -> Result<()> {
     let value: Value = runtime.stack.pop1()?;
-    let frame = runtime.current_frame_mut();
+    let frame = runtime.current_frame_mut()?;
     frame.locals.insert(idx, value.into());
     if frame.locals.len() > idx + 1 {
         frame.locals.remove(idx + 1);
