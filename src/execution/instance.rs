@@ -68,7 +68,7 @@ pub struct ModuleInst {
 }
 
 impl ModuleInst {
-    pub fn instantiate(store: &Store, module: &Module) -> Self {
+    pub fn new(store: &Store, module: &Module) -> Self {
         let mut exports = HashMap::default();
 
         match module.export_section.as_ref() {

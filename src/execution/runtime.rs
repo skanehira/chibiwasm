@@ -28,25 +28,25 @@ impl Runtime {
         let file = fs::File::open(file)?;
         let mut decoder = Decoder::new(file);
         let mut module = decoder.decode()?;
-        Ok(Self::new(&mut module)?)
+        Ok(Self::instantiate(&mut module)?)
     }
 
     pub fn from_reader(reader: &mut impl Read) -> Result<Self> {
         let mut decoder = Decoder::new(reader);
         let mut module = decoder.decode()?;
-        Ok(Self::new(&mut module)?)
+        Ok(Self::instantiate(&mut module)?)
     }
 
     pub fn from_bytes<T: AsRef<[u8]>>(b: T) -> Result<Self> {
         let buf = Cursor::new(b);
         let mut decoder = Decoder::new(buf);
         let mut module = decoder.decode()?;
-        Ok(Self::new(&mut module)?)
+        Ok(Self::instantiate(&mut module)?)
     }
 
-    pub fn new(module: &mut Module) -> Result<Self> {
+    pub fn instantiate(module: &mut Module) -> Result<Self> {
         let store = Store::new(module)?;
-        let module = ModuleInst::instantiate(&store, &module);
+        let module = ModuleInst::new(&store, &module);
 
         let runtime = Self {
             store,
