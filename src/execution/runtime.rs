@@ -268,6 +268,17 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                     return Ok(State::Break(*level as usize));
                 }
             }
+            Instruction::BrTable(label_idxs, default_idx) => {
+                let value: Value = runtime.stack.pop1()?;
+                let idx: i32 = value.into();
+                let state = if idx < label_idxs.len() as i32 {
+                    let idx = label_idxs[idx as usize];
+                    State::Break(idx as usize)
+                } else {
+                    State::Break((*default_idx) as usize)
+                };
+                return Ok(state);
+            }
             Instruction::Loop(block) => {
                 // 1. push a label to the stack
                 let arity = block.block_type.result_count();
@@ -556,6 +567,17 @@ mod test {
     )
     (local.get $i)
   )
+  (func (export "singleton") (param i32) (result i32)
+    (block
+      (block
+        (br_table 1 0 (local.get 0))
+        (return (i32.const 21))
+      )
+      (return (i32.const 20))
+    )
+    (i32.const 22)
+  )
+
 )
 "#;
         let wasm = &mut wat2wasm(wat_code)?;
@@ -584,6 +606,7 @@ mod test {
                 ("call-nested", vec![1, 0], 10),
                 ("if1", vec![], 5),
                 ("br-nested", vec![], 1),
+                ("singleton", vec![0], 22),
             ];
 
             for test in tests.into_iter() {

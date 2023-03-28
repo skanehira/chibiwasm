@@ -161,6 +161,15 @@ impl From<u64> for Value {
     }
 }
 
+impl From<Value> for i32 {
+    fn from(value: Value) -> Self {
+        match value {
+            Value::I32(v) => v,
+            _ => panic!("value type is not i32: {:?}", value),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum ExternalVal {
     Func(FuncIdx),

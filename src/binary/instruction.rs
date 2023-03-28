@@ -14,6 +14,7 @@ pub enum Opcode {
     End = 0x0B,
     Br = 0x0C,
     BrIf = 0x0D,
+    BrTable = 0x0E,
     LocalGet = 0x20,
     LocalSet = 0x21,
     Call = 0x10,
@@ -140,6 +141,7 @@ pub enum Instruction {
     End,
     Br(u32),
     BrIf(u32),
+    BrTable(Vec<u32>, u32), // break depths, default
     LocalGet(u32),
     LocalSet(u32),
     Call(u32),
