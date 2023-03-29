@@ -19,46 +19,45 @@ pub struct Store {
 impl Store {
     pub fn new(module: &Module) -> Result<Self> {
         let mut funcs = vec![];
-        for (idx, func_idx) in module
-            .function_section
-            .as_ref()
-            .context("not found function section")?
-            .iter()
-            .enumerate()
-        {
-            let types = module
-                .type_section
-                .as_ref()
-                .context("not found type section")?;
+        match module.function_section {
+            Some(ref functions) => {
+                for (idx, func_idx) in functions.iter().enumerate() {
+                    let types = module
+                        .type_section
+                        .as_ref()
+                        .context("not found type section")?;
 
-            let func_type = types.get(*func_idx as usize).context("not found type")?;
+                    let func_type = types.get(*func_idx as usize).context("not found type")?;
 
-            let func_type = FuncType {
-                params: func_type.params.clone(),
-                results: func_type.results.clone(),
-            };
+                    let func_type = FuncType {
+                        params: func_type.params.clone(),
+                        results: func_type.results.clone(),
+                    };
 
-            let func_body = module
-                .code_section
-                .as_ref()
-                .context("not found code section")?
-                .get(idx)
-                .context("not found code")?;
+                    let func_body = module
+                        .code_section
+                        .as_ref()
+                        .context("not found code section")?
+                        .get(idx)
+                        .context("not found code")?;
 
-            let func = Func {
-                type_idx: idx as u32,
-                locals: func_body
-                    .locals
-                    .iter()
-                    .map(|local| local.value_type.clone())
-                    .collect(),
-                body: func_body.code.clone(),
-            };
-            let func_inst = FuncInst {
-                func_type,
-                code: func,
-            };
-            funcs.push(func_inst);
+                    let func = Func {
+                        type_idx: idx as u32,
+                        locals: func_body
+                            .locals
+                            .iter()
+                            .map(|local| local.value_type.clone())
+                            .collect(),
+                        body: func_body.code.clone(),
+                    };
+                    let func_inst = FuncInst {
+                        func_type,
+                        code: func,
+                    };
+                    funcs.push(func_inst);
+                }
+            }
+            _ => {}
         }
 
         // NOTE: only support one memory now
