@@ -129,6 +129,12 @@ impl From<i64> for StackValue {
     }
 }
 
+impl From<u32> for StackValue {
+    fn from(value: u32) -> Self {
+        Self::Value(value.into())
+    }
+}
+
 impl From<i32> for Value {
     fn from(v: i32) -> Self {
         Self::I32(v)

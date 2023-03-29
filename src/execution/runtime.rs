@@ -44,6 +44,7 @@ impl Runtime {
         Ok(Self::instantiate(&mut module)?)
     }
 
+    // https://www.w3.org/TR/wasm-core-1/#instantiation%E2%91%A1
     pub fn instantiate(module: &mut Module) -> Result<Self> {
         let store = Store::new(module)?;
         let module = ModuleInst::allocate(&module);
@@ -253,9 +254,6 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
             Instruction::Drop => {
                 runtime.stack.pop();
             }
-            Instruction::MemoryGrow => {
-                // TODO
-            }
             Instruction::Return => {
                 return Ok(State::Return);
             }
@@ -367,6 +365,18 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                     _ => {}
                 }
             }
+            Instruction::MemoryGrow => {
+                // TODO
+            }
+            Instruction::MemorySize => match runtime.store.memories.get(0) {
+                Some(memory) => {
+                    let size = memory.size() as u32;
+                    runtime.stack.push(size.into());
+                }
+                _ => {
+                    runtime.stack.push(0.into());
+                }
+            },
             _ => {
                 unimplemented!("{:?}", inst);
             }

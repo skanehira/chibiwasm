@@ -3,10 +3,7 @@ use crate::binary::{
     module::Module,
     types::{ExprValue, Mutability},
 };
-use anyhow::{Context, Result};
-
-// https://www.w3.org/TR/wasm-core-1/#memory-instances%E2%91%A0
-const PAGE_SIZE: u32 = 65536; // 64Ki
+use anyhow::{bail, Context, Result};
 
 #[derive(Debug, Default)]
 pub struct Store {
@@ -61,7 +58,7 @@ impl Store {
         }
 
         // NOTE: only support one memory now
-        let memories = match &module.memory_section {
+        let mut memories = match &module.memory_section {
             Some(memory) => {
                 let memory = memory.get(0);
                 match memory {
@@ -80,6 +77,26 @@ impl Store {
                 vec![]
             }
         };
+
+        // 10. copy data to memory
+        match module.data {
+            Some(ref data) => {
+                for d in data {
+                    let memory = memories.get_mut(d.memory_index as usize).unwrap();
+                    let offset = {
+                        let offset: i32 = d.offset.clone().into();
+                        offset as usize
+                    };
+
+                    let data = &d.init;
+                    if offset + data.len() > memory.data.len() {
+                        bail!("data is too large to fit in memory");
+                    }
+                    memory.data[offset..offset + data.len()].copy_from_slice(data);
+                }
+            }
+            _ => {}
+        }
 
         let globals = match &module.global_section {
             Some(globals) => globals

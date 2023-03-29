@@ -150,14 +150,10 @@ fn decode_data_section(reader: &mut SectionReader) -> Result<Section> {
     let mut data = vec![];
     let count = reader.u32()?;
     for _ in 0..count {
-        let mut init = vec![];
         let memory_index = reader.u32()?;
         let offset = decode_expr(reader)?;
-        let count = reader.u32()?;
-        for _ in 0..count {
-            let byte = reader.byte()?;
-            init.push(byte);
-        }
+        let size = reader.u32()?;
+        let init = reader.bytes(size as usize)?;
         data.push(Data {
             memory_index,
             offset,
@@ -532,7 +528,6 @@ fn decode_instruction(reader: &mut SectionReader) -> Result<Instruction> {
             Instruction::Call(local_idx)
         }
         Opcode::Return => Instruction::Return,
-        Opcode::MemoryGrow => Instruction::MemoryGrow,
         Opcode::LocalGet => {
             let local_idx = reader.u32()?;
             Instruction::LocalGet(local_idx)
@@ -658,6 +653,12 @@ fn decode_instruction(reader: &mut SectionReader) -> Result<Instruction> {
             Instruction::F64Const(num)
         }
         Opcode::Drop => Instruction::Drop,
+        Opcode::MemoryGrow => Instruction::MemoryGrow,
+        Opcode::MemorySize => {
+            // NOTE: memory index is always 0 now
+            let _ = reader.byte();
+            Instruction::MemorySize
+        }
     };
     Ok(inst)
 }

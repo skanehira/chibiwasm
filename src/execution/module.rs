@@ -10,6 +10,9 @@ use crate::binary::types::ValueType;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+// https://www.w3.org/TR/wasm-core-1/#memory-instances%E2%91%A0
+pub const PAGE_SIZE: u32 = 65536; // 64Ki
+
 #[derive(Debug, Clone)]
 pub struct FuncType {
     pub params: Vec<ValueType>,
@@ -40,6 +43,13 @@ pub struct TableInst {
 pub struct MemoryInst {
     pub data: Vec<u8>,
     pub max: Option<u32>,
+}
+
+// size of MemoryInst
+impl MemoryInst {
+    pub fn size(&self) -> usize {
+        self.data.len() / PAGE_SIZE as usize
+    }
 }
 
 #[derive(Debug)]

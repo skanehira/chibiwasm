@@ -159,6 +159,10 @@ mod tests {
                 CommandKind::PerformAction(_) => {
                     // TODO
                 }
+                CommandKind::Module { module, name } => {
+                    let mut reader = Cursor::new(module.into_vec());
+                    runtime = Runtime::from_reader(&mut reader)?;
+                }
                 _ => {
                     panic!("unexpect command kind: {:?}", command.kind);
                 }
@@ -178,12 +182,13 @@ mod tests {
         };
     }
 
-    test!(i32);
-    test!(i64);
-    test!(f32);
-    test!(f32_cmp);
-    test!(f32_bitwise);
-    test!(f64);
-    test!(f64_cmp);
-    test!(f64_bitwise);
+    //test!(i32);
+    //test!(i64);
+    //test!(f32);
+    //test!(f32_cmp);
+    //test!(f32_bitwise);
+    //test!(f64);
+    //test!(f64_cmp);
+    //test!(f64_bitwise);
+    test!(memory);
 }

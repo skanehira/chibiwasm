@@ -91,13 +91,31 @@ pub struct GlobalType {
     pub mutability: Mutability,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ExprValue {
     I32(i32),
     I64(i64),
     F32(f32),
     F64(f64),
 }
+
+macro_rules! from_expr_value {
+    ($ty:ty, $atrr:ident) => {
+        impl From<ExprValue> for $ty {
+            fn from(value: ExprValue) -> Self {
+                match value {
+                    ExprValue::$atrr(v) => v,
+                    _ => unreachable!(),
+                }
+            }
+        }
+    };
+}
+
+from_expr_value!(i32, I32);
+from_expr_value!(i64, I64);
+from_expr_value!(f32, F32);
+from_expr_value!(f64, F64);
 
 #[derive(Debug, PartialEq)]
 pub struct Global {

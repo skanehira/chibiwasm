@@ -126,6 +126,7 @@ pub enum Opcode {
     F64Ge = 0x66,
     F32Copysign = 0x98,
     Return = 0x0f,
+    MemorySize = 0x3F,
     MemoryGrow = 0x40,
     Drop = 0x1A,
 }
@@ -254,5 +255,6 @@ pub enum Instruction {
     F64Const(f64),
     Return,
     MemoryGrow,
+    MemorySize,
     Drop,
 }
