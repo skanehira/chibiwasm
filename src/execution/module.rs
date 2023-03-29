@@ -161,8 +161,8 @@ impl ModuleInst {
     fn into_exports(module: &Module) -> HashMap<String, ExportInst> {
         let mut exports = HashMap::default();
 
-        match module.export_section.as_ref() {
-            Some(sections) => {
+        match module.export_section {
+            Some(ref sections) => {
                 for export in sections {
                     let desc = match export.desc {
                         crate::binary::types::ExportDesc::Func(idx) => ExternalVal::Func(idx),
