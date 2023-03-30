@@ -9,7 +9,7 @@ use anyhow::{bail, Context, Result};
 pub struct Store {
     pub funcs: Vec<FuncInst>,
     pub tables: Vec<TableInst>,
-    pub memories: Vec<MemoryInst>,
+    pub memory: MemoryInst,
     pub globals: Vec<GlobalInst>,
 }
 
@@ -58,31 +58,28 @@ impl Store {
         }
 
         // NOTE: only support one memory now
-        let mut memories = match &module.memory_section {
+        let mut memory = match &module.memory_section {
             Some(memory) => {
                 let memory = memory.get(0);
                 match memory {
                     Some(memory) => {
                         // https://www.w3.org/TR/wasm-core-1/#memories%E2%91%A5
                         let min = memory.limits.min * PAGE_SIZE;
-                        vec![MemoryInst {
+                        MemoryInst {
                             data: vec![0; min as usize],
                             max: memory.limits.max,
-                        }]
+                        }
                     }
-                    None => vec![],
+                    None => MemoryInst::default(),
                 }
             }
-            _ => {
-                vec![]
-            }
+            _ => MemoryInst::default(),
         };
 
         // 10. copy data to memory
         match module.data {
             Some(ref data) => {
                 for d in data {
-                    let memory = memories.get_mut(d.memory_index as usize).unwrap();
                     let offset = {
                         let offset: i32 = d.offset.clone().into();
                         offset as usize
@@ -119,7 +116,7 @@ impl Store {
 
         let store = Self {
             funcs,
-            memories,
+            memory,
             globals,
             ..Self::default()
         };

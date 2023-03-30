@@ -368,15 +368,15 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
             Instruction::MemoryGrow => {
                 // TODO
             }
-            Instruction::MemorySize => match runtime.store.memories.get(0) {
-                Some(memory) => {
-                    let size = memory.size() as u32;
-                    runtime.stack.push(size.into());
-                }
-                _ => {
-                    runtime.stack.push(0.into());
-                }
-            },
+            Instruction::MemorySize => {
+                let size = runtime.store.memory.size() as u32;
+                runtime.stack.push(size.into());
+            }
+            Instruction::I32Load(arg) => {
+                let addr: i32 = runtime.stack.pop1()?;
+                let value: i32 = runtime.store.memory.load(addr as usize, arg);
+                runtime.stack.push(value.into());
+            }
             _ => {
                 unimplemented!("{:?}", inst);
             }
@@ -395,6 +395,7 @@ mod test {
     fn invoke() -> Result<()> {
         let wat_code = br#"
 (module
+  (memory (data "abcde"))
   (func $dummy)
   (func $i32.add (param $a i32) (param $b i32) (result i32)
     local.get $a
@@ -587,7 +588,11 @@ mod test {
     )
     (i32.const 22)
   )
-
+  (func (export "memsize") (result i32) (memory.size))
+  (func (export "i32.load") (result i32)
+    (i32.const 0)
+    (i32.load offset=1)
+  )
 )
 "#;
         let wasm = &mut wat2wasm(wat_code)?;
@@ -617,6 +622,8 @@ mod test {
                 ("if1", vec![], 5),
                 ("br-nested", vec![], 1),
                 ("singleton", vec![0], 22),
+                ("memsize", vec![], 1),
+                ("i32.load", vec![], 1701077858),
             ];
 
             for test in tests.into_iter() {

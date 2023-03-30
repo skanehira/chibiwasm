@@ -1,6 +1,12 @@
 use super::types::Block;
 use num_derive::FromPrimitive;
 
+#[derive(Debug, PartialEq, Clone)]
+pub struct MemoryArg {
+    pub align: u32,
+    pub offset: u32,
+}
+
 // https://webassembly.github.io/spec/core/binary/instructions.html#expressions
 #[derive(Debug, FromPrimitive, PartialEq)]
 #[repr(u8)]
@@ -126,6 +132,7 @@ pub enum Opcode {
     F64Ge = 0x66,
     F32Copysign = 0x98,
     Return = 0x0f,
+    I32Load = 0x28,
     MemorySize = 0x3F,
     MemoryGrow = 0x40,
     Drop = 0x1A,
@@ -254,6 +261,7 @@ pub enum Instruction {
     F64Ge,
     F64Const(f64),
     Return,
+    I32Load(MemoryArg),
     MemoryGrow,
     MemorySize,
     Drop,

@@ -9,6 +9,7 @@ use crate::binary::types::FuncType;
 use anyhow::{Context as _, Result};
 use std::fmt::Display;
 use std::i64;
+use std::mem::size_of;
 use std::rc::Rc;
 
 // https://webassembly.github.io/spec/core/exec/runtime.html#syntax-val
@@ -94,6 +95,15 @@ impl From<StackValue> for Value {
     fn from(value: StackValue) -> Self {
         match value {
             StackValue::Value(v) => v,
+            _ => panic!("unexpected value: {:?}", value),
+        }
+    }
+}
+
+impl From<StackValue> for i32 {
+    fn from(value: StackValue) -> Self {
+        match value {
+            StackValue::Value(v) => v.into(),
             _ => panic!("unexpected value: {:?}", value),
         }
     }
@@ -349,4 +359,25 @@ impl Value {
     funop!(abs, neg, sqrt, ceil, floor, trunc, nearest);
 
     itestop!(eqz);
+}
+
+pub trait Numberic {
+    fn read(buf: &[u8], addr: usize) -> Self;
+    fn write(buf: &mut [u8], addr: usize, value: Self);
+}
+
+impl Numberic for i32 {
+    fn read(buf: &[u8], addr: usize) -> Self {
+        // TODO: Change to a non-copying approach.
+        let mut bytes = [0u8; size_of::<i32>()];
+        for i in 0..bytes.len() {
+            bytes[i] = buf[addr + i];
+        }
+        i32::from_le_bytes(bytes)
+    }
+
+    fn write(buf: &mut [u8], addr: usize, value: Self) {
+        let bytes = value.to_le_bytes();
+        buf[addr..addr + size_of::<i32>()].copy_from_slice(&bytes);
+    }
 }

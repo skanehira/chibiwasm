@@ -3,8 +3,8 @@
 use super::address::*;
 use super::indices::TypeIdx;
 use super::store::Store;
-use super::value::{ExternalVal, Value};
-use crate::binary::instruction::Instruction;
+use super::value::{ExternalVal, Numberic, Value};
+use crate::binary::instruction::{Instruction, MemoryArg};
 use crate::binary::module::Module;
 use crate::binary::types::ValueType;
 use std::collections::HashMap;
@@ -39,7 +39,7 @@ pub struct TableInst {
     pub max: Option<u32>,
 }
 
-#[derive(Debug)]
+#[derive(Default, Debug)]
 pub struct MemoryInst {
     pub data: Vec<u8>,
     pub max: Option<u32>,
@@ -49,6 +49,13 @@ pub struct MemoryInst {
 impl MemoryInst {
     pub fn size(&self) -> usize {
         self.data.len() / PAGE_SIZE as usize
+    }
+
+    // NOTE: length is bytes length
+    pub fn load<T: Numberic>(&self, addr: usize, arg: &MemoryArg) -> T {
+        // TODO: check align and memory size
+        let at = (addr + arg.offset as usize) as usize;
+        Numberic::read(&self.data, at)
     }
 }
 
