@@ -1,5 +1,5 @@
 use super::error::Error::*;
-use super::instruction::{Instruction, Opcode, MemoryArg};
+use super::instruction::{Instruction, MemoryArg, Opcode};
 use super::types::*;
 use anyhow::{bail, Context, Result};
 use num_derive::FromPrimitive;
@@ -659,6 +659,13 @@ fn decode_instruction(reader: &mut SectionReader) -> Result<Instruction> {
                 offset: reader.u32()?,
             };
             Instruction::I32Load(arg)
+        }
+        Opcode::I64Load => {
+            let arg = MemoryArg {
+                align: reader.u32()?,
+                offset: reader.u32()?,
+            };
+            Instruction::I64Load(arg)
         }
         Opcode::MemoryGrow => Instruction::MemoryGrow,
         Opcode::MemorySize => {

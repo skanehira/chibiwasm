@@ -373,9 +373,13 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
             }
             Instruction::I32Load(arg) => {
                 let addr = runtime.stack.pop1::<i32>()? as usize;
-                runtime
-                    .stack
-                    .push(runtime.store.memory.load::<i32>(addr, arg).into());
+                let value = runtime.store.memory.load::<i32>(addr, arg).into();
+                runtime.stack.push(value);
+            }
+            Instruction::I64Load(arg) => {
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                let value = runtime.store.memory.load::<i64>(addr, arg).into();
+                runtime.stack.push(value);
             }
             _ => {
                 unimplemented!("{:?}", inst);
@@ -443,6 +447,26 @@ mod test {
         {
             let result = runtime.call("if_else_empty".into(), vec![])?;
             assert_eq!(result, None);
+        }
+
+        // for 64bit tests
+        {
+            let tests: Vec<(&str, Vec<i64>, i64)> = vec![
+                ("i64.load", vec![], 0x6867666564636261), // 'abcdefgh'
+            ];
+
+            for test in tests.into_iter() {
+                let args = test.1.into_iter().map(Value::from).collect();
+                let result = runtime.call(test.0.into(), args)?;
+                print!("testing ... {} ", test.0);
+                assert_eq!(
+                    result.context("no return value")?,
+                    test.2.into(),
+                    "func {} fail",
+                    test.0
+                );
+                println!("ok");
+            }
         }
 
         Ok(())

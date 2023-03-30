@@ -1,5 +1,5 @@
 (module
-  (memory (data "abcde"))
+  (memory (data "abcdefghijklmnopqrstuvwxyz"))
   (func $dummy)
   (func $i32.add (param $a i32) (param $b i32) (result i32)
     local.get $a
@@ -196,5 +196,8 @@
   (func (export "i32.load") (result i32)
     (i32.const 0)
     (i32.load offset=1)
+  )
+  (func (export "i64.load") (result i64)
+    (i64.load offset=0 (i32.const 0))                     ;; 0x6867666564636261 'abcdefgh'
   )
 )

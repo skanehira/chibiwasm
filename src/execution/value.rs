@@ -83,12 +83,29 @@ impl StackAccess for Vec<Value> {
     }
 }
 
-macro_rules! into_from_value {
+macro_rules! into_into_value {
     ($($ty: ty => $variant: ident),*) => {
         $(
             impl From<$ty> for Value {
                 fn from(value: $ty) -> Self {
                     Self::$variant(value)
+                }
+            }
+        )*
+    };
+}
+
+into_into_value!(i32 => I32, i64 => I64, f32 => F32, f64 => F64);
+
+macro_rules! into_from_value {
+    ($($ty: ty => $variant: ident),*) => {
+        $(
+            impl From<Value> for $ty {
+                fn from(value: Value) -> Self {
+                    match value {
+                        Value::$variant(v) => v,
+                        _ => unreachable!(),
+                    }
                 }
             }
         )*
@@ -101,15 +118,6 @@ impl From<u64> for Value {
     fn from(v: u64) -> Self {
         let v: i64 = v.try_into().unwrap();
         Self::I64(v)
-    }
-}
-
-impl From<Value> for i32 {
-    fn from(value: Value) -> Self {
-        match value {
-            Value::I32(v) => v,
-            _ => panic!("value type is not i32: {:?}", value),
-        }
     }
 }
 
@@ -292,18 +300,26 @@ pub trait Numberic {
     fn write(buf: &mut [u8], addr: usize, value: Self);
 }
 
-impl Numberic for i32 {
-    fn read(buf: &[u8], addr: usize) -> Self {
-        // TODO: Change to a non-copying approach.
-        let mut bytes = [0u8; size_of::<i32>()];
-        for i in 0..bytes.len() {
-            bytes[i] = buf[addr + i];
-        }
-        i32::from_le_bytes(bytes)
-    }
+macro_rules! impl_numberic {
+    ($($ty: ty),*) => {
+        $(
+            impl Numberic for $ty {
+                fn read(buf: &[u8], addr: usize) -> $ty {
+                    // TODO: Change to a non-copying approach.
+                    let mut bytes = [0u8; size_of::<$ty>()];
+                    for i in 0..bytes.len() {
+                        bytes[i] = buf[addr + i];
+                    }
+                    <$ty>::from_le_bytes(bytes)
+                }
 
-    fn write(buf: &mut [u8], addr: usize, value: Self) {
-        let bytes = value.to_le_bytes();
-        buf[addr..addr + size_of::<i32>()].copy_from_slice(&bytes);
+                fn write(buf: &mut [u8], addr: usize, value: Self) {
+                    let bytes = value.to_le_bytes();
+                    buf[addr..addr + size_of::<i32>()].copy_from_slice(&bytes);
+                }
+            }
+        )*
     }
 }
+
+impl_numberic!(i32, i64, f32, f64);
