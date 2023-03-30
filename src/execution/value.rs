@@ -64,111 +64,38 @@ pub struct Frame {
     pub labels: Vec<Label>,
 }
 
-// https://www.w3.org/TR/wasm-core-1/#stack%E2%91%A0
-#[derive(Debug, Clone)]
-pub enum StackValue {
-    Value(Value),
-    Label(Label),
-    Frame(Frame),
-}
-
 // trait for stack access
 pub trait StackAccess {
-    fn pop1<T: From<StackValue> + std::fmt::Debug>(&mut self) -> Result<T>;
-    fn pop_rl<T: From<StackValue> + std::fmt::Debug>(&mut self) -> Result<(T, T)>;
+    fn pop1<T: From<Value>>(&mut self) -> Result<T>;
+    fn pop_rl<T: From<Value>>(&mut self) -> Result<(T, T)>;
 }
 
-impl StackAccess for Vec<StackValue> {
-    fn pop1<T: From<StackValue> + std::fmt::Debug>(&mut self) -> Result<T> {
-        let value = self.pop().context("no value in the stack")?.into();
+impl StackAccess for Vec<Value> {
+    fn pop1<T: From<Value>>(&mut self) -> Result<T> {
+        let value: T = self.pop().context("no value in the stack")?.into();
         Ok(value)
     }
 
-    fn pop_rl<T: From<StackValue> + std::fmt::Debug>(&mut self) -> Result<(T, T)> {
+    fn pop_rl<T: From<Value>>(&mut self) -> Result<(T, T)> {
         let r = self.pop1()?;
         let l = self.pop1()?;
         Ok((r, l))
     }
 }
 
-impl From<StackValue> for Value {
-    fn from(value: StackValue) -> Self {
-        match value {
-            StackValue::Value(v) => v,
-            _ => panic!("unexpected value: {:?}", value),
-        }
-    }
+macro_rules! into_from_value {
+    ($($ty: ty => $variant: ident),*) => {
+        $(
+            impl From<$ty> for Value {
+                fn from(value: $ty) -> Self {
+                    Self::$variant(value)
+                }
+            }
+        )*
+    };
 }
 
-impl From<StackValue> for i32 {
-    fn from(value: StackValue) -> Self {
-        match value {
-            StackValue::Value(v) => v.into(),
-            _ => panic!("unexpected value: {:?}", value),
-        }
-    }
-}
-
-impl From<Value> for StackValue {
-    fn from(value: Value) -> Self {
-        Self::Value(value)
-    }
-}
-
-impl From<Frame> for StackValue {
-    fn from(value: Frame) -> Self {
-        Self::Frame(value)
-    }
-}
-
-impl From<Label> for StackValue {
-    fn from(value: Label) -> Self {
-        Self::Label(value)
-    }
-}
-
-impl From<i32> for StackValue {
-    fn from(value: i32) -> Self {
-        Self::Value(value.into())
-    }
-}
-
-impl From<i64> for StackValue {
-    fn from(value: i64) -> Self {
-        Self::Value(value.into())
-    }
-}
-
-impl From<u32> for StackValue {
-    fn from(value: u32) -> Self {
-        Self::Value(value.into())
-    }
-}
-
-impl From<i32> for Value {
-    fn from(v: i32) -> Self {
-        Self::I32(v)
-    }
-}
-
-impl From<f32> for Value {
-    fn from(v: f32) -> Self {
-        Self::F32(v)
-    }
-}
-
-impl From<i64> for Value {
-    fn from(v: i64) -> Self {
-        Self::I64(v)
-    }
-}
-
-impl From<u32> for Value {
-    fn from(v: u32) -> Self {
-        let v: i32 = v.try_into().unwrap();
-        Self::I32(v)
-    }
-}
+into_from_value!(i32 => I32, i64 => I64, f32 => F32, f64 => F64);
 
 impl From<u64> for Value {
     fn from(v: u64) -> Self {
@@ -347,7 +274,6 @@ impl Value {
 
     ibinop!(div_s, div_u, rem_s, rem_u, and, or, xor, shl, shr_s, shr_u, rotl, rotr);
 
-    // TODO: add copysign
     fbinop!(min, max, div, copysign);
 
     relop!(equal, not_equal);

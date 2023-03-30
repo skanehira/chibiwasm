@@ -4,8 +4,7 @@ use super::error::Error;
 use super::module::{FuncInst, ModuleInst};
 use super::op::*;
 use super::store::Store;
-use super::value::{ExternalVal, State, Value};
-use super::value::{Frame, Label, StackAccess as _, StackValue};
+use super::value::{ExternalVal, Frame, Label, StackAccess as _, State, Value};
 use crate::binary::instruction::*;
 use crate::binary::module::{Decoder, Module};
 use crate::binary::types::{BlockType, FuncType};
@@ -18,7 +17,7 @@ use std::rc::Rc;
 pub struct Runtime {
     pub store: Store,
     pub module: Rc<ModuleInst>,
-    pub stack: Vec<StackValue>,
+    pub stack: Vec<Value>,
     pub label_stack: Vec<Label>,
     pub call_stack: Vec<Frame>,
 }
@@ -369,13 +368,14 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                 // TODO
             }
             Instruction::MemorySize => {
-                let size = runtime.store.memory.size() as u32;
+                let size = runtime.store.memory.size() as i32;
                 runtime.stack.push(size.into());
             }
             Instruction::I32Load(arg) => {
-                let addr: i32 = runtime.stack.pop1()?;
-                let value: i32 = runtime.store.memory.load(addr as usize, arg);
-                runtime.stack.push(value.into());
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                runtime
+                    .stack
+                    .push(runtime.store.memory.load::<i32>(addr, arg).into());
             }
             _ => {
                 unimplemented!("{:?}", inst);

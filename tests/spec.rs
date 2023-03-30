@@ -182,13 +182,12 @@ mod tests {
         };
     }
 
-    //test!(i32);
-    //test!(i64);
-    //test!(f32);
-    //test!(f32_cmp);
-    //test!(f32_bitwise);
-    //test!(f64);
-    //test!(f64_cmp);
-    //test!(f64_bitwise);
-    test!(memory);
+    test!(i32);
+    test!(i64);
+    test!(f32);
+    test!(f32_cmp);
+    test!(f32_bitwise);
+    test!(f64);
+    test!(f64_cmp);
+    test!(f64_bitwise);
 }

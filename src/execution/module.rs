@@ -51,10 +51,9 @@ impl MemoryInst {
         self.data.len() / PAGE_SIZE as usize
     }
 
-    // NOTE: length is bytes length
     pub fn load<T: Numberic>(&self, addr: usize, arg: &MemoryArg) -> T {
         // TODO: check align and memory size
-        let at = (addr + arg.offset as usize) as usize;
+        let at = (addr + arg.offset as usize);
         Numberic::read(&self.data, at)
     }
 }

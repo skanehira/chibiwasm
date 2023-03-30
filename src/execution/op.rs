@@ -1,6 +1,7 @@
-use super::value::StackAccess as _;
-use super::value::StackValue;
-use super::{runtime::Runtime, value::Value};
+use super::{
+    runtime::Runtime,
+    value::{StackAccess as _, Value},
+};
 use anyhow::{bail, Context as _, Result};
 
 pub fn local_get(runtime: &mut Runtime, idx: usize) -> Result<()> {
@@ -9,7 +10,7 @@ pub fn local_get(runtime: &mut Runtime, idx: usize) -> Result<()> {
         .locals
         .get(idx)
         .context("not found local variable")?;
-    runtime.stack.push(StackValue::Value(value.clone()));
+    runtime.stack.push(value.clone());
     Ok(())
 }
 
@@ -31,19 +32,17 @@ pub fn popcnt(runtime: &mut Runtime) -> Result<()> {
 
     match value {
         Value::I32(v) => {
-            let value: Value = v.count_ones().into();
-            runtime.stack.push(value.into());
+            runtime.stack.push((v.count_ones() as i32).into());
         }
         Value::I64(v) => {
-            let value: Value = (v.count_ones() as i64).into();
-            runtime.stack.push(value.into());
+            runtime.stack.push((v.count_ones() as i64).into());
         }
         _ => bail!("unexpected value"),
     }
     Ok(())
 }
 
-pub fn push<T: Into<StackValue>>(runtime: &mut Runtime, value: T) -> Result<()> {
+pub fn push<T: Into<Value>>(runtime: &mut Runtime, value: T) -> Result<()> {
     runtime.stack.push(value.into());
     Ok(())
 }
