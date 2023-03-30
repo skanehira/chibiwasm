@@ -200,4 +200,10 @@
   (func (export "i64.load") (result i64)
     (i64.load offset=0 (i32.const 0))                     ;; 0x6867666564636261 'abcdefgh'
   )
+  (func (export "f32.load") (result f32)
+    (f32.load offset=0 (i32.const 0))
+  )
+  (func (export "f64.load") (result f64)
+    (f64.load offset=0 (i32.const 0))
+  )
 )

@@ -315,7 +315,7 @@ macro_rules! impl_numberic {
 
                 fn write(buf: &mut [u8], addr: usize, value: Self) {
                     let bytes = value.to_le_bytes();
-                    buf[addr..addr + size_of::<i32>()].copy_from_slice(&bytes);
+                    buf[addr..addr + size_of::<$ty>()].copy_from_slice(&bytes);
                 }
             }
         )*

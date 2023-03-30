@@ -381,6 +381,16 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                 let value = runtime.store.memory.load::<i64>(addr, arg).into();
                 runtime.stack.push(value);
             }
+            Instruction::F32Load(arg) => {
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                let value = runtime.store.memory.load::<f32>(addr, arg).into();
+                runtime.stack.push(value);
+            }
+            Instruction::F64Load(arg) => {
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                let value = runtime.store.memory.load::<f64>(addr, arg).into();
+                runtime.stack.push(value);
+            }
             _ => {
                 unimplemented!("{:?}", inst);
             }
@@ -426,7 +436,6 @@ mod test {
                 ("br-nested", vec![], 1),
                 ("singleton", vec![0], 22),
                 ("memsize", vec![], 1),
-                ("i32.load", vec![], 1701077858),
             ];
 
             for test in tests.into_iter() {
@@ -449,24 +458,31 @@ mod test {
             assert_eq!(result, None);
         }
 
-        // for 64bit tests
+        // test memory load
         {
-            let tests: Vec<(&str, Vec<i64>, i64)> = vec![
-                ("i64.load", vec![], 0x6867666564636261), // 'abcdefgh'
-            ];
-
-            for test in tests.into_iter() {
-                let args = test.1.into_iter().map(Value::from).collect();
-                let result = runtime.call(test.0.into(), args)?;
-                print!("testing ... {} ", test.0);
-                assert_eq!(
-                    result.context("no return value")?,
-                    test.2.into(),
-                    "func {} fail",
-                    test.0
-                );
-                println!("ok");
+            macro_rules! test_memory_load {
+                ($(($ty: ty, $expected: expr)),*) => {
+                    $({
+                        let name = stringify!($ty).to_string() + ".load";
+                        let result = runtime.call(name.clone(), vec![])?;
+                        print!("testing ... {} ", name);
+                        assert_eq!(
+                            result.context("no return value")?,
+                            $expected.into(),
+                            "func {} fail",
+                            name,
+                        );
+                        println!("ok");
+                    })*
+                };
             }
+
+            test_memory_load!(
+                (i32, 1701077858),
+                (i64, 0x6867666564636261_i64),
+                (f32, 1.6777999e22_f32),
+                (f64, 8.540883223036124e194_f64)
+            );
         }
 
         Ok(())

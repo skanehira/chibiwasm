@@ -653,20 +653,10 @@ fn decode_instruction(reader: &mut SectionReader) -> Result<Instruction> {
             Instruction::F64Const(num)
         }
         Opcode::Drop => Instruction::Drop,
-        Opcode::I32Load => {
-            let arg = MemoryArg {
-                align: reader.u32()?,
-                offset: reader.u32()?,
-            };
-            Instruction::I32Load(arg)
-        }
-        Opcode::I64Load => {
-            let arg = MemoryArg {
-                align: reader.u32()?,
-                offset: reader.u32()?,
-            };
-            Instruction::I64Load(arg)
-        }
+        Opcode::I32Load => Instruction::I32Load(read_memory_arg(reader)?),
+        Opcode::I64Load => Instruction::I64Load(read_memory_arg(reader)?),
+        Opcode::F32Load => Instruction::F32Load(read_memory_arg(reader)?),
+        Opcode::F64Load => Instruction::F64Load(read_memory_arg(reader)?),
         Opcode::MemoryGrow => Instruction::MemoryGrow,
         Opcode::MemorySize => {
             // NOTE: memory index is always 0 now
@@ -675,4 +665,12 @@ fn decode_instruction(reader: &mut SectionReader) -> Result<Instruction> {
         }
     };
     Ok(inst)
+}
+
+fn read_memory_arg(reader: &mut SectionReader) -> Result<MemoryArg> {
+    let arg = MemoryArg {
+        align: reader.u32()?,
+        offset: reader.u32()?,
+    };
+    Ok(arg)
 }
