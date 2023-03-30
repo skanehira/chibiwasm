@@ -21,7 +21,7 @@ fn main() -> Result<()> {
 
     match result {
         Some(result) => {
-            println!("{:?}", result);
+            println!("{}", result);
         }
         _ => {}
     }
