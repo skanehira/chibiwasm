@@ -489,6 +489,12 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                 let value = runtime.stack.pop1::<f64>()? as i32;
                 runtime.store.memory.write(addr, arg, value);
             }
+            Instruction::Select => {
+                let cond = runtime.stack.pop1::<i32>()?;
+                let a = runtime.stack.pop1::<Value>()?;
+                let b = runtime.stack.pop1::<Value>()?;
+                runtime.stack.push(if cond != 0 { a } else { b });
+            }
             _ => {
                 unimplemented!("{:?}", inst);
             }

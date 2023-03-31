@@ -682,6 +682,7 @@ fn decode_instruction(reader: &mut SectionReader) -> Result<Instruction> {
             let _ = reader.byte();
             Instruction::MemorySize
         }
+        Opcode::Select => Instruction::Select,
     };
     Ok(inst)
 }

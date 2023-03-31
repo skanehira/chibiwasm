@@ -157,6 +157,7 @@ pub enum Opcode {
     F64Store32 = 0x3E,
     MemorySize = 0x3F,
     MemoryGrow = 0x40,
+    Select = 0x1B,
     Drop = 0x1A,
 }
 
@@ -306,6 +307,7 @@ pub enum Instruction {
     F32Store8(MemoryArg),
     F64Store16(MemoryArg),
     F64Store32(MemoryArg),
+    Select,
     MemoryGrow,
     MemorySize,
     Drop,
