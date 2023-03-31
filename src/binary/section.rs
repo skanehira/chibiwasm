@@ -534,6 +534,8 @@ fn decode_instruction(reader: &mut SectionReader) -> Result<Instruction> {
         }
         Opcode::LocalSet => Instruction::LocalSet(reader.u32()?),
         Opcode::LocalTee => Instruction::LocalTee(reader.u32()?),
+        Opcode::GlobalSet => Instruction::GlobalSet(reader.u32()?),
+        Opcode::GlobalGet => Instruction::GlobalGet(reader.u32()?),
         Opcode::I32Sub => Instruction::I32Sub,
         Opcode::I32Add => Instruction::I32Add,
         Opcode::I32Mul => Instruction::I32Mul,

@@ -32,6 +32,30 @@ pub fn local_tee(runtime: &mut Runtime, idx: usize) -> Result<()> {
     Ok(())
 }
 
+pub fn global_set(runtime: &mut Runtime, idx: usize) -> Result<()> {
+    let value = runtime
+        .stack
+        .pop()
+        .with_context(|| format!("not found value in the stack"))?;
+    let global = runtime
+        .store
+        .globals
+        .get_mut(idx)
+        .with_context(|| format!("not found global by index: {idx}"))?;
+    global.value = value;
+    Ok(())
+}
+
+pub fn global_get(runtime: &mut Runtime, idx: usize) -> Result<()> {
+    let global = runtime
+        .store
+        .globals
+        .get(idx)
+        .with_context(|| format!("not found global by index: {idx}"))?;
+    runtime.stack.push(global.value.clone());
+    Ok(())
+}
+
 pub fn popcnt(runtime: &mut Runtime) -> Result<()> {
     let value = runtime
         .stack
