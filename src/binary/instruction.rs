@@ -23,6 +23,7 @@ pub enum Opcode {
     BrTable = 0x0E,
     LocalGet = 0x20,
     LocalSet = 0x21,
+    LocalTee = 0x22,
     Call = 0x10,
     I32Const = 0x41,
     I32Eqz = 0x45,
@@ -175,6 +176,7 @@ pub enum Instruction {
     BrTable(Vec<u32>, u32), // break depths, default
     LocalGet(u32),
     LocalSet(u32),
+    LocalTee(u32),
     Call(u32),
     I32Const(i32),
     I32Eqz,

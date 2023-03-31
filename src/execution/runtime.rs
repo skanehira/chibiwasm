@@ -197,6 +197,7 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
             Instruction::Nop | Instruction::End => {}
             Instruction::LocalGet(idx) => local_get(runtime, *idx as usize)?,
             Instruction::LocalSet(idx) => local_set(runtime, *idx as usize)?,
+            Instruction::LocalTee(idx) => local_tee(runtime, *idx as usize)?,
             Instruction::I32Add | Instruction::I64Add => add(runtime)?,
             Instruction::I32Sub | Instruction::I64Sub => sub(runtime)?,
             Instruction::I32Mul | Instruction::I64Mul => mul(runtime)?,

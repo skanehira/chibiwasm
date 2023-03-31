@@ -24,6 +24,14 @@ pub fn local_set(runtime: &mut Runtime, idx: usize) -> Result<()> {
     Ok(())
 }
 
+pub fn local_tee(runtime: &mut Runtime, idx: usize) -> Result<()> {
+    let value: Value = runtime.stack.pop1()?;
+    runtime.stack.push(value.clone());
+    runtime.stack.push(value.clone());
+    local_set(runtime, idx)?;
+    Ok(())
+}
+
 pub fn popcnt(runtime: &mut Runtime) -> Result<()> {
     let value = runtime
         .stack
