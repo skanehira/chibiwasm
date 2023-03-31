@@ -16,6 +16,8 @@ https://www.w3.org/TR/wasm-core-1/
 # tests
 The list is base on https://github.com/WebAssembly/spec/tree/wg-1.0/test/core
 
+NOTE: Passes only normal tests
+
 - [ ] address.wast
 - [ ] align.wast
 - [ ] binary-leb128.wast
@@ -60,7 +62,7 @@ The list is base on https://github.com/WebAssembly/spec/tree/wg-1.0/test/core
 - [ ] labels.wast
 - [ ] left-to-right.wast
 - [ ] linking.wast
-- [ ] load.wast
+- [x] load.wast
 - [ ] local_get.wast
 - [ ] local_set.wast
 - [ ] local_tee.wast

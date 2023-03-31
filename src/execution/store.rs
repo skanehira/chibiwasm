@@ -76,6 +76,24 @@ impl Store {
             _ => MemoryInst::default(),
         };
 
+        // table
+        let tables = match &module.table_section {
+            Some(tables) => tables
+                .iter()
+                .map(|table| {
+                    let mut elem = vec![0; funcs.len()];
+                    for i in 0..funcs.len() {
+                        elem[i] = i;
+                    }
+                    TableInst {
+                        elem,
+                        max: table.limits.max,
+                    }
+                })
+                .collect(),
+            None => vec![],
+        };
+
         // 10. copy data to memory
         match module.data {
             Some(ref data) => {
@@ -116,9 +134,9 @@ impl Store {
 
         let store = Self {
             funcs,
+            tables,
             memory,
             globals,
-            ..Self::default()
         };
 
         Ok(store)

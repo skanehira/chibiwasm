@@ -190,4 +190,5 @@ mod tests {
     test!(f64);
     test!(f64_cmp);
     test!(f64_bitwise);
+    test!(load);
 }

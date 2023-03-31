@@ -370,6 +370,28 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                     _ => {}
                 }
             }
+            Instruction::CallIndirect(idx) => {
+                let table = runtime.store.tables.get(*idx as usize).with_context(|| {
+                    format!(
+                        "not found table with index {}, tables: {:?}",
+                        idx, &runtime.store.tables
+                    )
+                })?;
+                let elem_idx = runtime.stack.pop1::<i32>()? as usize;
+                let func_idx = table.elem.get(elem_idx as usize).with_context(|| {
+                    format!(
+                        "not found function with index {}, table.elem: {:?}",
+                        elem_idx, &table.elem
+                    )
+                })?;
+
+                match runtime.invoke(*func_idx as usize)? {
+                    Some(value) => {
+                        runtime.stack.push(value.into());
+                    }
+                    _ => {}
+                }
+            }
             Instruction::MemoryGrow => {
                 // TODO
             }
