@@ -193,6 +193,7 @@ impl Runtime {
 fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
     for inst in insts {
         match inst {
+            Instruction::Unreachable => unreachable!(),
             Instruction::Nop | Instruction::End => {}
             Instruction::LocalGet(idx) => local_get(runtime, *idx as usize)?,
             Instruction::LocalSet(idx) => local_set(runtime, *idx as usize)?,
@@ -337,6 +338,8 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                     State::Break(level) => return Ok(State::Break(level)),
                 }
             }
+            // NOTE: this instruction will not be executed
+            Instruction::Else => unreachable!(),
             Instruction::Block(block) => {
                 // 1. push a label to the stack
                 let arity = block.block_type.result_count();
@@ -390,6 +393,101 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                 let addr = runtime.stack.pop1::<i32>()? as usize;
                 let value = runtime.store.memory.load::<f64>(addr, arg).into();
                 runtime.stack.push(value);
+            }
+            Instruction::I32Load8S(arg) => {
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                let value = runtime.store.memory.load::<i8>(addr, arg) as i32;
+                runtime.stack.push(value.into());
+            }
+            Instruction::I32Load8U(arg) => {
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                let value = runtime.store.memory.load::<u8>(addr, arg) as i32;
+                runtime.stack.push(value.into());
+            }
+            Instruction::I32Load16S(arg) => {
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                let value = runtime.store.memory.load::<i16>(addr, arg) as i32;
+                runtime.stack.push(value.into());
+            }
+            Instruction::I32Load16U(arg) => {
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                let value = runtime.store.memory.load::<u16>(addr, arg) as i32;
+                runtime.stack.push(value.into());
+            }
+            Instruction::I64Load8S(arg) => {
+                let addr = runtime.stack.pop1::<i64>()? as usize;
+                let value = runtime.store.memory.load::<i8>(addr, arg) as i64;
+                runtime.stack.push(value.into());
+            }
+            Instruction::I64Load8U(arg) => {
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                let value = runtime.store.memory.load::<u8>(addr, arg) as i64;
+                runtime.stack.push(value.into());
+            }
+            Instruction::I64Load16S(arg) => {
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                let value = runtime.store.memory.load::<i16>(addr, arg) as i64;
+                runtime.stack.push(value.into());
+            }
+            Instruction::I64Load16U(arg) => {
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                let value = runtime.store.memory.load::<u16>(addr, arg) as i64;
+                runtime.stack.push(value.into());
+            }
+            Instruction::I64Load32S(arg) => {
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                let value = runtime.store.memory.load::<i32>(addr, arg) as i64;
+                runtime.stack.push(value.into());
+            }
+            Instruction::I64Load32U(arg) => {
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                let value = runtime.store.memory.load::<u32>(addr, arg) as i64;
+                runtime.stack.push(value.into());
+            }
+            Instruction::I32Store(arg) => {
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                let value = runtime.stack.pop1::<i32>()?;
+                runtime.store.memory.write(addr, arg, value);
+            }
+            Instruction::I64Store(arg) => {
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                let value = runtime.stack.pop1::<i64>()?;
+                runtime.store.memory.write(addr, arg, value);
+            }
+            Instruction::F32Store(arg) => {
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                let value = runtime.stack.pop1::<f32>()?;
+                runtime.store.memory.write(addr, arg, value);
+            }
+            Instruction::F64Store(arg) => {
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                let value = runtime.stack.pop1::<f64>()?;
+                runtime.store.memory.write(addr, arg, value);
+            }
+            Instruction::I32Store8(arg) => {
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                let value = runtime.stack.pop1::<i32>()? as i8;
+                runtime.store.memory.write(addr, arg, value);
+            }
+            Instruction::I64Store16(arg) => {
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                let value = runtime.stack.pop1::<i64>()? as i16;
+                runtime.store.memory.write(addr, arg, value);
+            }
+            Instruction::F32Store8(arg) => {
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                let value = runtime.stack.pop1::<f32>()? as i8;
+                runtime.store.memory.write(addr, arg, value);
+            }
+            Instruction::F64Store16(arg) => {
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                let value = runtime.stack.pop1::<f64>()? as i16;
+                runtime.store.memory.write(addr, arg, value);
+            }
+            Instruction::F64Store32(arg) => {
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                let value = runtime.stack.pop1::<f64>()? as i32;
+                runtime.store.memory.write(addr, arg, value);
             }
             _ => {
                 unimplemented!("{:?}", inst);

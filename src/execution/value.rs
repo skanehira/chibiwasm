@@ -322,4 +322,4 @@ macro_rules! impl_numberic {
     }
 }
 
-impl_numberic!(i32, i64, f32, f64);
+impl_numberic!(i8, i16, i32, i64, f32, f64, u8, u16, u32);

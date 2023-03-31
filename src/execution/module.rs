@@ -56,6 +56,12 @@ impl MemoryInst {
         let at = (addr + arg.offset as usize);
         Numberic::read(&self.data, at)
     }
+
+    pub fn write<T: Numberic>(&mut self, addr: usize, arg: &MemoryArg, value: T) {
+        // TODO: check align and memory size
+        let at = (addr + arg.offset as usize);
+        Numberic::write(&mut self.data, at, value)
+    }
 }
 
 #[derive(Debug)]
