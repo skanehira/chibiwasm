@@ -5,6 +5,7 @@ mod tests {
     use anyhow::*;
     use chibiwasm::execution::runtime::Runtime;
     use chibiwasm::execution::value::Value;
+    use paste::paste;
     use std::io::{Cursor, Read};
     use std::{fs, path::Path};
     use wabt::{script::*, Features};
@@ -173,11 +174,13 @@ mod tests {
 
     macro_rules! test {
         ($ty: ident) => {
-            #[test]
-            fn $ty() -> Result<()> {
-                let file = format!("{}.wast", stringify!($ty));
-                run_test(&file)?;
-                Ok(())
+            paste! {
+                #[test]
+                fn [<test_ $ty>]() -> Result<()> {
+                    let file = format!("{}.wast", stringify!($ty));
+                    run_test(&file)?;
+                    Ok(())
+                }
             }
         };
     }
@@ -191,4 +194,62 @@ mod tests {
     test!(f64_cmp);
     test!(f64_bitwise);
     test!(load);
+    test!(nop);
+    test!(store);
+    test!(loop);
+    test!(int_literals);
+    test!(if);
+    test!(br_if);
+    test!(globals);
+    test!(func);
+    test!(block);
+    test!(comments);
+    test!(binary);
+    test!(break_drop);
+    test!(const);
+    test!(forward);
+    test!(inline_module);
+    test!(names);
+
+    //test!(start);
+    //test!(skip_stack_guard_page);
+    //test!(return);
+    //test!(imports);
+    //test!(func_ptrs);
+    //test!(float_literals);
+    //test!(float_memory);
+    //test!(float_misc);
+    //test!(elem); // cannot parse
+    //test!(exports);
+    //test!(endianness);
+    //test!(data);
+    //test!(br_table);
+    //test!(br);
+    //test!(call);
+    //test!(call_indirect);
+    //test!(stack);
+    //test!(unreachable);
+    //test!(memory);
+    //test!(memory_grow);
+    //test!(memory_redundancy);
+    //test!(memory_size);
+    //test!(memory_trap);
+    //test!(local_set);
+    //test!(local_get);
+    //test!(local_tee);
+    //test!(labels);
+    //test!(int_exprs);
+    //test!(select);
+    //test!(switch);
+    //test!(binary_leb128);
+    //test!(token);
+    //test!(traps);
+    //test!(type);
+    //test!(unreachable);
+    //test!(unreached_invalid);
+    //test!(unwind);
+    //test!(utf8_custom_section_id);
+    //test!(utf8_import_field);
+    //test!(utf8_import_module);
+    //test!(utf8_invalid_encoding);
 }

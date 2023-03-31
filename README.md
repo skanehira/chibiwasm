@@ -21,16 +21,16 @@ NOTE: Passes only normal tests
 - [ ] address.wast
 - [ ] align.wast
 - [ ] binary-leb128.wast
-- [ ] binary.wast
-- [ ] block.wast
+- [x] binary.wast
+- [x] block.wast
 - [ ] br.wast
-- [ ] br_if.wast
+- [x] br_if.wast
 - [ ] br_table.wast
-- [ ] break-drop.wast
+- [x] break_drop.wast
 - [ ] call.wast
 - [ ] call_indirect.wast
-- [ ] comments.wast
-- [ ] const.wast
+- [x] comments.wast
+- [x] const.wast
 - [ ] conversions.wast
 - [ ] custom.wast
 - [ ] data.wast
@@ -48,17 +48,17 @@ NOTE: Passes only normal tests
 - [ ] float_literals.wast
 - [ ] float_memory.wast
 - [ ] float_misc.wast
-- [ ] forward.wast
-- [ ] func.wast
+- [x] forward.wast
+- [x] func.wast
 - [ ] func_ptrs.wast
-- [ ] globals.wast
+- [x] globals.wast
 - [x] i32.wast
 - [x] i64.wast
 - [ ] if.wast
 - [ ] imports.wast
-- [ ] inline-module.wast
+- [x] inline_module.wast
 - [ ] int_exprs.wast
-- [ ] int_literals.wast
+- [x] int_literals.wast
 - [ ] labels.wast
 - [ ] left-to-right.wast
 - [ ] linking.wast
@@ -72,25 +72,25 @@ NOTE: Passes only normal tests
 - [ ] memory_redundancy.wast
 - [ ] memory_size.wast
 - [ ] memory_trap.wast
-- [ ] names.wast
-- [ ] nop.wast
+- [x] names.wast
+- [x] nop.wast
 - [ ] return.wast
 - [ ] select.wast
-- [ ] skip-stack-guard-page.wast
+- [ ] skip_stack_guard_page.wast
 - [ ] stack.wast
 - [ ] start.wast
-- [ ] store.wast
+- [x] store.wast
 - [ ] switch.wast
 - [ ] token.wast
 - [ ] traps.wast
 - [ ] type.wast
 - [ ] unreachable.wast
-- [ ] unreached-invalid.wast
+- [ ] unreached_invalid.wast
 - [ ] unwind.wast
-- [ ] utf8-custom-section-id.wast
-- [ ] utf8-import-field.wast
-- [ ] utf8-import-module.wast
-- [ ] utf8-invalid-encoding.wast
+- [ ] utf8_custom_section_id.wast
+- [ ] utf8_import_field.wast
+- [ ] utf8_import_module.wast
+- [ ] utf8_invalid_encoding.wast
 
 ## LICENSE
 This software includes the work that is distributed in the Apache License 2.0.

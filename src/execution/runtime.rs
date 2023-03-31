@@ -234,6 +234,8 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
             Instruction::I32Const(v) => push(runtime, *v)?,
             Instruction::I64Extend32S => i64extend_32s(runtime)?,
             Instruction::I64Const(v) => push(runtime, *v)?,
+            Instruction::F32Const(v) => push(runtime, *v)?,
+            Instruction::F64Const(v) => push(runtime, *v)?,
             Instruction::F32Add | Instruction::F64Add => add(runtime)?,
             Instruction::F32Sub | Instruction::F64Sub => sub(runtime)?,
             Instruction::F32Mul | Instruction::F64Mul => mul(runtime)?,
