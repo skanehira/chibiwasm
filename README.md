@@ -44,7 +44,7 @@ NOTE: Passes only normal tests
 - [x] br_table.wast
 - [x] break_drop.wast
 - [x] call.wast
-- [ ] call_indirect.wast
+- [x] call_indirect.wast
 - [x] comments.wast
 - [x] const.wast
 - [ ] conversions.wast

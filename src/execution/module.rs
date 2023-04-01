@@ -15,7 +15,7 @@ use std::rc::Rc;
 // https://www.w3.org/TR/wasm-core-1/#memory-instances%E2%91%A0
 pub const PAGE_SIZE: u32 = 65536; // 64Ki
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FuncType {
     pub params: Vec<ValueType>,
     pub results: Vec<ValueType>,

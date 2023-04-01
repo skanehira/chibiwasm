@@ -392,22 +392,66 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                     _ => {}
                 }
             }
-            Instruction::CallIndirect((_, table_idx)) => {
-                let table = runtime.store.tables.get(*table_idx as usize).with_context(|| {
-                    format!(
-                        "not found table with index {}, tables: {:?}",
-                        table_idx, &runtime.store.tables
-                    )
-                })?;
+            Instruction::CallIndirect((signature_idx, table_idx)) => {
+                let table = runtime
+                    .store
+                    .tables
+                    .get(*table_idx as usize) // NOTE: table_idx is always 0 now
+                    .with_context(|| {
+                        format!(
+                            "not found table with index {}, tables: {:?}",
+                            table_idx, &runtime.store.tables
+                        )
+                    })?;
                 let elem_idx = runtime.stack.pop1::<i32>()? as usize;
                 let func_idx = table.elem.get(elem_idx as usize).with_context(|| {
                     trace!(
                         "not found function with index {}, stack: {:?}",
-                        elem_idx, &runtime.stack
+                        elem_idx,
+                        &runtime.stack
                     );
                     format!("undefined element")
                 })?;
-                trace!("func_idx: {}, func instance: {:#?}", func_idx, &runtime.store.funcs);
+                trace!(
+                    "func_idx: {}, func instance: {:#?}",
+                    func_idx,
+                    &runtime.store.funcs
+                );
+
+                // validation
+                let func = runtime
+                    .store
+                    .funcs
+                    .get(*func_idx as usize)
+                    .with_context(|| {
+                        format!(
+                            "not found function from store.funcs with index {}, funcs: {:?}",
+                            func_idx, &runtime.store.funcs
+                        )
+                    })?;
+                // validate expect func signature and actual func signature
+                let expect_func_type = runtime
+                    .module
+                    .func_types
+                    .get(*signature_idx as usize)
+                    .with_context(|| {
+                        format!(
+                            "not found type from module.func_types with index {}, types: {:?}",
+                            func_idx, &runtime.module.func_types
+                        )
+                    })?
+                    .clone();
+
+                if func.func_type.params != expect_func_type.params
+                    || func.func_type.results != expect_func_type.results
+                {
+                    trace!(
+                        "expect func signature: {:?}, actual func signature: {:?}",
+                        expect_func_type,
+                        func.func_type
+                    );
+                    bail!("indirect call type mismatch")
+                }
 
                 match runtime.invoke(*func_idx as usize)? {
                     Some(value) => {

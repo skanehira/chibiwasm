@@ -528,6 +528,7 @@ fn decode_instruction(reader: &mut SectionReader) -> Result<Instruction> {
             let local_idx = reader.u32()?;
             Instruction::Call(local_idx)
         }
+        // first u32 is function signature index, second u32 is table index
         Opcode::CallIndirect => Instruction::CallIndirect((reader.u32()?, reader.u32()?)),
         Opcode::Return => Instruction::Return,
         Opcode::LocalGet => {

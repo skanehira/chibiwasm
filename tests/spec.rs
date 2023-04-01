@@ -254,8 +254,8 @@ mod tests {
     test!(memory_redundancy);
     // NOTE: this will overflow in the test thread, so we need use RUST_MIN_STACK=104857600 to run this test
     test!(call);
+    test!(call_indirect);
 
-    //test!(call_indirect);
     //test!(left_to_right);
     //test!(linking);
     //test!(conversions); // cannot parse
