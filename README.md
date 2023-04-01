@@ -4,8 +4,24 @@ Please do not use it in production.
 
 ## Usage
 ```sh
-$ cargo run -- add.wasm 1 2
-2
+$ cat
+(module
+  (func $add (export "add") (param i32 i32) (result i32)
+    (local.get 0)
+    (local.get 1)
+    (i32.add)
+  )
+)
+$ wat2wasm add.wat
+$ cargo run -- add.wasm add 1 2
+    Finished dev [unoptimized + debuginfo] target(s) in 0.09s
+     Running `target/debug/chibiwasm add.wasm add 1 2`
+3
+```
+
+## Test
+```sh
+$ cargo make test
 ```
 
 ## Spec
