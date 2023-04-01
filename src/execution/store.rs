@@ -82,19 +82,37 @@ impl Store {
 
         // table
         let tables = match &module.table_section {
-            Some(tables) => tables
-                .iter()
-                .map(|table| {
-                    let mut elem = vec![0; funcs.len()];
-                    for i in 0..funcs.len() {
-                        elem[i] = i;
+            Some(tables) => {
+                let table = tables.get(0).expect("cannot get table from table section"); // NOTE: only support one table now
+
+                let elem = match &module.element_section {
+                    Some(elems) => {
+                        let mut elem = vec![0; table.limits.max.unwrap_or(0) as usize];
+                        for i in 0..elem.len() {
+                            elem[i] = *elems
+                                .get(0) // NOTE: only support one elem now
+                                .with_context(|| {
+                                    format!(
+                                "cannot get element from element section, element_section: {:#?}",
+                                elems
+                            )
+                                })?
+                                .init
+                                .get(i)
+                                .with_context(|| {
+                                    format!("cannot get func index from element_section")
+                                })? as usize;
+                        }
+                        elem
                     }
-                    TableInst {
-                        elem,
-                        max: table.limits.max,
-                    }
-                })
-                .collect(),
+                    None => vec![],
+                };
+                let table_inst = TableInst {
+                    elem,
+                    max: table.limits.max,
+                };
+                vec![table_inst]
+            }
             None => vec![],
         };
 

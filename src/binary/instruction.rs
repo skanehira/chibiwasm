@@ -208,7 +208,7 @@ pub enum Instruction {
     GlobalSet(u32),
     GlobalGet(u32),
     Call(u32),
-    CallIndirect(u32),
+    CallIndirect((u32, u32)),
     I32Const(i32),
     I32Eqz,
     I32Eq,

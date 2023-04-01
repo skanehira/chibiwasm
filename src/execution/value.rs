@@ -25,8 +25,8 @@ pub enum Value {
 impl Value {
     pub fn is_true(&self) -> bool {
         match *self {
-            Value::I32(v) => 1 == v,
-            Value::I64(v) => 1 == v,
+            Value::I32(v) => 0 != v,
+            Value::I64(v) => 0 != v,
             _ => {
                 panic!("cannot call is_true() when value is f32 or f64");
             }

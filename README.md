@@ -43,7 +43,7 @@ NOTE: Passes only normal tests
 - [x] br_if.wast
 - [x] br_table.wast
 - [x] break_drop.wast
-- [ ] call.wast
+- [x] call.wast
 - [ ] call_indirect.wast
 - [x] comments.wast
 - [x] const.wast

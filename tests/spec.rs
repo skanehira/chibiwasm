@@ -252,9 +252,12 @@ mod tests {
     test!(int_exprs);
     test!(memory_grow);
     test!(memory_redundancy);
+    // NOTE: this will overflow in the test thread, so we need use RUST_MIN_STACK=104857600 to run this test
+    test!(call);
 
-    //test!(linking);
+    //test!(call_indirect);
     //test!(left_to_right);
+    //test!(linking);
     //test!(conversions); // cannot parse
     //test!(start);
     //test!(skip_stack_guard_page);
@@ -267,8 +270,6 @@ mod tests {
     //test!(exports);
     //test!(endianness);
     //test!(data);
-    //test!(call);
-    //test!(call_indirect);
     //test!(switch);
     //test!(binary_leb128);
     //test!(token);

@@ -157,7 +157,6 @@ impl Runtime {
         // 4. execute instruction of function
         // TODO: check state
         trace!("call stack: {:?}", &self.call_stack.last());
-        trace!("instructions: {:#?}", &func.code.body);
         let _ = execute(self, &func.code.body)?;
 
         // 5. if the function has return value, pop it from stack
@@ -393,20 +392,22 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                     _ => {}
                 }
             }
-            Instruction::CallIndirect(idx) => {
-                let table = runtime.store.tables.get(*idx as usize).with_context(|| {
+            Instruction::CallIndirect((_, table_idx)) => {
+                let table = runtime.store.tables.get(*table_idx as usize).with_context(|| {
                     format!(
                         "not found table with index {}, tables: {:?}",
-                        idx, &runtime.store.tables
+                        table_idx, &runtime.store.tables
                     )
                 })?;
                 let elem_idx = runtime.stack.pop1::<i32>()? as usize;
                 let func_idx = table.elem.get(elem_idx as usize).with_context(|| {
-                    format!(
-                        "not found function with index {}, table.elem: {:?}",
-                        elem_idx, &table.elem
-                    )
+                    trace!(
+                        "not found function with index {}, stack: {:?}",
+                        elem_idx, &runtime.stack
+                    );
+                    format!("undefined element")
                 })?;
+                trace!("func_idx: {}, func instance: {:#?}", func_idx, &runtime.store.funcs);
 
                 match runtime.invoke(*func_idx as usize)? {
                     Some(value) => {
