@@ -211,10 +211,12 @@ mod tests {
     test!(inline_module);
     test!(names);
     test!(stack);
+    test!(return);
+    test!(br);
+    test!(br_table);
 
     //test!(start);
     //test!(skip_stack_guard_page);
-    //test!(return);
     //test!(imports);
     //test!(func_ptrs);
     //test!(float_literals);
@@ -224,8 +226,6 @@ mod tests {
     //test!(exports);
     //test!(endianness);
     //test!(data);
-    //test!(br_table);
-    //test!(br);
     //test!(call);
     //test!(call_indirect);
     //test!(unreachable);

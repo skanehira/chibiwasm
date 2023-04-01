@@ -632,6 +632,7 @@ fn decode_instruction(reader: &mut SectionReader) -> Result<Instruction> {
         Opcode::F32Min => Instruction::F32Min,
         Opcode::F32Max => Instruction::F32Max,
         Opcode::F32Copysign => Instruction::F32Copysign,
+        Opcode::I32WrapI64 => Instruction::I32WrapI64,
         Opcode::F64Eq => Instruction::F64Eq,
         Opcode::F64Ne => Instruction::F64Ne,
         Opcode::F64Lt => Instruction::F64Lt,

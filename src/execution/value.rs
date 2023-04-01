@@ -293,6 +293,13 @@ impl Value {
     funop!(abs, neg, sqrt, ceil, floor, trunc, nearest);
 
     itestop!(eqz);
+
+    pub fn wrap_i64(&self) -> Result<Self> {
+        match self {
+            Value::I64(l) => Ok(Value::I32(*l as i32)),
+            _ => panic!("unexpected value. {self}")
+        }
+    }
 }
 
 pub trait Numberic {

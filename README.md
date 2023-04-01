@@ -5,7 +5,7 @@ Please do not use it in production.
 ## Usage
 ```sh
 $ cargo run -- add.wasm 1 2
-I32(2)
+2
 ```
 
 ## Spec
@@ -54,7 +54,7 @@ NOTE: Passes only normal tests
 - [x] globals.wast
 - [x] i32.wast
 - [x] i64.wast
-- [ ] if.wast
+- [x] if.wast
 - [ ] imports.wast
 - [x] inline_module.wast
 - [ ] int_exprs.wast

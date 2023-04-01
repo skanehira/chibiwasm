@@ -128,6 +128,19 @@ macro_rules! impl_unary_operation {
     };
 }
 
+macro_rules! impl_cvtop_operation {
+    ($($op: ident),*) => {
+        $(
+            pub fn $op(runtime: &mut Runtime) -> Result<()> {
+                let value: Value = runtime.stack.pop1()?;
+                let value = value.$op()?;
+                runtime.stack.push(value.into());
+                Ok(())
+            }
+         )*
+    };
+}
+
 impl_unary_operation!(
     eqz, // itestop
     clz, ctz, extend8_s, extend16_s, // iunop
@@ -142,3 +155,5 @@ impl_binary_operation!(
     lt_s, lt_u, gt_s, gt_u, le_s, le_u, ge_s, ge_u, // irelop
     flt, fgt, fle, fge // frelop
 );
+
+impl_cvtop_operation!(wrap_i64);
