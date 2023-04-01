@@ -217,6 +217,7 @@ mod tests {
     test!(local_set);
     test!(local_get);
     test!(local_tee);
+    test!(select);
 
     //test!(start);
     //test!(skip_stack_guard_page);
@@ -239,7 +240,6 @@ mod tests {
     //test!(memory_trap);
     //test!(labels);
     //test!(int_exprs);
-    //test!(select);
     //test!(switch);
     //test!(binary_leb128);
     //test!(token);

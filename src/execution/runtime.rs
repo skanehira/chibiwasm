@@ -206,7 +206,7 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
     for inst in insts {
         trace!("instruction: {:?}", &inst);
         match inst {
-            Instruction::Unreachable => unreachable!(),
+            Instruction::Unreachable => bail!("unreachable"),
             Instruction::Nop | Instruction::End => {}
             Instruction::LocalGet(idx) => local_get(runtime, *idx as usize)?,
             Instruction::LocalSet(idx) => local_set(runtime, *idx as usize)?,
@@ -531,9 +531,9 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
             }
             Instruction::Select => {
                 let cond = runtime.stack.pop1::<i32>()?;
-                let a = runtime.stack.pop1::<Value>()?;
-                let b = runtime.stack.pop1::<Value>()?;
-                runtime.stack.push(if cond != 0 { a } else { b });
+                let val2 = runtime.stack.pop1::<Value>()?;
+                let val1 = runtime.stack.pop1::<Value>()?;
+                runtime.stack.push(if cond != 0 { val1 } else { val2 });
             }
             Instruction::I32TruncF32S => i32_trunc_f32_s(runtime)?,
             Instruction::I32TruncF32U => i32_trunc_f32_u(runtime)?,
