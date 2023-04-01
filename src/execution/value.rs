@@ -294,10 +294,38 @@ impl Value {
 
     itestop!(eqz);
 
+    pub fn i32_trunc_f32_s(&self) -> Result<Self> {
+        match self {
+            Value::F32(f) => Ok(Value::I32(*f as i32)),
+            _ => panic!("unexpected value. {self}"),
+        }
+    }
+
+    pub fn i32_trunc_f32_u(&self) -> Result<Self> {
+        match self {
+            Value::F32(f) => Ok(Value::I32(*f as u32 as i32)),
+            _ => panic!("unexpected value. {self}"),
+        }
+    }
+
+    pub fn i32_trunc_f64_s(&self) -> Result<Self> {
+        match self {
+            Value::F64(f) => Ok(Value::I32(*f as i32)),
+            _ => panic!("unexpected value. {self}"),
+        }
+    }
+
+    pub fn i32_trunc_f64_u(&self) -> Result<Self> {
+        match self {
+            Value::F64(f) => Ok(Value::I32(*f as u64 as i32)),
+            _ => panic!("unexpected value. {self}"),
+        }
+    }
+
     pub fn wrap_i64(&self) -> Result<Self> {
         match self {
             Value::I64(l) => Ok(Value::I32(*l as i32)),
-            _ => panic!("unexpected value. {self}")
+            _ => panic!("unexpected value. {self}"),
         }
     }
 }

@@ -214,6 +214,9 @@ mod tests {
     test!(return);
     test!(br);
     test!(br_table);
+    test!(local_set);
+    test!(local_get);
+    test!(local_tee);
 
     //test!(start);
     //test!(skip_stack_guard_page);
@@ -234,9 +237,6 @@ mod tests {
     //test!(memory_redundancy);
     //test!(memory_size);
     //test!(memory_trap);
-    //test!(local_set);
-    //test!(local_get);
-    //test!(local_tee);
     //test!(labels);
     //test!(int_exprs);
     //test!(select);

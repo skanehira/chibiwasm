@@ -535,8 +535,32 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                 let b = runtime.stack.pop1::<Value>()?;
                 runtime.stack.push(if cond != 0 { a } else { b });
             }
+            Instruction::I32TruncF32S => i32_trunc_f32_s(runtime)?,
+            Instruction::I32TruncF32U => i32_trunc_f32_u(runtime)?,
+            Instruction::I32TruncF64S => i32_trunc_f64_s(runtime)?,
+            Instruction::I32TruncF64U => i32_trunc_f64_u(runtime)?,
+            Instruction::I64ExtendI32S => todo!(),
+            Instruction::I64ExtendI32U => todo!(),
+            Instruction::I64TruncF32S => todo!(),
+            Instruction::I64TruncF32U => todo!(),
+            Instruction::I64TruncF64S => todo!(),
+            Instruction::I64TruncF64U => todo!(),
+            Instruction::F32ConvertI32S => todo!(),
+            Instruction::F32ConvertI32U => todo!(),
+            Instruction::F32ConvertI64S => todo!(),
+            Instruction::F32ConvertI64U => todo!(),
+            Instruction::F32DemoteF64 => todo!(),
+            Instruction::F64ConvertI32S => todo!(),
+            Instruction::F64ConvertI32U => todo!(),
+            Instruction::F64ConvertI64S => todo!(),
+            Instruction::F64ConvertI64U => todo!(),
+            Instruction::F64PromoteF32 => todo!(),
+            Instruction::I32ReinterpretF32 => todo!(),
+            Instruction::I64ReinterpretF64 => todo!(),
+            Instruction::F32ReinterpretI32 => todo!(),
+            Instruction::F64ReinterpretI64 => todo!(),
             _ => {
-                unimplemented!("{:?}", inst);
+                unimplemented!("instruction: {:?}", inst);
             }
         };
     }
