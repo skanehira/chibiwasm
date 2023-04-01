@@ -48,7 +48,6 @@ impl Runtime {
     pub fn instantiate(module: &mut Module) -> Result<Self> {
         let store = Store::new(module)?;
         let module = ModuleInst::allocate(&module);
-        trace!("instantiate store: {:#?}", &store);
 
         let runtime = Self {
             store,
@@ -155,6 +154,7 @@ impl Runtime {
         // 4. execute instruction of function
         // TODO: check state
         trace!("call stack: {:?}", &self.call_stack.last());
+        trace!("instructions: {:#?}", &func.code.body);
         let _ = execute(self, &func.code.body)?;
 
         // 5. if the function has return value, pop it from stack
@@ -204,7 +204,12 @@ impl Runtime {
 
 fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
     for inst in insts {
-        trace!("instruction: {:?}", &inst);
+        if !matches!(
+            inst,
+            Instruction::Block(_) | Instruction::If(_) | Instruction::Loop(_)
+        ) {
+            trace!("instruction: {:?}", &inst);
+        }
         match inst {
             Instruction::Unreachable => bail!("unreachable"),
             Instruction::Nop | Instruction::End => {}
@@ -485,49 +490,54 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                 runtime.stack.push(value.into());
             }
             Instruction::I32Store(arg) => {
-                let addr = runtime.stack.pop1::<i32>()? as usize;
                 let value = runtime.stack.pop1::<i32>()?;
-                runtime.store.memory.write(addr, arg, value);
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                runtime.store.memory.write(addr, arg, value)?;
             }
             Instruction::I64Store(arg) => {
-                let addr = runtime.stack.pop1::<i32>()? as usize;
                 let value = runtime.stack.pop1::<i64>()?;
-                runtime.store.memory.write(addr, arg, value);
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                runtime.store.memory.write(addr, arg, value)?;
             }
             Instruction::F32Store(arg) => {
-                let addr = runtime.stack.pop1::<i32>()? as usize;
                 let value = runtime.stack.pop1::<f32>()?;
-                runtime.store.memory.write(addr, arg, value);
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                runtime.store.memory.write(addr, arg, value)?;
             }
             Instruction::F64Store(arg) => {
-                let addr = runtime.stack.pop1::<i32>()? as usize;
                 let value = runtime.stack.pop1::<f64>()?;
-                runtime.store.memory.write(addr, arg, value);
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                runtime.store.memory.write(addr, arg, value)?;
             }
             Instruction::I32Store8(arg) => {
-                let addr = runtime.stack.pop1::<i32>()? as usize;
                 let value = runtime.stack.pop1::<i32>()? as i8;
-                runtime.store.memory.write(addr, arg, value);
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                runtime.store.memory.write(addr, arg, value)?;
+            }
+            Instruction::I32Store16(arg) => {
+                let value = runtime.stack.pop1::<i32>()? as i16;
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                runtime.store.memory.write(addr, arg, value)?;
             }
             Instruction::I64Store16(arg) => {
-                let addr = runtime.stack.pop1::<i32>()? as usize;
                 let value = runtime.stack.pop1::<i64>()? as i16;
-                runtime.store.memory.write(addr, arg, value);
-            }
-            Instruction::F32Store8(arg) => {
                 let addr = runtime.stack.pop1::<i32>()? as usize;
-                let value = runtime.stack.pop1::<f32>()? as i8;
-                runtime.store.memory.write(addr, arg, value);
+                runtime.store.memory.write(addr, arg, value)?;
             }
-            Instruction::F64Store16(arg) => {
+            Instruction::I64Store8(arg) => {
+                let value = runtime.stack.pop1::<i64>()? as i8;
                 let addr = runtime.stack.pop1::<i32>()? as usize;
-                let value = runtime.stack.pop1::<f64>()? as i16;
-                runtime.store.memory.write(addr, arg, value);
+                runtime.store.memory.write(addr, arg, value)?;
             }
-            Instruction::F64Store32(arg) => {
+            Instruction::I64Store16(arg) => {
+                let value = runtime.stack.pop1::<i64>()? as i16;
                 let addr = runtime.stack.pop1::<i32>()? as usize;
-                let value = runtime.stack.pop1::<f64>()? as i32;
-                runtime.store.memory.write(addr, arg, value);
+                runtime.store.memory.write(addr, arg, value)?;
+            }
+            Instruction::I64Store32(arg) => {
+                let value = runtime.stack.pop1::<i64>()? as i32;
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                runtime.store.memory.write(addr, arg, value)?;
             }
             Instruction::Select => {
                 let cond = runtime.stack.pop1::<i32>()?;
@@ -539,26 +549,26 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
             Instruction::I32TruncF32U => i32_trunc_f32_u(runtime)?,
             Instruction::I32TruncF64S => i32_trunc_f64_s(runtime)?,
             Instruction::I32TruncF64U => i32_trunc_f64_u(runtime)?,
-            Instruction::I64ExtendI32S => todo!(),
-            Instruction::I64ExtendI32U => todo!(),
-            Instruction::I64TruncF32S => todo!(),
-            Instruction::I64TruncF32U => todo!(),
-            Instruction::I64TruncF64S => todo!(),
-            Instruction::I64TruncF64U => todo!(),
-            Instruction::F32ConvertI32S => todo!(),
-            Instruction::F32ConvertI32U => todo!(),
-            Instruction::F32ConvertI64S => todo!(),
-            Instruction::F32ConvertI64U => todo!(),
-            Instruction::F32DemoteF64 => todo!(),
-            Instruction::F64ConvertI32S => todo!(),
-            Instruction::F64ConvertI32U => todo!(),
-            Instruction::F64ConvertI64S => todo!(),
-            Instruction::F64ConvertI64U => todo!(),
-            Instruction::F64PromoteF32 => todo!(),
-            Instruction::I32ReinterpretF32 => todo!(),
-            Instruction::I64ReinterpretF64 => todo!(),
-            Instruction::F32ReinterpretI32 => todo!(),
-            Instruction::F64ReinterpretI64 => todo!(),
+            Instruction::I64ExtendI32S => i64_extend_i32_s(runtime)?,
+            Instruction::I64ExtendI32U => i64_extend_i32_u(runtime)?,
+            Instruction::I64TruncF32S => i64_trunc_f32_s(runtime)?,
+            Instruction::I64TruncF32U => i64_trunc_f32_u(runtime)?,
+            Instruction::I64TruncF64S => i64_trunc_f64_s(runtime)?,
+            Instruction::I64TruncF64U => i64_trunc_f64_u(runtime)?,
+            Instruction::F32ConvertI32S => f32_convert_i32_s(runtime)?,
+            Instruction::F32ConvertI32U => f32_convert_i32_u(runtime)?,
+            Instruction::F32ConvertI64S => f32_convert_i64_s(runtime)?,
+            Instruction::F32ConvertI64U => f32_convert_i64_u(runtime)?,
+            Instruction::F32DemoteF64 => f32_demote_f64(runtime)?,
+            Instruction::F64ConvertI32S => f64_convert_i32_s(runtime)?,
+            Instruction::F64ConvertI32U => f64_convert_i32_u(runtime)?,
+            Instruction::F64ConvertI64S => f64_convert_i64_s(runtime)?,
+            Instruction::F64ConvertI64U => f64_convert_i64_u(runtime)?,
+            Instruction::F64PromoteF32 => f64_demote_f32(runtime)?,
+            Instruction::I32ReinterpretF32 => i32_reinterpret_f32(runtime)?,
+            Instruction::I64ReinterpretF64 => i64_reinterpret_f64(runtime)?,
+            Instruction::F32ReinterpretI32 => f32_reinterpret_i32(runtime)?,
+            Instruction::F64ReinterpretI64 => f64_reinterpret_i64(runtime)?,
             _ => {
                 unimplemented!("instruction: {:?}", inst);
             }

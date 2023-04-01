@@ -7,6 +7,7 @@ use crate::binary::instruction::*;
 use crate::binary::types::ExportDesc;
 use crate::binary::types::FuncType;
 use anyhow::{bail, Context as _, Result};
+use log::trace;
 use std::fmt::Display;
 use std::i64;
 use std::mem::size_of;
@@ -72,6 +73,7 @@ pub trait StackAccess {
 
 impl StackAccess for Vec<Value> {
     fn pop1<T: From<Value>>(&mut self) -> Result<T> {
+        trace!("pop value from stack. stack: {:#?}", self);
         let value: T = self.pop().expect("no value in the stack").into();
         Ok(value)
     }
@@ -328,6 +330,146 @@ impl Value {
             _ => panic!("unexpected value. {self}"),
         }
     }
+
+    pub fn i64_trunc_f32_s(&self) -> Result<Self> {
+        match self {
+            Value::F32(f) => Ok(Value::I64(*f as i64)),
+            _ => panic!("unexpected value. {self}"),
+        }
+    }
+
+    pub fn i64_trunc_f32_u(&self) -> Result<Self> {
+        match self {
+            Value::F32(f) => Ok(Value::I64(*f as u32 as i64)),
+            _ => panic!("unexpected value. {self}"),
+        }
+    }
+
+    pub fn i64_trunc_f64_s(&self) -> Result<Self> {
+        match self {
+            Value::F64(f) => Ok(Value::I64(*f as i64)),
+            _ => panic!("unexpected value. {self}"),
+        }
+    }
+
+    pub fn i64_trunc_f64_u(&self) -> Result<Self> {
+        match self {
+            Value::F64(f) => Ok(Value::I64(*f as u64 as i64)),
+            _ => panic!("unexpected value. {self}"),
+        }
+    }
+
+    pub fn i64_extend_i32_s(&self) -> Result<Self> {
+        match self {
+            Value::I32(l) => Ok(Value::I64(*l as i64)),
+            _ => panic!("unexpected value. {self}"),
+        }
+    }
+
+    pub fn i64_extend_i32_u(&self) -> Result<Self> {
+        match self {
+            Value::I32(l) => Ok(Value::I64(*l as u32 as i64)),
+            _ => panic!("unexpected value. {self}"),
+        }
+    }
+
+    pub fn f32_convert_i32_s(&self) -> Result<Self> {
+        match self {
+            Value::I32(l) => Ok(Value::F32(*l as f32)),
+            _ => panic!("unexpected value. {self}"),
+        }
+    }
+
+    pub fn f32_convert_i32_u(&self) -> Result<Self> {
+        match self {
+            Value::I32(l) => Ok(Value::F32(*l as u32 as f32)),
+            _ => panic!("unexpected value. {self}"),
+        }
+    }
+
+    pub fn f32_convert_i64_s(&self) -> Result<Self> {
+        match self {
+            Value::I64(l) => Ok(Value::F32(*l as f32)),
+            _ => panic!("unexpected value. {self}"),
+        }
+    }
+
+    pub fn f32_convert_i64_u(&self) -> Result<Self> {
+        match self {
+            Value::I64(l) => Ok(Value::F32(*l as u64 as f32)),
+            _ => panic!("unexpected value. {self}"),
+        }
+    }
+
+    pub fn f32_demote_f64(&self) -> Result<Self> {
+        match self {
+            Value::F64(f) => Ok(Value::F32(*f as f32)),
+            _ => panic!("unexpected value. {self}"),
+        }
+    }
+
+    pub fn f64_convert_i32_s(&self) -> Result<Self> {
+        match self {
+            Value::I32(l) => Ok(Value::F64(*l as f64)),
+            _ => panic!("unexpected value. {self}"),
+        }
+    }
+
+    pub fn f64_convert_i32_u(&self) -> Result<Self> {
+        match self {
+            Value::I32(l) => Ok(Value::F64(*l as u32 as f64)),
+            _ => panic!("unexpected value. {self}"),
+        }
+    }
+
+    pub fn f64_convert_i64_s(&self) -> Result<Self> {
+        match self {
+            Value::I64(l) => Ok(Value::F64(*l as f64)),
+            _ => panic!("unexpected value. {self}"),
+        }
+    }
+
+    pub fn f64_convert_i64_u(&self) -> Result<Self> {
+        match self {
+            Value::I64(l) => Ok(Value::F64(*l as u64 as f64)),
+            _ => panic!("unexpected value. {self}"),
+        }
+    }
+
+    pub fn f64_demote_f32(&self) -> Result<Self> {
+        match self {
+            Value::F32(f) => Ok(Value::F64(*f as f64)),
+            _ => panic!("unexpected value. {self}"),
+        }
+    }
+
+    pub fn i32_reinterpret_f32(&self) -> Result<Self> {
+        match self {
+            Value::F32(f) => Ok(Value::I32(*f as i32)),
+            _ => panic!("unexpected value. {self}"),
+        }
+    }
+
+    pub fn i64_reinterpret_f64(&self) -> Result<Self> {
+        match self {
+            Value::F64(f) => Ok(Value::I64(*f as i64)),
+            _ => panic!("unexpected value. {self}"),
+        }
+    }
+
+    pub fn f32_reinterpret_i32(&self) -> Result<Self> {
+        match self {
+            Value::I32(l) => Ok(Value::F32(*l as f32)),
+            _ => panic!("unexpected value. {self}"),
+        }
+    }
+
+    pub fn f64_reinterpret_i64(&self) -> Result<Self> {
+        match self {
+            Value::I64(l) => Ok(Value::F64(*l as f64)),
+            _ => panic!("unexpected value. {self}"),
+        }
+    }
 }
 
 pub trait Numberic {
@@ -355,6 +497,9 @@ macro_rules! impl_numberic {
 
                 fn write(buf: &mut [u8], addr: usize, value: Self) -> Result<()> {
                     let bytes = value.to_le_bytes();
+                    if addr + size_of::<$ty>() > buf.len() {
+                        bail!("out of bounds memory access");
+                    }
                     buf[addr..addr + size_of::<$ty>()].copy_from_slice(&bytes);
                     Ok(())
                 }

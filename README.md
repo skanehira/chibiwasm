@@ -19,7 +19,7 @@ The list is base on https://github.com/WebAssembly/spec/tree/wg-1.0/test/core
 NOTE: Passes only normal tests
 
 - [x] address.wast
-- [ ] align.wast
+- [x] align.wast
 - [ ] binary-leb128.wast
 - [x] binary.wast
 - [x] block.wast
@@ -47,7 +47,7 @@ NOTE: Passes only normal tests
 - [ ] float_exprs.wast
 - [ ] float_literals.wast
 - [ ] float_memory.wast
-- [ ] float_misc.wast
+- [x] float_misc.wast
 - [x] forward.wast
 - [x] func.wast
 - [ ] func_ptrs.wast
@@ -57,7 +57,7 @@ NOTE: Passes only normal tests
 - [x] if.wast
 - [ ] imports.wast
 - [x] inline_module.wast
-- [ ] int_exprs.wast
+- [x] int_exprs.wast
 - [x] int_literals.wast
 - [x] labels.wast
 - [ ] left-to-right.wast
@@ -67,7 +67,7 @@ NOTE: Passes only normal tests
 - [x] local_set.wast
 - [x] local_tee.wast
 - [x] loop.wast
-- [ ] memory.wast
+- [x] memory.wast
 - [ ] memory_grow.wast
 - [ ] memory_redundancy.wast
 - [x] memory_size.wast

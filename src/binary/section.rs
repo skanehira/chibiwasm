@@ -2,6 +2,7 @@ use super::error::Error::*;
 use super::instruction::{Instruction, MemoryArg, Opcode};
 use super::types::*;
 use anyhow::{bail, Context, Result};
+use log::trace;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive as _;
 use std::io::{BufRead, Cursor, Read};
@@ -500,9 +501,10 @@ fn decode_block(reader: &mut SectionReader) -> Result<Block> {
 
 fn decode_instruction(reader: &mut SectionReader) -> Result<Instruction> {
     let op = reader.byte()?;
+    trace!("decode opcode: {:X}", op);
     let op: Opcode =
         Opcode::from_u8(op).with_context(|| format!("unimplemented opcode: {:x}", op))?;
-
+    trace!("decode opcode: {:?}", op);
     let inst = match op {
         Opcode::Unreachable => Instruction::Unreachable,
         Opcode::Nop => Instruction::Nop,
@@ -677,10 +679,10 @@ fn decode_instruction(reader: &mut SectionReader) -> Result<Instruction> {
         Opcode::F32Store => Instruction::F32Store(read_memory_arg(reader)?),
         Opcode::F64Store => Instruction::F64Store(read_memory_arg(reader)?),
         Opcode::I32Store8 => Instruction::I32Store8(read_memory_arg(reader)?),
+        Opcode::I32Store16 => Instruction::I32Store16(read_memory_arg(reader)?),
+        Opcode::I64Store8 => Instruction::I64Store8(read_memory_arg(reader)?),
         Opcode::I64Store16 => Instruction::I64Store16(read_memory_arg(reader)?),
-        Opcode::F32Store8 => Instruction::F32Store8(read_memory_arg(reader)?),
-        Opcode::F64Store16 => Instruction::F64Store16(read_memory_arg(reader)?),
-        Opcode::F64Store32 => Instruction::F64Store32(read_memory_arg(reader)?),
+        Opcode::I64Store32 => Instruction::I64Store32(read_memory_arg(reader)?),
         Opcode::MemoryGrow => Instruction::MemoryGrow,
         Opcode::MemorySize => {
             // NOTE: memory index is always 0 now

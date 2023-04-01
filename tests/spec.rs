@@ -225,7 +225,14 @@ mod tests {
     test!(memory_size);
     test!(address);
     test!(memory_trap);
+    test!(align);
+    test!(memory);
+    test!(float_misc);
+    test!(int_exprs);
 
+    //test!(linking);
+    //test!(left_to_right);
+    //test!(conversions); // cannot parse
     //test!(start);
     //test!(skip_stack_guard_page);
     //test!(imports);
@@ -233,17 +240,14 @@ mod tests {
     //test!(float_exprs); // cannot parse
     //test!(float_literals);
     //test!(float_memory);
-    //test!(float_misc);
     //test!(elem); // cannot parse
     //test!(exports);
     //test!(endianness);
     //test!(data);
     //test!(call);
     //test!(call_indirect);
-    //test!(memory);
     //test!(memory_grow);
     //test!(memory_redundancy);
-    //test!(int_exprs);
     //test!(switch);
     //test!(binary_leb128);
     //test!(token);
