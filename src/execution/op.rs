@@ -27,7 +27,7 @@ pub fn local_set(runtime: &mut Runtime, idx: usize) -> Result<()> {
     let frame = runtime.current_frame_mut()?;
     frame.locals[idx] = value;
     trace!(
-        "local.get: current frame locals: {:?}, stack: {:?}",
+        "local.set: current frame locals: {:?}, stack: {:?}",
         &runtime.current_frame()?.locals,
         &runtime.stack
     );

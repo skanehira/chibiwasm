@@ -501,7 +501,6 @@ fn decode_block(reader: &mut SectionReader) -> Result<Block> {
 
 fn decode_instruction(reader: &mut SectionReader) -> Result<Instruction> {
     let op = reader.byte()?;
-    trace!("decode opcode: {:X}", op);
     let op: Opcode =
         Opcode::from_u8(op).with_context(|| format!("unimplemented opcode: {:x}", op))?;
     trace!("decode opcode: {:?}", op);

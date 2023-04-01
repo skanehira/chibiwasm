@@ -7,8 +7,11 @@ mod tests {
     use chibiwasm::execution::value::Value;
     use paste::paste;
     use std::io::{Cursor, Read};
+    use std::sync::Once;
     use std::{fs, path::Path};
     use wabt::{script::*, Features};
+
+    static INIT: Once = Once::new();
 
     fn into_wasm_value(values: Vec<wabt::script::Value>) -> Vec<Value> {
         values
@@ -24,6 +27,11 @@ mod tests {
     }
 
     fn run_test(spec_file: &str) -> Result<()> {
+        INIT.call_once(|| {
+            let _ = pretty_env_logger::env_logger::builder()
+                .is_test(true)
+                .try_init();
+        });
         let spec = Path::new("./tests/testsuite").join(spec_file);
         let mut file = fs::File::open(spec)?;
         let mut wast = String::new();
@@ -51,63 +59,76 @@ mod tests {
             }
         };
 
+        fn invoke(
+            runtime: &mut Runtime,
+            field: String,
+            args: Vec<wabt::script::Value>,
+            expected: Vec<wabt::script::Value>,
+        ) -> Result<()> {
+            let args = into_wasm_value(args);
+            let result = runtime.call(field.clone(), args.clone())?;
+            if result.is_none() {
+                return Ok(());
+            }
+            let got = match result.unwrap() {
+                Value::I32(v) => {
+                    vec![wabt::script::Value::I32(v)]
+                }
+                Value::I64(v) => {
+                    vec![wabt::script::Value::I64(v)]
+                }
+                Value::F32(v) => {
+                    if v.is_nan() {
+                        vec![wabt::script::Value::F32(0_f32)]
+                    } else {
+                        vec![wabt::script::Value::F32(v)]
+                    }
+                }
+                Value::F64(v) => {
+                    if v.is_nan() {
+                        vec![wabt::script::Value::F64(0_f64)]
+                    } else {
+                        vec![wabt::script::Value::F64(v)]
+                    }
+                }
+            };
+
+            let want: Vec<_> = expected
+                .into_iter()
+                .map(|e| match e {
+                    wabt::script::Value::F32(v) => {
+                        if v.is_nan() {
+                            return wabt::script::Value::F32(0_f32);
+                        }
+                        e
+                    }
+                    wabt::script::Value::F64(v) => {
+                        if v.is_nan() {
+                            return wabt::script::Value::F64(0_f64);
+                        }
+                        e
+                    }
+                    _ => e,
+                })
+                .collect();
+            assert_eq!(
+                want, got,
+                "unexpect result, want={want:?}, got={got:?}, test: {field}, args: {args:?}",
+            );
+            Ok(())
+        }
+
         while let Some(command) = parser.next()? {
             match command.kind {
                 CommandKind::AssertReturn { action, expected } => match action {
                     Action::Invoke { field, args, .. } => {
-                        let args = into_wasm_value(args);
-                        let result = runtime.call(field.clone(), args.clone())?;
-                        if result.is_none() {
-                            continue;
-                        }
-                        let got = match result.unwrap() {
-                            Value::I32(v) => {
-                                vec![wabt::script::Value::I32(v)]
-                            }
-                            Value::I64(v) => {
-                                vec![wabt::script::Value::I64(v)]
-                            }
-                            Value::F32(v) => {
-                                if v.is_nan() {
-                                    vec![wabt::script::Value::F32(0_f32)]
-                                } else {
-                                    vec![wabt::script::Value::F32(v)]
-                                }
-                            }
-                            Value::F64(v) => {
-                                if v.is_nan() {
-                                    vec![wabt::script::Value::F64(0_f64)]
-                                } else {
-                                    vec![wabt::script::Value::F64(v)]
-                                }
-                            }
-                        };
-
-                        let want: Vec<_> = expected
-                            .into_iter()
-                            .map(|e| match e {
-                                wabt::script::Value::F32(v) => {
-                                    if v.is_nan() {
-                                        return wabt::script::Value::F32(0_f32);
-                                    }
-                                    e
-                                }
-                                wabt::script::Value::F64(v) => {
-                                    if v.is_nan() {
-                                        return wabt::script::Value::F64(0_f64);
-                                    }
-                                    e
-                                }
-                                _ => e,
-                            })
-                            .collect();
-
-                        assert_eq!(
-                                    want,
-                                    got,
-                                    "unexpect result, want={want:?}, got={got:?}, test: {field}, args: {args:?}",
-                                );
-                        //assert_eq!(expected, result, "args: {:?}", args);
+                        invoke(&mut runtime, field, args, expected)?;
+                    }
+                    Action::Get { .. } => todo!(),
+                },
+                CommandKind::PerformAction(action) => match action {
+                    Action::Invoke { field, args, .. } => {
+                        invoke(&mut runtime, field, args, vec![])?;
                     }
                     Action::Get { .. } => todo!(),
                 },
@@ -230,6 +251,7 @@ mod tests {
     test!(float_misc);
     test!(int_exprs);
     test!(memory_grow);
+    test!(memory_redundancy);
 
     //test!(linking);
     //test!(left_to_right);
@@ -247,7 +269,6 @@ mod tests {
     //test!(data);
     //test!(call);
     //test!(call_indirect);
-    //test!(memory_redundancy);
     //test!(switch);
     //test!(binary_leb128);
     //test!(token);

@@ -106,6 +106,7 @@ impl Runtime {
     }
 
     pub fn call(&mut self, name: String, args: Vec<Value>) -> Result<Option<Value>> {
+        trace!("call function: {}", name);
         let (idx, func) = self.resolve_by_name(name)?;
         if func.func_type.params.len() != args.len() {
             bail!("invalid argument length");
@@ -115,13 +116,15 @@ impl Runtime {
             self.stack.push(arg.into());
         }
 
-        match self.invoke(idx) {
+        let result = match self.invoke(idx) {
             Ok(value) => Ok(value),
             Err(e) => {
                 self.stack = vec![]; // when traped, need to cleanup stack
                 Err(e)
             }
-        }
+        };
+        trace!("stack when after call function: {:#?}", &self.stack);
+        result
     }
 
     // https://www.w3.org/TR/wasm-core-1/#exec-invoke

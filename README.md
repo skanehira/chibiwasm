@@ -85,7 +85,7 @@ NOTE: Passes only normal tests
 - [x] loop.wast
 - [x] memory.wast
 - [x] memory_grow.wast
-- [ ] memory_redundancy.wast
+- [x] memory_redundancy.wast
 - [x] memory_size.wast
 - [x] memory_trap.wast
 - [x] names.wast
