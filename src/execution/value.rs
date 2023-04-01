@@ -6,7 +6,7 @@ use super::{float::*, integer::*};
 use crate::binary::instruction::*;
 use crate::binary::types::ExportDesc;
 use crate::binary::types::FuncType;
-use anyhow::{Context as _, Result};
+use anyhow::{bail, Context as _, Result};
 use std::fmt::Display;
 use std::i64;
 use std::mem::size_of;
@@ -104,7 +104,7 @@ macro_rules! into_from_value {
                 fn from(value: Value) -> Self {
                     match value {
                         Value::$variant(v) => v,
-                        _ => unreachable!(),
+                        _ => panic!("unexpected value: {value:?}"),
                     }
                 }
             }
@@ -331,26 +331,32 @@ impl Value {
 }
 
 pub trait Numberic {
-    fn read(buf: &[u8], addr: usize) -> Self;
-    fn write(buf: &mut [u8], addr: usize, value: Self);
+    fn read(buf: &[u8], addr: usize) -> Result<Self>
+    where
+        Self: Sized;
+    fn write(buf: &mut [u8], addr: usize, value: Self) -> Result<()>;
 }
 
 macro_rules! impl_numberic {
     ($($ty: ty),*) => {
         $(
             impl Numberic for $ty {
-                fn read(buf: &[u8], addr: usize) -> $ty {
+                fn read(buf: &[u8], addr: usize) -> Result<$ty> {
+                    if addr + size_of::<$ty>() > buf.len() {
+                        bail!("out of bounds memory access");
+                    }
                     // TODO: Change to a non-copying approach.
                     let mut bytes = [0u8; size_of::<$ty>()];
                     for i in 0..bytes.len() {
                         bytes[i] = buf[addr + i];
                     }
-                    <$ty>::from_le_bytes(bytes)
+                    Ok(<$ty>::from_le_bytes(bytes))
                 }
 
-                fn write(buf: &mut [u8], addr: usize, value: Self) {
+                fn write(buf: &mut [u8], addr: usize, value: Self) -> Result<()> {
                     let bytes = value.to_le_bytes();
                     buf[addr..addr + size_of::<$ty>()].copy_from_slice(&bytes);
+                    Ok(())
                 }
             }
         )*

@@ -416,72 +416,72 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
             }
             Instruction::I32Load(arg) => {
                 let addr = runtime.stack.pop1::<i32>()? as usize;
-                let value = runtime.store.memory.load::<i32>(addr, arg).into();
+                let value = runtime.store.memory.load::<i32>(addr, arg)?.into();
                 runtime.stack.push(value);
             }
             Instruction::I64Load(arg) => {
                 let addr = runtime.stack.pop1::<i32>()? as usize;
-                let value = runtime.store.memory.load::<i64>(addr, arg).into();
+                let value = runtime.store.memory.load::<i64>(addr, arg)?.into();
                 runtime.stack.push(value);
             }
             Instruction::F32Load(arg) => {
                 let addr = runtime.stack.pop1::<i32>()? as usize;
-                let value = runtime.store.memory.load::<f32>(addr, arg).into();
+                let value = runtime.store.memory.load::<f32>(addr, arg)?.into();
                 runtime.stack.push(value);
             }
             Instruction::F64Load(arg) => {
                 let addr = runtime.stack.pop1::<i32>()? as usize;
-                let value = runtime.store.memory.load::<f64>(addr, arg).into();
+                let value = runtime.store.memory.load::<f64>(addr, arg)?.into();
                 runtime.stack.push(value);
             }
             Instruction::I32Load8S(arg) => {
                 let addr = runtime.stack.pop1::<i32>()? as usize;
-                let value = runtime.store.memory.load::<i8>(addr, arg) as i32;
+                let value = runtime.store.memory.load::<i8>(addr, arg)? as i32;
                 runtime.stack.push(value.into());
             }
             Instruction::I32Load8U(arg) => {
                 let addr = runtime.stack.pop1::<i32>()? as usize;
-                let value = runtime.store.memory.load::<u8>(addr, arg) as i32;
+                let value = runtime.store.memory.load::<u8>(addr, arg)? as i32;
                 runtime.stack.push(value.into());
             }
             Instruction::I32Load16S(arg) => {
                 let addr = runtime.stack.pop1::<i32>()? as usize;
-                let value = runtime.store.memory.load::<i16>(addr, arg) as i32;
+                let value = runtime.store.memory.load::<i16>(addr, arg)? as i32;
                 runtime.stack.push(value.into());
             }
             Instruction::I32Load16U(arg) => {
                 let addr = runtime.stack.pop1::<i32>()? as usize;
-                let value = runtime.store.memory.load::<u16>(addr, arg) as i32;
+                let value = runtime.store.memory.load::<u16>(addr, arg)? as i32;
                 runtime.stack.push(value.into());
             }
             Instruction::I64Load8S(arg) => {
-                let addr = runtime.stack.pop1::<i64>()? as usize;
-                let value = runtime.store.memory.load::<i8>(addr, arg) as i64;
+                let addr = runtime.stack.pop1::<i32>()? as usize;
+                let value = runtime.store.memory.load::<i8>(addr, arg)? as i64;
                 runtime.stack.push(value.into());
             }
             Instruction::I64Load8U(arg) => {
                 let addr = runtime.stack.pop1::<i32>()? as usize;
-                let value = runtime.store.memory.load::<u8>(addr, arg) as i64;
+                let value = runtime.store.memory.load::<u8>(addr, arg)? as i64;
                 runtime.stack.push(value.into());
             }
             Instruction::I64Load16S(arg) => {
                 let addr = runtime.stack.pop1::<i32>()? as usize;
-                let value = runtime.store.memory.load::<i16>(addr, arg) as i64;
+                let value = runtime.store.memory.load::<i16>(addr, arg)? as i64;
                 runtime.stack.push(value.into());
             }
             Instruction::I64Load16U(arg) => {
                 let addr = runtime.stack.pop1::<i32>()? as usize;
-                let value = runtime.store.memory.load::<u16>(addr, arg) as i64;
+                let value = runtime.store.memory.load::<u16>(addr, arg)? as i64;
                 runtime.stack.push(value.into());
             }
             Instruction::I64Load32S(arg) => {
                 let addr = runtime.stack.pop1::<i32>()? as usize;
-                let value = runtime.store.memory.load::<i32>(addr, arg) as i64;
+                let value = runtime.store.memory.load::<i32>(addr, arg)? as i64;
                 runtime.stack.push(value.into());
             }
             Instruction::I64Load32U(arg) => {
                 let addr = runtime.stack.pop1::<i32>()? as usize;
-                let value = runtime.store.memory.load::<u32>(addr, arg) as i64;
+                let value = runtime.store.memory.load::<u32>(addr, arg)? as i64;
                 runtime.stack.push(value.into());
             }
             Instruction::I32Store(arg) => {

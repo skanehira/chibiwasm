@@ -223,6 +223,7 @@ mod tests {
     test!(type);
     test!(fac);
     test!(memory_size);
+    test!(address);
 
     //test!(start);
     //test!(skip_stack_guard_page);

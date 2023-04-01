@@ -18,7 +18,7 @@ The list is base on https://github.com/WebAssembly/spec/tree/wg-1.0/test/core
 
 NOTE: Passes only normal tests
 
-- [ ] address.wast
+- [x] address.wast
 - [ ] align.wast
 - [ ] binary-leb128.wast
 - [x] binary.wast

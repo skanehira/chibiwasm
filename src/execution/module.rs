@@ -1,5 +1,7 @@
 #![allow(unused)]
 
+use anyhow::Result;
+
 use super::address::*;
 use super::indices::TypeIdx;
 use super::store::Store;
@@ -51,16 +53,17 @@ impl MemoryInst {
         self.data.len() / PAGE_SIZE as usize
     }
 
-    pub fn load<T: Numberic>(&self, addr: usize, arg: &MemoryArg) -> T {
+    pub fn load<T: Numberic>(&self, addr: usize, arg: &MemoryArg) -> Result<T> {
         // TODO: check align and memory size
         let at = (addr + arg.offset as usize);
-        Numberic::read(&self.data, at)
+        Ok(Numberic::read(&self.data, at)?)
     }
 
-    pub fn write<T: Numberic>(&mut self, addr: usize, arg: &MemoryArg, value: T) {
+    pub fn write<T: Numberic>(&mut self, addr: usize, arg: &MemoryArg, value: T) -> Result<()> {
         // TODO: check align and memory size
         let at = (addr + arg.offset as usize);
-        Numberic::write(&mut self.data, at, value)
+        Numberic::write(&mut self.data, at, value)?;
+        Ok(())
     }
 }
 
