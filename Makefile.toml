@@ -1,0 +1,7 @@
+[env]
+# For avoid stack overflow when running functions recursively during testing
+RUST_MIN_STACK=104857600
+
+[tasks.test]
+command = "cargo"
+args = ["test", "--all", "--", "--nocapture"]
