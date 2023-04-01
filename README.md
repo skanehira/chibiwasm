@@ -23,9 +23,9 @@ NOTE: Passes only normal tests
 - [ ] binary-leb128.wast
 - [x] binary.wast
 - [x] block.wast
-- [ ] br.wast
+- [x] br.wast
 - [x] br_if.wast
-- [ ] br_table.wast
+- [x] br_table.wast
 - [x] break_drop.wast
 - [ ] call.wast
 - [ ] call_indirect.wast
@@ -43,7 +43,7 @@ NOTE: Passes only normal tests
 - [x] f64.wast
 - [x] f64_bitwise.wast
 - [x] f64_cmp.wast
-- [ ] fac.wast
+- [x] fac.wast
 - [ ] float_exprs.wast
 - [ ] float_literals.wast
 - [ ] float_memory.wast
@@ -59,23 +59,23 @@ NOTE: Passes only normal tests
 - [x] inline_module.wast
 - [ ] int_exprs.wast
 - [x] int_literals.wast
-- [ ] labels.wast
+- [x] labels.wast
 - [ ] left-to-right.wast
 - [ ] linking.wast
 - [x] load.wast
-- [ ] local_get.wast
-- [ ] local_set.wast
-- [ ] local_tee.wast
-- [ ] loop.wast
+- [x] local_get.wast
+- [x] local_set.wast
+- [x] local_tee.wast
+- [x] loop.wast
 - [ ] memory.wast
 - [ ] memory_grow.wast
 - [ ] memory_redundancy.wast
-- [ ] memory_size.wast
+- [x] memory_size.wast
 - [ ] memory_trap.wast
 - [x] names.wast
 - [x] nop.wast
 - [ ] return.wast
-- [ ] select.wast
+- [x] select.wast
 - [ ] skip_stack_guard_page.wast
 - [x] stack.wast
 - [ ] start.wast
@@ -83,8 +83,8 @@ NOTE: Passes only normal tests
 - [ ] switch.wast
 - [ ] token.wast
 - [ ] traps.wast
-- [ ] type.wast
-- [ ] unreachable.wast
+- [x] type.wast
+- [x] unreachable.wast
 - [ ] unreached_invalid.wast
 - [ ] unwind.wast
 - [ ] utf8_custom_section_id.wast

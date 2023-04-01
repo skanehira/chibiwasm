@@ -220,11 +220,15 @@ mod tests {
     test!(select);
     test!(labels);
     test!(unreachable);
+    test!(type);
+    test!(fac);
+    test!(memory_size);
 
     //test!(start);
     //test!(skip_stack_guard_page);
     //test!(imports);
     //test!(func_ptrs);
+    //test!(float_exprs); // cannot parse
     //test!(float_literals);
     //test!(float_memory);
     //test!(float_misc);
@@ -234,18 +238,15 @@ mod tests {
     //test!(data);
     //test!(call);
     //test!(call_indirect);
-    //test!(unreachable);
     //test!(memory);
     //test!(memory_grow);
     //test!(memory_redundancy);
-    //test!(memory_size);
     //test!(memory_trap);
     //test!(int_exprs);
     //test!(switch);
     //test!(binary_leb128);
     //test!(token);
     //test!(traps);
-    //test!(type);
     //test!(unreached_invalid);
     //test!(unwind);
     //test!(utf8_custom_section_id);
