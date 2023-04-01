@@ -218,6 +218,8 @@ mod tests {
     test!(local_get);
     test!(local_tee);
     test!(select);
+    test!(labels);
+    test!(unreachable);
 
     //test!(start);
     //test!(skip_stack_guard_page);
@@ -238,14 +240,12 @@ mod tests {
     //test!(memory_redundancy);
     //test!(memory_size);
     //test!(memory_trap);
-    //test!(labels);
     //test!(int_exprs);
     //test!(switch);
     //test!(binary_leb128);
     //test!(token);
     //test!(traps);
     //test!(type);
-    //test!(unreachable);
     //test!(unreached_invalid);
     //test!(unwind);
     //test!(utf8_custom_section_id);
