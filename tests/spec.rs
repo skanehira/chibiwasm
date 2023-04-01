@@ -224,6 +224,7 @@ mod tests {
     test!(fac);
     test!(memory_size);
     test!(address);
+    test!(memory_trap);
 
     //test!(start);
     //test!(skip_stack_guard_page);
@@ -242,7 +243,6 @@ mod tests {
     //test!(memory);
     //test!(memory_grow);
     //test!(memory_redundancy);
-    //test!(memory_trap);
     //test!(int_exprs);
     //test!(switch);
     //test!(binary_leb128);

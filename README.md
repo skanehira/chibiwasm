@@ -71,10 +71,10 @@ NOTE: Passes only normal tests
 - [ ] memory_grow.wast
 - [ ] memory_redundancy.wast
 - [x] memory_size.wast
-- [ ] memory_trap.wast
+- [x] memory_trap.wast
 - [x] names.wast
 - [x] nop.wast
-- [ ] return.wast
+- [x] return.wast
 - [x] select.wast
 - [ ] skip_stack_guard_page.wast
 - [x] stack.wast
