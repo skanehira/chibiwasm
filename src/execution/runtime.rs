@@ -9,6 +9,7 @@ use crate::binary::instruction::*;
 use crate::binary::module::{Decoder, Module};
 use crate::binary::types::{BlockType, FuncType};
 use anyhow::{bail, Context as _, Result};
+use log::trace;
 use std::fs;
 use std::io::{Cursor, Read};
 use std::rc::Rc;
@@ -47,6 +48,7 @@ impl Runtime {
     pub fn instantiate(module: &mut Module) -> Result<Self> {
         let store = Store::new(module)?;
         let module = ModuleInst::allocate(&module);
+        trace!("instantiate store: {:#?}", &store);
 
         let runtime = Self {
             store,
@@ -143,6 +145,7 @@ impl Runtime {
 
         // 4. execute instruction of function
         // TODO: check state
+        trace!("call stack: {:?}", &self.call_stack.last());
         let _ = execute(self, &func.code.body)?;
 
         // 5. if the function has return value, pop it from stack
@@ -192,6 +195,7 @@ impl Runtime {
 
 fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
     for inst in insts {
+        trace!("instruction: {:?}", &inst);
         match inst {
             Instruction::Unreachable => unreachable!(),
             Instruction::Nop | Instruction::End => {}

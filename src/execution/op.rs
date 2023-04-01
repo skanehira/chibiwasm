@@ -3,6 +3,7 @@ use super::{
     value::{StackAccess as _, Value},
 };
 use anyhow::{bail, Context as _, Result};
+use log::trace;
 
 pub fn local_get(runtime: &mut Runtime, idx: usize) -> Result<()> {
     let value = runtime
@@ -11,16 +12,25 @@ pub fn local_get(runtime: &mut Runtime, idx: usize) -> Result<()> {
         .get(idx)
         .context("not found local variable")?;
     runtime.stack.push(value.clone());
+
+    trace!(
+        "local.get: current frame locals: {:?}, stack: {:?}",
+        &runtime.current_frame()?.locals,
+        &runtime.stack
+    );
+
     Ok(())
 }
 
 pub fn local_set(runtime: &mut Runtime, idx: usize) -> Result<()> {
     let value: Value = runtime.stack.pop1()?;
     let frame = runtime.current_frame_mut()?;
-    frame.locals.insert(idx, value.into());
-    if frame.locals.len() > idx + 1 {
-        frame.locals.remove(idx + 1);
-    }
+    frame.locals[idx] = value;
+    trace!(
+        "local.get: current frame locals: {:?}, stack: {:?}",
+        &runtime.current_frame()?.locals,
+        &runtime.stack
+    );
     Ok(())
 }
 

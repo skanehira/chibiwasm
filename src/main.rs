@@ -13,6 +13,8 @@ struct Args {
 }
 
 fn main() -> Result<()> {
+    pretty_env_logger::init();
+
     let args = Args::parse();
     let func_args = args.func_args.into_iter().map(Into::into).collect();
 
