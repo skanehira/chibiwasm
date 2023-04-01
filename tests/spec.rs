@@ -229,6 +229,7 @@ mod tests {
     test!(memory);
     test!(float_misc);
     test!(int_exprs);
+    test!(memory_grow);
 
     //test!(linking);
     //test!(left_to_right);
@@ -246,7 +247,6 @@ mod tests {
     //test!(data);
     //test!(call);
     //test!(call_indirect);
-    //test!(memory_grow);
     //test!(memory_redundancy);
     //test!(switch);
     //test!(binary_leb128);

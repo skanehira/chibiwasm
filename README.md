@@ -84,7 +84,7 @@ NOTE: Passes only normal tests
 - [x] local_tee.wast
 - [x] loop.wast
 - [x] memory.wast
-- [ ] memory_grow.wast
+- [x] memory_grow.wast
 - [ ] memory_redundancy.wast
 - [x] memory_size.wast
 - [x] memory_trap.wast

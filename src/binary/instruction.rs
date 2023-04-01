@@ -342,7 +342,7 @@ pub enum Instruction {
     I64Store16(MemoryArg),
     I64Store32(MemoryArg),
     Select,
-    MemoryGrow,
+    MemoryGrow(u32),
     MemorySize,
     Drop,
     I32TruncF32S,

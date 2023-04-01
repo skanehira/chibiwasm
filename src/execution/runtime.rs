@@ -9,7 +9,7 @@ use crate::binary::instruction::*;
 use crate::binary::module::{Decoder, Module};
 use crate::binary::types::{Block, BlockType, FuncType, ValueType};
 use anyhow::{bail, Context as _, Result};
-use log::trace;
+use log::{error, trace};
 use std::fs;
 use std::io::{Cursor, Read};
 use std::rc::Rc;
@@ -412,8 +412,20 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                     _ => {}
                 }
             }
-            Instruction::MemoryGrow => {
-                // TODO
+            // NOTE: only support 1 memory now
+            Instruction::MemoryGrow(_) => {
+                let memory = &mut runtime.store.memory;
+                let size = memory.size();
+                let n = runtime.stack.pop1::<i32>()?;
+                match memory.grow(n as u32) {
+                    Ok(_) => {
+                        runtime.stack.push((size as i32).into());
+                    }
+                    Err(e) => {
+                        error!("memory grow error: {}", e);
+                        runtime.stack.push((-1).into());
+                    }
+                }
             }
             Instruction::MemorySize => {
                 let size = runtime.store.memory.size() as i32;

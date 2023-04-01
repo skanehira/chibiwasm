@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 
 use super::address::*;
 use super::indices::TypeIdx;
@@ -51,6 +51,22 @@ pub struct MemoryInst {
 impl MemoryInst {
     pub fn size(&self) -> usize {
         self.data.len() / PAGE_SIZE as usize
+    }
+
+    // https://www.w3.org/TR/wasm-core-1/#grow-mem
+    pub fn grow(&mut self, grow_size: u32) -> Result<()> {
+        let size = self.size() as u32;
+        if size % PAGE_SIZE != 0 {
+            bail!("memory size is not page aligned");
+        }
+        let len = size + grow_size;
+        if let Some(max) = self.max {
+            if max < len {
+                bail!("page overflow");
+            }
+        }
+        self.data.resize((len * PAGE_SIZE) as usize, 0);
+        Ok(())
     }
 
     pub fn load<T: Numberic>(&self, addr: usize, arg: &MemoryArg) -> Result<T> {

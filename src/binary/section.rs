@@ -683,7 +683,7 @@ fn decode_instruction(reader: &mut SectionReader) -> Result<Instruction> {
         Opcode::I64Store8 => Instruction::I64Store8(read_memory_arg(reader)?),
         Opcode::I64Store16 => Instruction::I64Store16(read_memory_arg(reader)?),
         Opcode::I64Store32 => Instruction::I64Store32(read_memory_arg(reader)?),
-        Opcode::MemoryGrow => Instruction::MemoryGrow,
+        Opcode::MemoryGrow => Instruction::MemoryGrow(reader.u32()?),
         Opcode::MemorySize => {
             // NOTE: memory index is always 0 now
             let _ = reader.byte();
