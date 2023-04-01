@@ -255,18 +255,19 @@ mod tests {
     // NOTE: this will overflow in the test thread, so we need use RUST_MIN_STACK=104857600 to run this test
     test!(call);
     test!(call_indirect);
+    test!(float_memory);
+    test!(float_exprs);
+    test!(left_to_right);
+    test!(skip_stack_guard_page);
+    test!(unwind);
 
-    //test!(left_to_right);
     //test!(linking);
     //test!(conversions); // cannot parse
     //test!(start);
-    //test!(skip_stack_guard_page);
     //test!(imports);
     //test!(func_ptrs);
-    //test!(float_exprs); // cannot parse
     //test!(float_literals);
-    //test!(float_memory);
-    //test!(elem); // cannot parse
+    //test!(elem);
     //test!(exports);
     //test!(endianness);
     //test!(data);
@@ -275,7 +276,6 @@ mod tests {
     //test!(token);
     //test!(traps);
     //test!(unreached_invalid);
-    //test!(unwind);
     //test!(utf8_custom_section_id);
     //test!(utf8_import_field);
     //test!(utf8_import_module);

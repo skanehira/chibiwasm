@@ -60,9 +60,9 @@ NOTE: Passes only normal tests
 - [x] f64_bitwise.wast
 - [x] f64_cmp.wast
 - [x] fac.wast
-- [ ] float_exprs.wast
+- [x] float_exprs.wast
 - [ ] float_literals.wast
-- [ ] float_memory.wast
+- [x] float_memory.wast
 - [x] float_misc.wast
 - [x] forward.wast
 - [x] func.wast
@@ -76,7 +76,7 @@ NOTE: Passes only normal tests
 - [x] int_exprs.wast
 - [x] int_literals.wast
 - [x] labels.wast
-- [ ] left-to-right.wast
+- [x] left_to_right.wast
 - [ ] linking.wast
 - [x] load.wast
 - [x] local_get.wast
@@ -92,7 +92,7 @@ NOTE: Passes only normal tests
 - [x] nop.wast
 - [x] return.wast
 - [x] select.wast
-- [ ] skip_stack_guard_page.wast
+- [x] skip_stack_guard_page.wast
 - [x] stack.wast
 - [ ] start.wast
 - [x] store.wast
@@ -102,7 +102,7 @@ NOTE: Passes only normal tests
 - [x] type.wast
 - [x] unreachable.wast
 - [ ] unreached_invalid.wast
-- [ ] unwind.wast
+- [x] unwind.wast
 - [ ] utf8_custom_section_id.wast
 - [ ] utf8_import_field.wast
 - [ ] utf8_import_module.wast
