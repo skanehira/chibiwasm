@@ -210,6 +210,7 @@ mod tests {
     test!(forward);
     test!(inline_module);
     test!(names);
+    test!(stack);
 
     //test!(start);
     //test!(skip_stack_guard_page);
@@ -227,7 +228,6 @@ mod tests {
     //test!(br);
     //test!(call);
     //test!(call_indirect);
-    //test!(stack);
     //test!(unreachable);
     //test!(memory);
     //test!(memory_grow);

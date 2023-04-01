@@ -7,7 +7,7 @@ use super::store::Store;
 use super::value::{ExternalVal, Frame, Label, StackAccess as _, State, Value};
 use crate::binary::instruction::*;
 use crate::binary::module::{Decoder, Module};
-use crate::binary::types::{BlockType, FuncType};
+use crate::binary::types::{Block, BlockType, FuncType, ValueType};
 use anyhow::{bail, Context as _, Result};
 use log::trace;
 use std::fs;
@@ -132,12 +132,21 @@ impl Runtime {
 
         // 2. push the arguments to frame local
         let bottom = self.stack.len() - func.func_type.params.len();
-        let locals = self
+        let mut locals: Vec<_> = self
             .stack
             .split_off(bottom)
             .into_iter()
             .map(Into::into)
             .collect();
+
+        for local in func.code.locals.iter() {
+            match local {
+                ValueType::I32 => locals.push(Value::I32(0)),
+                ValueType::I64 => locals.push(Value::I64(0)),
+                ValueType::F32 => locals.push(Value::F32(0.0)),
+                ValueType::F64 => locals.push(Value::F64(0.0)),
+            }
+        }
 
         // 3. push a frame
         let arity = func.func_type.results.len();
@@ -294,16 +303,15 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                 // 2. execute the loop body
                 loop {
                     match execute(runtime, &block.then_body)? {
-                        // break current loop
                         State::Break(0) => {
-                            // break to the current loop
                             // it's mean we need start loop again
                         }
                         state => {
+                            // 3. pop the label from the stack
                             let _ = runtime.pop_label()?;
                             match state {
                                 State::Continue => {
-                                    // 3. pop the label from the stack
+                                    // break current loop
                                     break;
                                 }
                                 State::Return => {
@@ -344,7 +352,7 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                     State::Continue => {}
                     State::Return => return Ok(State::Return),
                     State::Break(0) => {}
-                    State::Break(level) => return Ok(State::Break(level)),
+                    State::Break(level) => return Ok(State::Break(level - 1)),
                 }
             }
             // NOTE: this instruction will not be executed

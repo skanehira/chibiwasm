@@ -38,13 +38,17 @@ impl Store {
                         .get(idx)
                         .context("not found code")?;
 
+                    let mut locals = Vec::with_capacity(func_body.locals.len());
+                    for local in func_body.locals.iter() {
+                        for _ in 0..local.type_count {
+                            locals.push(local.value_type.clone());
+                        }
+                    }
+
+                    // NOTE: locals length must be func_type.params + func_body.locals
                     let func = Func {
                         type_idx: idx as u32,
-                        locals: func_body
-                            .locals
-                            .iter()
-                            .map(|local| local.value_type.clone())
-                            .collect(),
+                        locals,
                         body: func_body.code.clone(),
                     };
                     let func_inst = FuncInst {

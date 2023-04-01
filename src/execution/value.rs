@@ -72,7 +72,7 @@ pub trait StackAccess {
 
 impl StackAccess for Vec<Value> {
     fn pop1<T: From<Value>>(&mut self) -> Result<T> {
-        let value: T = self.pop().context("no value in the stack")?.into();
+        let value: T = self.pop().expect("no value in the stack").into();
         Ok(value)
     }
 

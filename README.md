@@ -77,7 +77,7 @@ NOTE: Passes only normal tests
 - [ ] return.wast
 - [ ] select.wast
 - [ ] skip_stack_guard_page.wast
-- [ ] stack.wast
+- [x] stack.wast
 - [ ] start.wast
 - [x] store.wast
 - [ ] switch.wast
