@@ -126,7 +126,7 @@ mod test {
     use super::Decoder;
     use anyhow::Result;
     use insta::assert_debug_snapshot;
-    use wabt::wat2wasm;
+    use wasmer::wat2wasm;
 
     #[test]
     fn test_decode_module() -> Result<()> {
@@ -173,7 +173,7 @@ mod test {
   (start $main)
 )
             "#;
-        let wasm = wat2wasm(source)?;
+        let wasm = wat2wasm(source.as_bytes())?;
 
         let reader = std::io::Cursor::new(wasm);
         let mut decoder = Decoder::new(reader);
@@ -214,7 +214,7 @@ mod test {
   )
 )
             "#;
-        let wasm = wat2wasm(source)?;
+        let wasm = wat2wasm(source.as_bytes())?;
 
         let reader = std::io::Cursor::new(wasm);
         let mut decoder = Decoder::new(reader);
@@ -234,7 +234,7 @@ mod test {
   )
 )
             "#;
-        let wasm = wat2wasm(source)?;
+        let wasm = wat2wasm(source.as_bytes())?;
 
         let reader = std::io::Cursor::new(wasm);
         let mut decoder = Decoder::new(reader);

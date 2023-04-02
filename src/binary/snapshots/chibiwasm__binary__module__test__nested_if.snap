@@ -5,7 +5,12 @@ expression: module
 Module {
     magic: "\0asm",
     version: 1,
-    custom_section: None,
+    custom_section: Some(
+        Custom {
+            name: "",
+            data: [],
+        },
+    ),
     type_section: Some(
         [
             FuncType {
