@@ -178,9 +178,6 @@ mod tests {
                 CommandKind::Register { .. } => {
                     // TODO
                 }
-                CommandKind::PerformAction(_) => {
-                    // TODO
-                }
                 CommandKind::Module { module, name } => {
                     let mut reader = Cursor::new(module.into_vec());
                     runtime = Runtime::from_reader(&mut reader)?;
@@ -260,6 +257,7 @@ mod tests {
     test!(left_to_right);
     test!(skip_stack_guard_page);
     test!(unwind);
+    test!(binary_leb128);
 
     //test!(linking);
     //test!(conversions); // cannot parse
@@ -272,7 +270,6 @@ mod tests {
     //test!(endianness);
     //test!(data);
     //test!(switch);
-    //test!(binary_leb128);
     //test!(token);
     //test!(traps);
     //test!(unreached_invalid);
