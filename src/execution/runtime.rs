@@ -343,7 +343,7 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
             Instruction::F32Sqrt | Instruction::F64Sqrt => sqrt(runtime)?,
             Instruction::F32Trunc | Instruction::F64Trunc => trunc(runtime)?,
             Instruction::F32Copysign | Instruction::F64Copysign => copysign(runtime)?,
-            Instruction::I32WrapI64 => wrap_i64(runtime)?,
+            Instruction::I32WrapI64 => i32_wrap_i64(runtime)?,
             Instruction::F32Abs | Instruction::F64Abs => abs(runtime)?,
             Instruction::F32Neg | Instruction::F64Neg => neg(runtime)?,
             Instruction::F32Eq | Instruction::F64Eq => equal(runtime)?,

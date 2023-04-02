@@ -157,7 +157,7 @@ impl_binary_operation!(
 );
 
 impl_cvtop_operation!(
-    wrap_i64,
+    i32_wrap_i64,
     i32_trunc_f32_s,
     i32_trunc_f32_u,
     i32_trunc_f64_s,
