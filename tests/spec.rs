@@ -5,13 +5,22 @@ mod tests {
     use anyhow::*;
     use chibiwasm::execution::runtime::Runtime;
     use chibiwasm::execution::value::Value;
+    use log::debug;
     use paste::paste;
+    use std::cell::{RefCell, RefMut};
+    use std::collections::HashMap;
     use std::io::{Cursor, Read};
+    use std::rc::Rc;
     use std::sync::Once;
     use std::{fs, path::Path};
     use wabt::{script::*, Features};
 
     static INIT: Once = Once::new();
+
+    #[derive(Debug, Default)]
+    struct Spec {
+        modules: HashMap<Option<String>, Rc<RefCell<Runtime>>>,
+    }
 
     fn into_wasm_value(values: Vec<wabt::script::Value>) -> Vec<Value> {
         values
@@ -32,31 +41,25 @@ mod tests {
                 .is_test(true)
                 .try_init();
         });
+
         let spec = Path::new("./tests/testsuite").join(spec_file);
         let mut file = fs::File::open(spec)?;
         let mut wast = String::new();
         file.read_to_string(&mut wast)?;
 
-        let mut features = Features::new();
-        features.enable_all();
+        let features = {
+            let mut f = Features::new();
+            f.enable_all();
+            f
+        };
         let mut parser = ScriptParser::<f32, f64>::from_source_and_name_with_features(
             wast.as_bytes(),
             spec_file,
             features,
         )?;
 
-        let mut runtime = {
-            if let Some(command) = parser.next()? {
-                match command.kind {
-                    CommandKind::Module { module, .. } => {
-                        let mut reader = Cursor::new(module.into_vec());
-                        Runtime::from_reader(&mut reader)?
-                    }
-                    _ => panic!("not found module"),
-                }
-            } else {
-                panic!("not found any command");
-            }
+        let spec = &mut Spec {
+            modules: HashMap::new(),
         };
 
         fn invoke(
@@ -121,14 +124,40 @@ mod tests {
         while let Some(command) = parser.next()? {
             match command.kind {
                 CommandKind::AssertReturn { action, expected } => match action {
-                    Action::Invoke { field, args, .. } => {
-                        invoke(&mut runtime, field, args, expected)?;
+                    Action::Invoke {
+                        field,
+                        args,
+                        module,
+                    } => {
+                        debug!(
+                            "invoke module: {:?}, func: {}, args: {:#?}",
+                            &module, &field, &args
+                        );
+                        let runtime = spec.modules.get(&module).expect("not found mdoule").clone();
+                        let runtime = &mut *runtime.borrow_mut();
+                        invoke(runtime, field, args, expected)?;
                     }
-                    Action::Get { .. } => todo!(),
+                    Action::Get { module, field } => {
+                        debug!("get module: {:?}, field: {}", &module, &field);
+                        let runtime = spec.modules.get(&module).expect("not found mdoule").clone();
+                        let runtime = &mut *runtime.borrow_mut();
+                        invoke(runtime, field, vec![], expected)?;
+                        todo!()
+                    }
                 },
                 CommandKind::PerformAction(action) => match action {
-                    Action::Invoke { field, args, .. } => {
-                        invoke(&mut runtime, field, args, vec![])?;
+                    Action::Invoke {
+                        field,
+                        args,
+                        module,
+                    } => {
+                        debug!(
+                            "invoke module: {:?}, func: {}, args: {:#?}",
+                            &module, &field, &args
+                        );
+                        let runtime = spec.modules.get(&module).expect("not found mdoule").clone();
+                        let runtime = &mut *runtime.borrow_mut();
+                        invoke(runtime, field, args, vec![])?;
                     }
                     Action::Get { .. } => todo!(),
                 },
@@ -139,7 +168,17 @@ mod tests {
                     // TODO
                 }
                 CommandKind::AssertTrap { action, message } => match action {
-                    Action::Invoke { field, args, .. } => {
+                    Action::Invoke {
+                        field,
+                        args,
+                        module,
+                    } => {
+                        debug!(
+                            "invoke module: {:?}, func: {}, args: {:#?}",
+                            &module, &field, &args
+                        );
+                        let runtime = spec.modules.get(&module).expect("not found mdoule").clone();
+                        let runtime = &mut *runtime.borrow_mut();
                         let args = into_wasm_value(args);
                         let result = runtime.call(field.clone(), args.clone());
 
@@ -180,7 +219,10 @@ mod tests {
                 }
                 CommandKind::Module { module, name } => {
                     let mut reader = Cursor::new(module.into_vec());
-                    runtime = Runtime::from_reader(&mut reader)?;
+                    let runtime = Runtime::from_reader(&mut reader)?;
+                    let runtime = Rc::new(RefCell::new(runtime));
+                    spec.modules.insert(name, runtime.clone());
+                    spec.modules.insert(None, runtime);
                 }
                 _ => {
                     panic!("unexpect command kind: {:?}", command.kind);

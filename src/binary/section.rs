@@ -410,7 +410,7 @@ fn decode_export_section(reader: &mut SectionReader) -> Result<Section> {
             0x01 => ExportDesc::Table(idx),
             0x02 => ExportDesc::Memory(idx),
             0x03 => ExportDesc::Global(idx),
-            _ => bail!("invalid export desc: {:x}", exportkind),
+            _ => bail!("unknown export kind: {:x}", exportkind),
         };
         exports.push(Export { name, desc })
     }
