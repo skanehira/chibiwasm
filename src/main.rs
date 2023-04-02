@@ -6,26 +6,31 @@ use clap::Parser;
 #[clap(author, about, version)]
 struct Args {
     file: String,
-
     func: String,
-
-    func_args: Vec<i32>,
+    func_args: Option<Vec<i32>>,
 }
 
 fn main() -> Result<()> {
     pretty_env_logger::init();
 
-    let args = Args::parse();
-    let func_args = args.func_args.into_iter().map(Into::into).collect();
+    let Args {
+        file,
+        func,
+        func_args,
+    } = Args::parse();
 
-    let mut runtime = Runtime::from_file(&args.file)?;
-    let result = runtime.call(args.func, func_args)?;
-
-    match result {
-        Some(result) => {
-            println!("{}", result);
+    let args = match func_args {
+        Some(args) => args.into_iter().map(Into::into).collect(),
+        None => {
+            vec![]
         }
-        _ => {}
+    };
+
+    let mut runtime = Runtime::from_file(&file)?;
+    let result = runtime.call(func, args)?;
+
+    if let Some(output) = result {
+        println!("{}", output);
     }
     Ok(())
 }

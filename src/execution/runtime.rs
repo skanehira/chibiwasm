@@ -29,6 +29,7 @@ pub struct Runtime {
     pub stack: Vec<Value>,
     pub label_stack: Vec<Label>,
     pub call_stack: Vec<Frame>,
+    pub start: Option<usize>,
 }
 
 impl Runtime {
@@ -55,13 +56,21 @@ impl Runtime {
     // https://www.w3.org/TR/wasm-core-1/#instantiation%E2%91%A1
     pub fn instantiate(module: &mut Module) -> Result<Self> {
         let store = Store::new(module)?;
-        let module = ModuleInst::allocate(&module);
+        let module_inst = ModuleInst::allocate(module);
 
-        let runtime = Self {
+        let mut runtime = Self {
             store,
-            module: Rc::new(module),
+            module: Rc::new(module_inst),
             ..Default::default()
         };
+
+        // https://www.w3.org/TR/wasm-core-1/#start-function%E2%91%A1
+        if let Some(idx) = module.start_section {
+            let result = runtime.call_by_index(idx as usize, vec![])?;
+            if let Some(out) = result {
+                runtime.stack.push(out);
+            }
+        }
 
         Ok(runtime)
     }
@@ -120,6 +129,26 @@ impl Runtime {
             bail!("invalid argument length");
         }
 
+        for arg in args {
+            self.stack.push(arg.into());
+        }
+
+        let result = match self.invoke(idx) {
+            Ok(value) => Ok(value),
+            Err(e) => {
+                self.stack = vec![]; // when traped, need to cleanup stack
+                Err(e)
+            }
+        };
+        trace!("stack when after call function: {:#?}", &self.stack);
+        result
+    }
+
+    pub fn call_by_index(&mut self, idx: usize, args: Vec<Value>) -> Result<Option<Value>> {
+        let func = self.resolve_by_idx(idx)?;
+        if func.func_type.params.len() != args.len() {
+            bail!("invalid argument length");
+        }
         for arg in args {
             self.stack.push(arg.into());
         }
@@ -226,7 +255,7 @@ impl Runtime {
             .store
             .funcs
             .get(idx)
-            .context(format!("not found function {idx}"))?;
+            .context(format!("not found function by index: {idx}"))?;
         Ok((*function).clone())
     }
 
@@ -235,7 +264,7 @@ impl Runtime {
             .module
             .exports
             .get(&name)
-            .context(format!("not found function {name}"))?;
+            .context(format!("not found exported function by name: {name}"))?;
         let external_val = &export_inst.desc;
 
         let ExternalVal::Func(idx) = external_val else {
@@ -245,7 +274,7 @@ impl Runtime {
             .store
             .funcs
             .get(*idx as usize)
-            .context("not found function {name}")?;
+            .context("not found function by {name}")?;
         Ok(((*idx) as usize, (*function).clone()))
     }
 }
