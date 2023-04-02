@@ -128,10 +128,7 @@ pub enum Section {
 pub fn decode(id: SectionID, data: &[u8]) -> Result<Section> {
     let mut reader = SectionReader::new(data);
     let section = match id {
-        SectionID::Custom => {
-            // TODO
-            Section::Custom(Custom::default())
-        }
+        SectionID::Custom => decode_custom_section(&mut reader)?,
         SectionID::Type => decode_type_section(&mut reader)?,
         SectionID::Import => decode_import_section(&mut reader)?,
         SectionID::Function => decode_function_section(&mut reader)?,
@@ -145,6 +142,13 @@ pub fn decode(id: SectionID, data: &[u8]) -> Result<Section> {
         SectionID::Code => decode_code_section(&mut reader)?,
     };
     Ok(section)
+}
+
+fn decode_custom_section(reader: &mut SectionReader) -> Result<Section> {
+    let name_size = reader.u32()?;
+    let name = reader.string(name_size as usize)?;
+    let data = reader.bytes(reader.buf.get_ref().len() - reader.buf.position() as usize)?;
+    Ok(Section::Custom(Custom { name, data }))
 }
 
 fn decode_data_section(reader: &mut SectionReader) -> Result<Section> {

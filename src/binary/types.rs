@@ -154,8 +154,8 @@ pub struct Data {
 
 #[derive(Default, Debug, PartialEq)]
 pub struct Custom {
-    name: String,
-    data: Vec<u8>,
+    pub name: String,
+    pub data: Vec<u8>,
 }
 
 // https://www.w3.org/TR/wasm-core-1/#binary-blocktype
