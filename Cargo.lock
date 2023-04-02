@@ -148,7 +148,6 @@ dependencies = [
  "pretty_assertions",
  "pretty_env_logger",
  "serde",
- "serde_json",
  "thiserror",
  "wabt",
  "wasmer",
