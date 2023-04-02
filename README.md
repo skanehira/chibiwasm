@@ -52,7 +52,7 @@ NOTE: Passes only normal tests
 - [ ] data.wast
 - [ ] elem.wast
 - [ ] endianness.wast
-- [ ] exports.wast
+- [x] exports.wast
 - [x] f32.wast
 - [x] f32_bitwise.wast
 - [x] f32_cmp.wast

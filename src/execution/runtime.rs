@@ -1,7 +1,7 @@
 #![allow(unused)]
 
 use super::error::Error;
-use super::module::{FuncInst, ModuleInst};
+use super::module::{FuncInst, GlobalInst, MemoryInst, ModuleInst, TableInst};
 use super::op::*;
 use super::store::Store;
 use super::value::{ExternalVal, Frame, Label, StackAccess as _, State, Value};
@@ -13,6 +13,14 @@ use log::{error, trace};
 use std::fs;
 use std::io::{Cursor, Read};
 use std::rc::Rc;
+
+#[derive(Debug)]
+pub enum Exports<'export> {
+    Func(&'export FuncInst),
+    Table(&'export mut TableInst),
+    Memory(&'export mut MemoryInst),
+    Global(&'export mut GlobalInst),
+}
 
 #[derive(Debug, Default)]
 pub struct Runtime {
@@ -127,6 +135,45 @@ impl Runtime {
         result
     }
 
+    // get exported instances by name, like table, memory, global
+    pub fn exports(&mut self, name: String) -> Result<Exports> {
+        let export_inst = self
+            .module
+            .exports
+            .get(&name)
+            .expect("not found export instance");
+
+        let exports = match export_inst.desc {
+            //ExternalVal::Func(idx) => self.store.funcs.get(index)
+            ExternalVal::Table(idx) => {
+                let table = self
+                    .store
+                    .tables
+                    .get_mut(idx as usize)
+                    .expect("not found table");
+                Exports::Table(table)
+            }
+            ExternalVal::Memory(idx) => {
+                let mem = &mut self.store.memory;
+                Exports::Memory(mem)
+            }
+            ExternalVal::Global(idx) => {
+                let global = self
+                    .store
+                    .globals
+                    .get_mut(idx as usize)
+                    .expect("not found global");
+                Exports::Global(global)
+            }
+            ExternalVal::Func(idx) => {
+                let func = self.store.funcs.get(idx as usize).expect("not found func");
+                Exports::Func(func)
+            }
+        };
+
+        Ok(exports)
+    }
+
     // https://www.w3.org/TR/wasm-core-1/#exec-invoke
     fn invoke(&mut self, idx: usize) -> Result<Option<Value>> {
         // 1. get function instance from store
@@ -191,9 +238,8 @@ impl Runtime {
             .context(format!("not found function {name}"))?;
         let external_val = &export_inst.desc;
 
-        let idx = match external_val {
-            ExternalVal::Func(i) => i,
-            _ => bail!("invalid export desc: {:?}", external_val),
+        let ExternalVal::Func(idx) = external_val else {
+            bail!("invalid export desc: {:?}", external_val);
         };
         let function = self
             .store

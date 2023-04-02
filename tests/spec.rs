@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests {
     use anyhow::*;
-    use chibiwasm::execution::runtime::Runtime;
+    use chibiwasm::execution::runtime::{Exports, Runtime};
     use chibiwasm::execution::value::Value;
     use log::debug;
     use paste::paste;
@@ -62,39 +62,28 @@ mod tests {
             modules: HashMap::new(),
         };
 
-        fn invoke(
-            runtime: &mut Runtime,
-            field: String,
-            args: Vec<wabt::script::Value>,
-            expected: Vec<wabt::script::Value>,
-        ) -> Result<()> {
-            let args = into_wasm_value(args);
-            let result = runtime.call(field.clone(), args.clone())?;
-            if result.is_none() {
-                return Ok(());
-            }
-            let got = match result.unwrap() {
-                Value::I32(v) => {
-                    vec![wabt::script::Value::I32(v)]
-                }
-                Value::I64(v) => {
-                    vec![wabt::script::Value::I64(v)]
-                }
-                Value::F32(v) => {
-                    if v.is_nan() {
-                        vec![wabt::script::Value::F32(0_f32)]
-                    } else {
-                        vec![wabt::script::Value::F32(v)]
+        fn assert_values(results: Vec<Value>, expected: Vec<wabt::script::Value>) -> Result<()> {
+            let got: Vec<_> = results
+                .into_iter()
+                .map(|result| match result {
+                    Value::I32(v) => wabt::script::Value::I32(v),
+                    Value::I64(v) => wabt::script::Value::I64(v),
+                    Value::F32(v) => {
+                        if v.is_nan() {
+                            wabt::script::Value::F32(0_f32)
+                        } else {
+                            wabt::script::Value::F32(v)
+                        }
                     }
-                }
-                Value::F64(v) => {
-                    if v.is_nan() {
-                        vec![wabt::script::Value::F64(0_f64)]
-                    } else {
-                        vec![wabt::script::Value::F64(v)]
+                    Value::F64(v) => {
+                        if v.is_nan() {
+                            wabt::script::Value::F64(0_f64)
+                        } else {
+                            wabt::script::Value::F64(v)
+                        }
                     }
-                }
-            };
+                })
+                .collect();
 
             let want: Vec<_> = expected
                 .into_iter()
@@ -114,11 +103,22 @@ mod tests {
                     _ => e,
                 })
                 .collect();
-            assert_eq!(
-                want, got,
-                "unexpect result, want={want:?}, got={got:?}, test: {field}, args: {args:?}",
-            );
+            assert_eq!(want, got, "unexpect result, want={want:?}, got={got:?}");
             Ok(())
+        }
+
+        fn invoke(
+            runtime: &mut Runtime,
+            field: String,
+            args: Vec<wabt::script::Value>,
+            expected: Vec<wabt::script::Value>,
+        ) -> Result<()> {
+            let args = into_wasm_value(args);
+            let result = runtime.call(field.clone(), args.clone())?;
+            match result {
+                Some(result) => assert_values(vec![result], expected),
+                None => Ok(()),
+            }
         }
 
         while let Some(command) = parser.next()? {
@@ -141,8 +141,16 @@ mod tests {
                         debug!("get module: {:?}, field: {}", &module, &field);
                         let runtime = spec.modules.get(&module).expect("not found mdoule").clone();
                         let runtime = &mut *runtime.borrow_mut();
-                        invoke(runtime, field, vec![], expected)?;
-                        todo!()
+                        let exports = runtime.exports(field.clone())?;
+
+                        let results = match exports {
+                            Exports::Global(global) => vec![global.value.clone()],
+                            _ => {
+                                todo!();
+                            }
+                        };
+
+                        assert_values(results, expected);
                     }
                 },
                 CommandKind::PerformAction(action) => match action {
@@ -300,6 +308,7 @@ mod tests {
     test!(skip_stack_guard_page);
     test!(unwind);
     test!(binary_leb128);
+    test!(exports);
 
     //test!(linking);
     //test!(conversions); // cannot parse
@@ -308,7 +317,6 @@ mod tests {
     //test!(func_ptrs);
     //test!(float_literals);
     //test!(elem);
-    //test!(exports);
     //test!(endianness);
     //test!(data);
     //test!(switch);
