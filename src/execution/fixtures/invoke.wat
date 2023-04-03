@@ -134,10 +134,10 @@
   )
 
   (func (export "br-nested") (result i32)
-    (block
-      (block
-        (block
-          (block 
+    (block (result i32)
+      (block (result i32)
+        (block (result i32)
+          (block (result i32)
             (i32.const 1)
             br 3
           )
