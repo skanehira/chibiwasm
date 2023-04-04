@@ -97,16 +97,16 @@ NOTE: Checking only the test cases that have passed both assert_return and asser
 - [ ] start.wast
 - [x] store.wast
 - [x] switch.wast
-- ~~[ ] token.wast~~
+- [ ] ~~token.wast~~
 - [ ] traps.wast
 - [x] type.wast
 - [x] unreachable.wast
-- ~~[ ] unreached_invalid.wast~~
+- [ ] ~~unreached_invalid.wast~~
 - [x] unwind.wast
-- ~~[ ] utf8_custom_section_id.wast~~
-- ~~[ ] utf8_import_field.wast~~
-- ~~[ ] utf8_import_module.wast~~
-- ~~[ ] utf8_invalid_encoding.wast~~
+- [ ] ~~utf8_custom_section_id.wast~~
+- [ ] ~~utf8_import_field.wast~~
+- [ ] ~~utf8_import_module.wast~~
+- [ ] ~~utf8_invalid_encoding.wast~~
 
 ## LICENSE
 This software includes the work that is distributed in the Apache License 2.0.
