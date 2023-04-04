@@ -271,7 +271,8 @@ fn decode_global_section(reader: &mut SectionReader) -> Result<Section> {
 }
 
 fn decode_expr(reader: &mut SectionReader) -> Result<ExprValue> {
-    let opcode = Opcode::from_u8(reader.byte()?).unwrap();
+    let byte = reader.byte()?;
+    let opcode = Opcode::from_u8(byte).unwrap();
     let value = match opcode {
         Opcode::I32Const => {
             let value = reader.i32()?;
@@ -289,7 +290,7 @@ fn decode_expr(reader: &mut SectionReader) -> Result<ExprValue> {
             let value = reader.f64()?;
             ExprValue::F64(value)
         }
-        _ => bail!(InvalidInitExprOpcodeError(opcode)),
+        _ => bail!(InvalidInitExprOpcodeError(byte)),
     };
 
     let end_opcode = Opcode::from_u8(reader.byte()?).unwrap();

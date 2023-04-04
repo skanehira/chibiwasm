@@ -10,7 +10,7 @@ pub enum Error {
     #[error("invalid elemtype of table, must be funcref, got {0}")]
     InvalidElmTypeError(u8),
     #[error("invalid init expr instruction in expressions, got {0:?}")]
-    InvalidInitExprOpcodeError(Opcode),
+    InvalidInitExprOpcodeError(u8),
     #[error("invalid end instruction in expressions, got {0:?}")]
     InvalidInitExprEndOpcodeError(Opcode),
     #[error("invalid import kind at import section, got {0}")]
