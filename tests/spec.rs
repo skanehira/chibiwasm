@@ -319,7 +319,7 @@ mod tests {
     //test!(elem);
     //test!(endianness);
     //test!(data);
-    //test!(switch);
+    test!(switch);
     //test!(token);
     //test!(traps);
     //test!(unreached_invalid);

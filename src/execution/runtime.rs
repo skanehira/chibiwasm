@@ -27,7 +27,6 @@ pub struct Runtime {
     pub store: Store,
     pub module: Rc<ModuleInst>,
     pub stack: Vec<Value>,
-    pub label_stack: Vec<Label>,
     pub call_stack: Vec<Frame>,
     pub start: Option<usize>,
 }
@@ -92,7 +91,8 @@ impl Runtime {
     }
 
     fn push_label(&mut self, arity: usize) -> Result<()> {
-        let label = Label { arity };
+        let sp = self.stack.len();
+        let label = Label { arity, sp };
         let frame = self.current_frame_mut()?;
         frame.labels.push(label);
         Ok(())
@@ -230,6 +230,9 @@ impl Runtime {
         let arity = func.func_type.results.len();
         self.push_frame(arity, locals);
 
+        // get stack pointer for unwind the stack
+        let sp = self.stack.len();
+
         // 4. execute instruction of function
         // TODO: check state
         trace!("call stack: {:?}", &self.call_stack.last());
@@ -243,6 +246,9 @@ impl Runtime {
         } else {
             None
         };
+
+        // unwind the stack
+        self.stack.drain(sp..);
 
         // 6. pop current frame
         let _ = self.pop_frame()?;
@@ -368,14 +374,16 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                 }
             }
             Instruction::BrTable(label_idxs, default_idx) => {
-                let value: Value = runtime.stack.pop1()?;
-                let idx: i32 = value.into();
-                let state = if idx < label_idxs.len() as i32 {
-                    let idx = label_idxs[idx as usize];
+                let value: i32 = runtime.stack.pop1::<Value>()?.into();
+                let idx = value as usize;
+
+                let state = if idx < label_idxs.len() {
+                    let idx = label_idxs[idx];
                     State::Break(idx as usize)
                 } else {
                     State::Break((*default_idx) as usize)
                 };
+
                 return Ok(state);
             }
             Instruction::Loop(block) => {
@@ -383,23 +391,25 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                 let arity = block.block_type.result_count();
                 runtime.push_label(arity);
 
+                let sp = runtime.stack.len();
+
                 // 2. execute the loop body
                 loop {
                     match execute(runtime, &block.then_body)? {
                         State::Break(0) => {
-                            // it's mean we need start loop again
+                            // it's mean we need start loop again and unwind the stack
+                            runtime.stack.drain(sp..);
+                        }
+                        State::Return => {
+                            // break current loop and return
+                            return Ok(State::Return);
                         }
                         state => {
-                            // 3. pop the label from the stack
                             let _ = runtime.pop_label()?;
                             match state {
                                 State::Continue => {
                                     // break current loop
                                     break;
-                                }
-                                State::Return => {
-                                    // break current loop and return
-                                    return Ok(State::Return);
                                 }
                                 State::Break(level) => {
                                     // break outer block
@@ -428,14 +438,27 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                     execute(runtime, &block.else_body)?
                 };
 
-                // 4. pop the label from the Stack
-                let _ = runtime.pop_label()?;
-
                 match result {
-                    State::Continue => {}
                     State::Return => return Ok(State::Return),
-                    State::Break(0) => {}
-                    State::Break(level) => return Ok(State::Break(level - 1)),
+                    state => {
+                        // 3. pop the label from the stack
+                        let label = runtime.pop_label()?;
+                        match state {
+                            State::Continue => {}
+                            State::Break(0) => {
+                                if label.arity > 0 {
+                                    let value = runtime.stack.pop1()?;
+                                    runtime.stack.drain(label.sp..);
+                                    runtime.stack.push(value);
+                                } else {
+                                    runtime.stack.drain(label.sp..);
+                                }
+                                trace!("if break(0), stack: {:?}", &runtime.stack);
+                            }
+                            State::Break(level) => return Ok(State::Break(level - 1)),
+                            _ => unreachable!(),
+                        }
+                    }
                 }
             }
             // NOTE: this instruction will not be executed
@@ -448,14 +471,27 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                 // 2. execute the block body
                 let result = execute(runtime, &block.then_body)?;
 
-                // 3. pop the label from the stack
-                let _ = runtime.pop_label()?;
-
                 match result {
-                    State::Continue => {}
                     State::Return => return Ok(State::Return),
-                    State::Break(0) => {}
-                    State::Break(level) => return Ok(State::Break(level - 1)),
+                    state => {
+                        // 3. pop the label from the stack
+                        let label = runtime.pop_label()?;
+                        match state {
+                            State::Continue => {}
+                            State::Break(0) => {
+                                if label.arity > 0 {
+                                    let value = runtime.stack.pop1()?;
+                                    runtime.stack.drain(label.sp..);
+                                    runtime.stack.push(value);
+                                } else {
+                                    runtime.stack.drain(label.sp..);
+                                }
+                                trace!("block break(0), stack: {:?}", &runtime.stack);
+                            }
+                            State::Break(level) => return Ok(State::Break(level - 1)),
+                            _ => unreachable!(),
+                        }
+                    }
                 }
             }
             Instruction::Call(idx) => {

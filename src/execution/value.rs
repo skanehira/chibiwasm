@@ -55,6 +55,7 @@ impl Display for Value {
 
 #[derive(Debug, Clone)]
 pub struct Label {
+    pub sp: usize, // stack pointer
     pub arity: usize, // argument or result? arity
 }
 
