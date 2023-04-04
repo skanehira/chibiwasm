@@ -1,5 +1,3 @@
-#![allow(unused)]
-
 #[cfg(test)]
 mod tests {
     use anyhow::*;
@@ -7,7 +5,7 @@ mod tests {
     use chibiwasm::execution::value::Value;
     use log::debug;
     use paste::paste;
-    use std::cell::{RefCell, RefMut};
+    use std::cell::RefCell;
     use std::collections::HashMap;
     use std::io::{Cursor, Read};
     use std::rc::Rc;
@@ -150,7 +148,7 @@ mod tests {
                             }
                         };
 
-                        assert_values(results, expected);
+                        _ = assert_values(results, expected);
                     }
                 },
                 CommandKind::PerformAction(action) => match action {
@@ -232,9 +230,6 @@ mod tests {
                     spec.modules.insert(name, runtime.clone());
                     spec.modules.insert(None, runtime);
                 }
-                _ => {
-                    panic!("unexpect command kind: {:?}", command.kind);
-                }
             }
         }
         Ok(())
@@ -309,6 +304,7 @@ mod tests {
     test!(unwind);
     test!(binary_leb128);
     test!(exports);
+    test!(switch);
 
     //test!(linking);
     //test!(conversions); // cannot parse
@@ -319,7 +315,6 @@ mod tests {
     //test!(elem);
     //test!(endianness);
     //test!(data);
-    test!(switch);
     //test!(token);
     //test!(traps);
     //test!(unreached_invalid);
