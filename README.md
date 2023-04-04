@@ -32,11 +32,11 @@ https://www.w3.org/TR/wasm-core-1/
 # tests
 The list is base on https://github.com/WebAssembly/spec/tree/wg-1.0/test/core
 
-NOTE: Passes only normal tests
+NOTE: Checking only the test cases that have passed both assert_return and assert_trap.
 
 - [x] address.wast
 - [x] align.wast
-- [ ] binary-leb128.wast
+- [x] binary_leb128.wast
 - [x] binary.wast
 - [x] block.wast
 - [x] br.wast
@@ -48,7 +48,7 @@ NOTE: Passes only normal tests
 - [x] comments.wast
 - [x] const.wast
 - [ ] conversions.wast
-- [ ] custom.wast
+- [x] custom.wast
 - [ ] data.wast
 - [ ] elem.wast
 - [ ] endianness.wast
@@ -97,16 +97,16 @@ NOTE: Passes only normal tests
 - [ ] start.wast
 - [x] store.wast
 - [x] switch.wast
-- [ ] token.wast
+- ~~[ ] token.wast~~
 - [ ] traps.wast
 - [x] type.wast
 - [x] unreachable.wast
-- [ ] unreached_invalid.wast
+- ~~[ ] unreached_invalid.wast~~
 - [x] unwind.wast
-- [ ] utf8_custom_section_id.wast
-- [ ] utf8_import_field.wast
-- [ ] utf8_import_module.wast
-- [ ] utf8_invalid_encoding.wast
+- ~~[ ] utf8_custom_section_id.wast~~
+- ~~[ ] utf8_import_field.wast~~
+- ~~[ ] utf8_import_module.wast~~
+- ~~[ ] utf8_invalid_encoding.wast~~
 
 ## LICENSE
 This software includes the work that is distributed in the Apache License 2.0.

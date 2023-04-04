@@ -306,9 +306,10 @@ mod tests {
     test!(binary_leb128);
     test!(exports);
     test!(switch);
+    test!(custom);
 
     //test!(linking);
-    //test!(conversions); // cannot parse
+    //test!(conversions);
     //test!(start);
     //test!(imports);
     //test!(func_ptrs);
@@ -316,8 +317,10 @@ mod tests {
     //test!(elem);
     //test!(endianness);
     //test!(data);
-    //test!(token);
     //test!(traps);
+
+    // Skip this tests because they are not implemented
+    //test!(token);
     //test!(unreached_invalid);
     //test!(utf8_custom_section_id);
     //test!(utf8_import_field);
