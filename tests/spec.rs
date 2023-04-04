@@ -220,8 +220,9 @@ mod tests {
                 CommandKind::AssertUnlinkable { .. } => {
                     // TODO
                 }
-                CommandKind::Register { .. } => {
-                    // TODO
+                CommandKind::Register { name, as_name } => {
+                    let runtime = spec.modules.get(&name).expect("not found mdoule").clone();
+                    spec.modules.insert(Some(as_name), runtime);
                 }
                 CommandKind::Module { module, name } => {
                     let mut reader = Cursor::new(module.into_vec());

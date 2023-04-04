@@ -96,7 +96,7 @@ NOTE: Passes only normal tests
 - [x] stack.wast
 - [ ] start.wast
 - [x] store.wast
-- [ ] switch.wast
+- [x] switch.wast
 - [ ] token.wast
 - [ ] traps.wast
 - [x] type.wast
