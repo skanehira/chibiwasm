@@ -54,6 +54,7 @@ impl Runtime {
 
     // https://www.w3.org/TR/wasm-core-1/#instantiation%E2%91%A1
     pub fn instantiate(module: &mut Module) -> Result<Self> {
+        trace!("instantiate module: {:#?}", module);
         let store = Store::new(module)?;
         let module_inst = ModuleInst::allocate(module);
 
