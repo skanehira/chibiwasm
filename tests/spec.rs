@@ -348,10 +348,10 @@ mod tests {
     test!(custom);
     test!(start);
     test!(imports);
+    test!(func_ptrs);
 
     //test!(linking);
     //test!(conversions);
-    //test!(func_ptrs);
     //test!(float_literals);
     //test!(elem);
     //test!(endianness);
