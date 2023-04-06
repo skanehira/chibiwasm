@@ -37,7 +37,7 @@ pub fn local_set(runtime: &mut Runtime, idx: usize) -> Result<()> {
 pub fn local_tee(runtime: &mut Runtime, idx: usize) -> Result<()> {
     let value: Value = runtime.stack.pop1()?;
     runtime.stack.push(value.clone());
-    runtime.stack.push(value.clone());
+    runtime.stack.push(value);
     local_set(runtime, idx)?;
     Ok(())
 }
@@ -46,7 +46,7 @@ pub fn global_set(runtime: &mut Runtime, idx: usize) -> Result<()> {
     let value = runtime
         .stack
         .pop()
-        .with_context(|| format!("not found value in the stack"))?;
+        .with_context(|| "not found value in the stack")?;
     let global = runtime
         .store
         .globals
@@ -95,7 +95,7 @@ pub fn i64extend_32s(runtime: &mut Runtime) -> Result<()> {
         Value::I64(v) => {
             let result = v << 32 >> 32;
             let value: Value = result.into();
-            runtime.stack.push(value.into());
+            runtime.stack.push(value);
         }
         _ => bail!("unexpected value type"),
     }

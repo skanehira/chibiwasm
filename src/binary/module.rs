@@ -86,7 +86,7 @@ impl<R: io::Read> Decoder<R> {
     }
 
     pub fn decode_section_header(&mut self) -> Result<(SectionID, u32)> {
-        let id: SectionID = FromPrimitive::from_u8(self.byte()?.into()).unwrap();
+        let id: SectionID = FromPrimitive::from_u8(self.byte()?).unwrap();
         let size: u32 = self.u32()?;
         Ok((id, size))
     }

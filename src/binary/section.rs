@@ -1,3 +1,5 @@
+#![allow(clippy::needless_range_loop)]
+
 use super::error::Error::*;
 use super::instruction::{Instruction, MemoryArg, Opcode};
 use super::types::*;
@@ -290,12 +292,12 @@ fn decode_expr(reader: &mut SectionReader) -> Result<ExprValue> {
             let value = reader.f64()?;
             ExprValue::F64(value)
         }
-        _ => bail!(InvalidInitExprOpcodeError(byte)),
+        _ => bail!(InvalidInitExprOpcode(byte)),
     };
 
     let end_opcode = Opcode::from_u8(reader.byte()?).unwrap();
     if end_opcode != Opcode::End {
-        bail!(InvalidInitExprEndOpcodeError(end_opcode));
+        bail!(InvalidInitExprEndOpcode(end_opcode));
     }
     Ok(value)
 }
@@ -303,7 +305,7 @@ fn decode_expr(reader: &mut SectionReader) -> Result<ExprValue> {
 fn decode_table(reader: &mut SectionReader) -> Result<Table> {
     let elem_type = reader.byte()?;
     if elem_type != 0x70 {
-        bail!(InvalidElmTypeError(elem_type));
+        bail!(InvalidElmType(elem_type));
     }
     let limits = decode_limits(reader)?;
     let table = Table {
@@ -316,7 +318,7 @@ fn decode_table(reader: &mut SectionReader) -> Result<Table> {
 fn decode_table_secttion(reader: &mut SectionReader) -> Result<Section> {
     let count = reader.u32()?;
     if count != 1 {
-        bail!(InvalidTableCountError);
+        bail!(InvalidTableCount);
     }
     let mut tables = vec![];
     for _ in 0..count {
@@ -347,7 +349,7 @@ fn decode_memory_section(reader: &mut SectionReader) -> Result<Section> {
     let count = reader.u32()?;
     let mut mems: Vec<Memory> = vec![];
     if count != 1 {
-        bail!(InvalidMemoryCountError);
+        bail!(InvalidMemoryCount);
     }
     for _ in 0..count {
         mems.push(decode_memory(reader)?);

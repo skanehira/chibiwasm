@@ -97,7 +97,7 @@ macro_rules! funop {
                 }
                 fn nearest(&self) -> Result<Self> {
                     let abs = (*self).abs();
-                    if 0.0 <= abs && abs <= 0.5 {
+                    if (0.0..=0.5).contains(&abs) {
                         return Ok(0.0);
                     }
                     let rounded = (*self).round();

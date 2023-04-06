@@ -66,14 +66,13 @@ impl MemoryInst {
     pub fn load<T: Numberic>(&self, addr: usize, arg: &MemoryArg) -> Result<T> {
         // TODO: check align and memory size
         let at = addr + arg.offset as usize;
-        Ok(Numberic::read(&self.data, at)?)
+        Numberic::read(&self.data, at)
     }
 
     pub fn write<T: Numberic>(&mut self, addr: usize, arg: &MemoryArg, value: T) -> Result<()> {
         // TODO: check align and memory size
         let at = addr + arg.offset as usize;
-        Numberic::write(&mut self.data, at, value)?;
-        Ok(())
+        Numberic::write(&mut self.data, at, value)
     }
 }
 
@@ -109,43 +108,36 @@ impl ModuleInst {
         let memory_addrs = Self::into_memory_addrs(module);
         let global_addrs = Self::into_global_addrs(module);
 
-        let module_inst = ModuleInst {
+        ModuleInst {
             func_types,
             func_addrs,
             table_addrs,
             memory_addrs,
             global_addrs,
             exports,
-        };
-        module_inst
+        }
     }
 
     fn into_func_types(module: &Module) -> Vec<FuncType> {
         let mut types = vec![];
-        match module.type_section {
-            Some(ref func_types) => {
-                for ty in func_types {
-                    let func_type = FuncType {
-                        params: ty.params.clone(),
-                        results: ty.results.clone(),
-                    };
-                    types.push(func_type);
-                }
+        if let Some(ref func_types) = module.type_section {
+            for ty in func_types {
+                let func_type = FuncType {
+                    params: ty.params.clone(),
+                    results: ty.results.clone(),
+                };
+                types.push(func_type);
             }
-            None => {}
         };
         types
     }
 
     fn into_func_addrs(module: &Module) -> Vec<FuncAddr> {
         let mut func_addrs = vec![];
-        match module.function_section {
-            Some(ref functions) => {
-                for addr in 0..functions.len() {
-                    func_addrs.push(addr);
-                }
+        if let Some(ref functions) = module.function_section {
+            for addr in 0..functions.len() {
+                func_addrs.push(addr);
             }
-            None => {}
         }
 
         func_addrs
@@ -153,13 +145,10 @@ impl ModuleInst {
 
     fn into_table_addrs(module: &Module) -> Vec<TableAddr> {
         let mut table_addrs = vec![];
-        match module.table_section {
-            Some(ref tables) => {
-                for addr in 0..tables.len() {
-                    table_addrs.push(addr);
-                }
+        if let Some(ref tables) = module.table_section {
+            for addr in 0..tables.len() {
+                table_addrs.push(addr);
             }
-            None => {}
         }
 
         table_addrs
@@ -167,13 +156,10 @@ impl ModuleInst {
 
     fn into_memory_addrs(module: &Module) -> Vec<MemoryAddr> {
         let mut memory_addrs = vec![];
-        match module.memory_section {
-            Some(ref memories) => {
-                for addr in 0..memories.len() {
-                    memory_addrs.push(addr);
-                }
+        if let Some(ref memories) = module.memory_section {
+            for addr in 0..memories.len() {
+                memory_addrs.push(addr);
             }
-            None => {}
         }
 
         memory_addrs
@@ -181,13 +167,10 @@ impl ModuleInst {
 
     fn into_global_addrs(module: &Module) -> Vec<GlobalAddr> {
         let mut global_addrs = vec![];
-        match module.global_section {
-            Some(ref globals) => {
-                for addr in 0..globals.len() {
-                    global_addrs.push(addr);
-                }
+        if let Some(ref globals) = module.global_section {
+            for addr in 0..globals.len() {
+                global_addrs.push(addr);
             }
-            None => {}
         }
 
         global_addrs
@@ -196,24 +179,21 @@ impl ModuleInst {
     fn into_exports(module: &Module) -> HashMap<String, ExportInst> {
         let mut exports = HashMap::default();
 
-        match module.export_section {
-            Some(ref sections) => {
-                for export in sections {
-                    let desc = match export.desc {
-                        crate::binary::types::ExportDesc::Func(idx) => ExternalVal::Func(idx),
-                        crate::binary::types::ExportDesc::Table(idx) => ExternalVal::Table(idx),
-                        crate::binary::types::ExportDesc::Memory(idx) => ExternalVal::Memory(idx),
-                        crate::binary::types::ExportDesc::Global(idx) => ExternalVal::Global(idx),
-                    };
-                    let name = export.name.clone();
-                    let export_inst = ExportInst {
-                        name: name.clone(),
-                        desc,
-                    };
-                    exports.insert(name, export_inst);
-                }
+        if let Some(ref sections) = module.export_section {
+            for export in sections {
+                let desc = match export.desc {
+                    crate::binary::types::ExportDesc::Func(idx) => ExternalVal::Func(idx),
+                    crate::binary::types::ExportDesc::Table(idx) => ExternalVal::Table(idx),
+                    crate::binary::types::ExportDesc::Memory(idx) => ExternalVal::Memory(idx),
+                    crate::binary::types::ExportDesc::Global(idx) => ExternalVal::Global(idx),
+                };
+                let name = export.name.clone();
+                let export_inst = ExportInst {
+                    name: name.clone(),
+                    desc,
+                };
+                exports.insert(name, export_inst);
             }
-            None => {}
         };
         exports
     }

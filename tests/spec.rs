@@ -150,7 +150,7 @@ mod tests {
             expected: Vec<wabt::script::Value>,
         ) -> Result<()> {
             let args = into_wasm_value(args);
-            let result = runtime.call(field.clone(), args.clone())?;
+            let result = runtime.call(field, args)?;
             match result {
                 Some(result) => assert_values(vec![result], expected),
                 None => Ok(()),

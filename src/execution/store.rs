@@ -1,3 +1,5 @@
+#![allow(clippy::needless_range_loop)]
+
 use super::{
     module::*,
     value::{ExternalVal, Value},
@@ -191,12 +193,7 @@ impl Store {
                         for i in 0..elem.len() {
                             elem[i] = *elems
                                 .get(0) // NOTE: only support one elem now
-                                .with_context(|| {
-                                    format!(
-                                "cannot get element from element section, element_section: {:#?}",
-                                elems
-                            )
-                                })?
+                                .with_context(|| format!( "cannot get element from element section, element_section: {:#?}", elems))?
                                 .init
                                 .get(i)
                                 .with_context(|| "cannot get func index from element_section")?
