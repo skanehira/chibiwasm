@@ -1,71 +1,46 @@
-#![allow(unused)]
-
-use super::error::Error;
-use super::module::{FuncInst, GlobalInst, MemoryInst, ModuleInst, TableInst};
+use super::module::FuncInst;
 use super::op::*;
-use super::store::Store;
+use super::store::{Exports, Imports, Store};
 use super::value::{ExternalVal, Frame, Label, StackAccess as _, State, Value};
 use crate::binary::instruction::*;
-use crate::binary::module::{Decoder, Module};
-use crate::binary::types::{Block, BlockType, FuncType, ValueType};
+use crate::binary::types::ValueType;
 use anyhow::{bail, Context as _, Result};
 use log::{error, trace};
-use std::fs;
-use std::io::{Cursor, Read};
-use std::rc::Rc;
-
-#[derive(Debug)]
-pub enum Exports<'export> {
-    Func(&'export FuncInst),
-    Table(&'export mut TableInst),
-    Memory(&'export mut MemoryInst),
-    Global(&'export mut GlobalInst),
-}
+use std::io::Read;
 
 #[derive(Debug, Default)]
 pub struct Runtime {
     pub store: Store,
-    pub module: Rc<ModuleInst>,
     pub stack: Vec<Value>,
     pub call_stack: Vec<Frame>,
     pub start: Option<usize>,
 }
 
 impl Runtime {
-    pub fn from_file(file: &str) -> Result<Self> {
-        let file = fs::File::open(file)?;
-        let mut decoder = Decoder::new(file);
-        let mut module = decoder.decode()?;
-        Ok(Self::instantiate(&mut module)?)
+    pub fn from_file(file: &str, imports: Option<Imports>) -> Result<Self> {
+        let store = Store::from_file(file, imports)?;
+        Self::instantiate(store)
     }
 
-    pub fn from_reader(reader: &mut impl Read) -> Result<Self> {
-        let mut decoder = Decoder::new(reader);
-        let mut module = decoder.decode()?;
-        Ok(Self::instantiate(&mut module)?)
+    pub fn from_reader(reader: &mut impl Read, imports: Option<Imports>) -> Result<Self> {
+        let store = Store::from_reader(reader, imports)?;
+        Self::instantiate(store)
     }
 
-    pub fn from_bytes<T: AsRef<[u8]>>(b: T) -> Result<Self> {
-        let buf = Cursor::new(b);
-        let mut decoder = Decoder::new(buf);
-        let mut module = decoder.decode()?;
-        Ok(Self::instantiate(&mut module)?)
+    pub fn from_bytes<T: AsRef<[u8]>>(b: T, imports: Option<Imports>) -> Result<Self> {
+        let store = Store::from_bytes(b, imports)?;
+        Self::instantiate(store)
     }
 
     // https://www.w3.org/TR/wasm-core-1/#instantiation%E2%91%A1
-    pub fn instantiate(module: &mut Module) -> Result<Self> {
-        trace!("instantiate module: {:#?}", module);
-        let store = Store::new(module)?;
-        let module_inst = ModuleInst::allocate(module);
-
+    pub fn instantiate(store: Store) -> Result<Self> {
         let mut runtime = Self {
             store,
-            module: Rc::new(module_inst),
             ..Default::default()
         };
 
         // https://www.w3.org/TR/wasm-core-1/#start-function%E2%91%A1
-        if let Some(idx) = module.start_section {
+        if let Some(idx) = runtime.store.start {
             let result = runtime.call_by_index(idx as usize, vec![])?;
             if let Some(out) = result {
                 runtime.stack.push(out);
@@ -79,7 +54,7 @@ impl Runtime {
         let frame = self
             .call_stack
             .last()
-            .with_context(|| format!("call stack is empty",))?;
+            .with_context(|| "call stack is empty")?;
         Ok(frame)
     }
 
@@ -87,7 +62,7 @@ impl Runtime {
         let frame = self
             .call_stack
             .last_mut()
-            .with_context(|| format!("call stack is emtpy"))?;
+            .with_context(|| "call stack is emtpy")?;
         Ok(frame)
     }
 
@@ -131,7 +106,7 @@ impl Runtime {
         }
 
         for arg in args {
-            self.stack.push(arg.into());
+            self.stack.push(arg);
         }
 
         let result = match self.invoke(idx) {
@@ -151,7 +126,7 @@ impl Runtime {
             bail!("invalid argument length");
         }
         for arg in args {
-            self.stack.push(arg.into());
+            self.stack.push(arg);
         }
 
         let result = match self.invoke(idx) {
@@ -168,13 +143,13 @@ impl Runtime {
     // get exported instances by name, like table, memory, global
     pub fn exports(&mut self, name: String) -> Result<Exports> {
         let export_inst = self
+            .store
             .module
             .exports
             .get(&name)
             .expect("not found export instance");
 
         let exports = match export_inst.desc {
-            //ExternalVal::Func(idx) => self.store.funcs.get(index)
             ExternalVal::Table(idx) => {
                 let table = self
                     .store
@@ -183,7 +158,7 @@ impl Runtime {
                     .expect("not found table");
                 Exports::Table(table)
             }
-            ExternalVal::Memory(idx) => {
+            ExternalVal::Memory(_) => {
                 let mem = &mut self.store.memory;
                 Exports::Memory(mem)
             }
@@ -268,6 +243,7 @@ impl Runtime {
 
     fn resolve_by_name(&mut self, name: String) -> Result<(usize, FuncInst)> {
         let export_inst = self
+            .store
             .module
             .exports
             .get(&name)
@@ -281,7 +257,7 @@ impl Runtime {
             .store
             .funcs
             .get(*idx as usize)
-            .context("not found function by {name}")?;
+            .with_context(|| format!("not found function by {name}"))?;
         Ok(((*idx) as usize, (*function).clone()))
     }
 }
@@ -390,7 +366,7 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
             Instruction::Loop(block) => {
                 // 1. push a label to the stack
                 let arity = block.block_type.result_count();
-                runtime.push_label(arity);
+                let _ = runtime.push_label(arity);
 
                 let sp = runtime.stack.len();
 
@@ -430,7 +406,7 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
 
                 // 2. push a label to the stack
                 let arity = block.block_type.result_count();
-                runtime.push_label(arity);
+                let _ = runtime.push_label(arity);
 
                 // 3. if true, execute the then_body, otherwise execute the else_body
                 let result = if value.is_true() {
@@ -467,7 +443,7 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
             Instruction::Block(block) => {
                 // 1. push a label to the stack
                 let arity = block.block_type.result_count();
-                runtime.push_label(arity);
+                let _ = runtime.push_label(arity);
 
                 // 2. execute the block body
                 let result = execute(runtime, &block.then_body)?;
@@ -497,11 +473,8 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
             }
             Instruction::Call(idx) => {
                 let result = runtime.invoke(*idx as usize)?;
-                match result {
-                    Some(value) => {
-                        runtime.stack.push(value.into());
-                    }
-                    _ => {}
+                if let Some(value) = result {
+                    runtime.stack.push(value);
                 }
             }
             Instruction::CallIndirect((signature_idx, table_idx)) => {
@@ -516,13 +489,13 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                         )
                     })?;
                 let elem_idx = runtime.stack.pop1::<i32>()? as usize;
-                let func_idx = table.elem.get(elem_idx as usize).with_context(|| {
+                let func_idx = table.elem.get(elem_idx).with_context(|| {
                     trace!(
                         "not found function with index {}, stack: {:?}",
                         elem_idx,
                         &runtime.stack
                     );
-                    format!("undefined element")
+                    "undefined element"
                 })?;
                 trace!(
                     "func_idx: {}, func instance: {:#?}",
@@ -534,7 +507,7 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                 let func = runtime
                     .store
                     .funcs
-                    .get(*func_idx as usize)
+                    .get(*func_idx)
                     .with_context(|| {
                         format!(
                             "not found function from store.funcs with index {}, funcs: {:?}",
@@ -543,13 +516,14 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                     })?;
                 // validate expect func signature and actual func signature
                 let expect_func_type = runtime
+                    .store
                     .module
                     .func_types
                     .get(*signature_idx as usize)
                     .with_context(|| {
                         format!(
                             "not found type from module.func_types with index {}, types: {:?}",
-                            func_idx, &runtime.module.func_types
+                            func_idx, &runtime.store.module.func_types
                         )
                     })?
                     .clone();
@@ -565,11 +539,8 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                     bail!("indirect call type mismatch")
                 }
 
-                match runtime.invoke(*func_idx as usize)? {
-                    Some(value) => {
-                        runtime.stack.push(value.into());
-                    }
-                    _ => {}
+                if let Some(value) = runtime.invoke(*func_idx)? {
+                    runtime.stack.push(value);
                 }
             }
             // NOTE: only support 1 memory now
@@ -701,11 +672,6 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                 let addr = runtime.stack.pop1::<i32>()? as usize;
                 runtime.store.memory.write(addr, arg, value)?;
             }
-            Instruction::I64Store16(arg) => {
-                let value = runtime.stack.pop1::<i64>()? as i16;
-                let addr = runtime.stack.pop1::<i32>()? as usize;
-                runtime.store.memory.write(addr, arg, value)?;
-            }
             Instruction::I64Store32(arg) => {
                 let value = runtime.stack.pop1::<i64>()? as i32;
                 let addr = runtime.stack.pop1::<i32>()? as usize;
@@ -741,9 +707,6 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
             Instruction::I64ReinterpretF64 => i64_reinterpret_f64(runtime)?,
             Instruction::F32ReinterpretI32 => f32_reinterpret_i32(runtime)?,
             Instruction::F64ReinterpretI64 => f64_reinterpret_i64(runtime)?,
-            _ => {
-                unimplemented!("instruction: {:?}", inst);
-            }
         };
     }
     Ok(State::Continue)
@@ -759,7 +722,7 @@ mod test {
     fn invoke() -> Result<()> {
         let wat_code = include_bytes!("./fixtures/invoke.wat");
         let wasm = &mut wat2wasm(wat_code)?;
-        let mut runtime = Runtime::from_bytes(wasm)?;
+        let mut runtime = Runtime::from_bytes(wasm, None)?;
 
         // expect some return value
         {

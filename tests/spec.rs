@@ -1,7 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use anyhow::*;
-    use chibiwasm::execution::runtime::{Exports, Runtime};
+    use anyhow::Result;
+    use chibiwasm::execution::runtime::Runtime;
+    use chibiwasm::execution::store::{Exports, Imports, Store};
     use chibiwasm::execution::value::Value;
     use log::debug;
     use paste::paste;
@@ -18,6 +19,7 @@ mod tests {
     #[derive(Debug, Default)]
     struct Spec {
         modules: HashMap<Option<String>, Rc<RefCell<Runtime>>>,
+        imports: Imports,
     }
 
     fn into_wasm_value(values: Vec<wabt::script::Value>) -> Vec<Value> {
@@ -35,13 +37,53 @@ mod tests {
 
     fn run_test(spec_file: &str) -> Result<()> {
         INIT.call_once(|| {
+            // enable logger
             let _ = pretty_env_logger::env_logger::builder()
                 .is_test(true)
                 .try_init();
         });
 
-        let spec = Path::new("./tests/testsuite").join(spec_file);
-        let mut file = fs::File::open(spec)?;
+        // add module for testing module importing
+        let mut imports = Imports::default();
+        let testspec = {
+            let wat = r#"
+(module
+  (func $print (export "print")
+    (nop)
+  )
+  (func $print_i32 (export "print_i32") (param i32)
+    (nop)
+  )
+  (func $print_f32 (export "print_f32") (param f32)
+    (nop)
+  )
+  (func $print_f64 (export "print_f64") (param f64)
+    (nop)
+  )
+  (func $print_i32_f32 (export "print_i32_f32") (param i32 f32)
+    (nop)
+  )
+  (func $print_f64_f64 (export "print_f64_f64") (param f64 f64)
+    (nop)
+  )
+  (func $i64->i64 (export "i64->i64") (param i64) (result i64)
+    return (local.get 0)
+  )
+)
+                "#;
+            let wasm = wasmer::wat2wasm(wat.as_bytes()).unwrap();
+            let store = Store::from_bytes(&wasm, None).unwrap();
+            Rc::new(RefCell::new(store))
+        };
+
+        imports.add("spectest", testspec);
+
+        let spec = &mut Spec {
+            modules: HashMap::new(),
+            imports,
+        };
+
+        let mut file = fs::File::open(Path::new("./tests/testsuite").join(spec_file))?;
         let mut wast = String::new();
         file.read_to_string(&mut wast)?;
 
@@ -55,10 +97,6 @@ mod tests {
             spec_file,
             features,
         )?;
-
-        let spec = &mut Spec {
-            modules: HashMap::new(),
-        };
 
         fn assert_values(results: Vec<Value>, expected: Vec<wabt::script::Value>) -> Result<()> {
             let got: Vec<_> = results
@@ -222,11 +260,12 @@ mod tests {
                 }
                 CommandKind::Register { name, as_name } => {
                     let runtime = spec.modules.get(&name).expect("not found mdoule").clone();
-                    spec.modules.insert(Some(as_name), runtime);
+                    let store = Rc::new(RefCell::new(runtime.borrow().store.clone()));
+                    spec.imports.add(&as_name, store);
                 }
                 CommandKind::Module { module, name } => {
                     let mut reader = Cursor::new(module.into_vec());
-                    let runtime = Runtime::from_reader(&mut reader)?;
+                    let runtime = Runtime::from_reader(&mut reader, Some(spec.imports.clone()))?;
                     let runtime = Rc::new(RefCell::new(runtime));
                     spec.modules.insert(name, runtime.clone());
                     spec.modules.insert(None, runtime);
@@ -307,11 +346,11 @@ mod tests {
     test!(exports);
     test!(switch);
     test!(custom);
+    test!(start);
+    test!(imports);
 
     //test!(linking);
     //test!(conversions);
-    //test!(start);
-    //test!(imports);
     //test!(func_ptrs);
     //test!(float_literals);
     //test!(elem);

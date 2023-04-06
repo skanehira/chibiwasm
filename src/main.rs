@@ -26,7 +26,7 @@ fn main() -> Result<()> {
         }
     };
 
-    let mut runtime = Runtime::from_file(&file)?;
+    let mut runtime = Runtime::from_file(&file, None)?;
     let result = runtime.call(func, args)?;
 
     if let Some(output) = result {

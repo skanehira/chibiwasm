@@ -6,5 +6,5 @@ pub(crate) mod integer;
 pub(crate) mod module;
 pub(crate) mod op;
 pub mod runtime;
-pub(crate) mod store;
+pub mod store;
 pub mod value;

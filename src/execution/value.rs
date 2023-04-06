@@ -55,7 +55,7 @@ impl Display for Value {
 
 #[derive(Debug, Clone)]
 pub struct Label {
-    pub sp: usize, // stack pointer
+    pub sp: usize,    // stack pointer
     pub arity: usize, // argument or result? arity
 }
 
@@ -124,7 +124,7 @@ impl From<u64> for Value {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ExternalVal {
     Func(FuncIdx),
     Table(TableIdx),

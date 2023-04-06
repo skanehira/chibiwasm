@@ -1,26 +1,128 @@
-use super::{module::*, value::Value};
+use super::{
+    module::*,
+    value::{ExternalVal, Value},
+};
 use crate::binary::{
-    module::Module,
+    module::{Decoder, Module},
     types::{ExprValue, Mutability},
 };
 use anyhow::{bail, Context, Result};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    fs,
+    io::{Cursor, Read},
+    rc::Rc,
+};
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
+pub enum Exports<'export> {
+    Func(&'export FuncInst),
+    Table(&'export mut TableInst),
+    Memory(&'export mut MemoryInst),
+    Global(&'export mut GlobalInst),
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct Imports(HashMap<String, Rc<RefCell<Store>>>);
+
+impl Imports {
+    pub fn add(&mut self, name: &str, module: Rc<RefCell<Store>>) {
+        self.0.insert(name.into(), module);
+    }
+
+    //pub fn resolve_memory(&self) -> RefMut<MemoryInst> {
+    //}
+
+    pub fn resolve_func(&self, name: &str, field: &str) -> Result<FuncInst> {
+        let store = self.0.get(name);
+        match store {
+            Some(store) => {
+                let store = Rc::clone(store);
+                let store = store.borrow();
+
+                let export_inst = store
+                    .module
+                    .exports
+                    .get(field)
+                    .context(format!("not found exported function by name: {name}"))?;
+                let external_val = &export_inst.desc;
+
+                let ExternalVal::Func(idx) = external_val else {
+                    bail!("invalid export desc: {:?}", external_val);
+                };
+                let func_inst = store
+                    .funcs
+                    .get(*idx as usize)
+                    .with_context(|| format!("not found function by {name}"))?;
+                Ok(func_inst.clone())
+            }
+            None => {
+                bail!(
+                    "cannot resolve function. not found module: {name} in imports: {:?}",
+                    self.0
+                );
+            }
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone)]
 pub struct Store {
     pub funcs: Vec<FuncInst>,
     pub tables: Vec<TableInst>,
     pub memory: MemoryInst,
     pub globals: Vec<GlobalInst>,
+    pub imports: Option<Imports>,
+    pub module: ModuleInst,
+    pub start: Option<u32>,
 }
 
 impl Store {
-    pub fn new(module: &Module) -> Result<Self> {
+    pub fn from_file(file: &str, import: Option<Imports>) -> Result<Self> {
+        let file = fs::File::open(file)?;
+        let mut decoder = Decoder::new(file);
+        let module = decoder.decode()?;
+        Self::new(&module, import)
+    }
+
+    pub fn from_reader(reader: &mut impl Read, imports: Option<Imports>) -> Result<Self> {
+        let mut decoder = Decoder::new(reader);
+        let module = decoder.decode()?;
+        Self::new(&module, imports)
+    }
+
+    pub fn from_bytes<T: AsRef<[u8]>>(b: T, imports: Option<Imports>) -> Result<Self> {
+        let buf = Cursor::new(b);
+        let mut decoder = Decoder::new(buf);
+        let module = decoder.decode()?;
+        Self::new(&module, imports)
+    }
+
+    pub fn new(module: &Module, imports: Option<Imports>) -> Result<Self> {
         let func_type_idxs = match module.function_section {
             Some(ref functions) => functions.clone(),
             _ => vec![],
         };
 
         let mut funcs = vec![];
+        if let Some(ref section) = module.import_section {
+            let imports = imports.as_ref().with_context(|| {
+                "the module has import section, but not found any imported module"
+            })?;
+
+            for import in section {
+                match import.kind {
+                    crate::binary::types::ImportKind::Func(_) => {
+                        let func_inst =
+                            imports.resolve_func(&import.module_name, &import.field_name)?;
+                        funcs.push(func_inst.clone());
+                    }
+                    _ => todo!(),
+                }
+            }
+        }
+
         if let Some(ref code_section) = module.code_section {
             if code_section.len() != func_type_idxs.len() {
                 bail!("code section length must be equal to function section length");
@@ -97,9 +199,8 @@ impl Store {
                                 })?
                                 .init
                                 .get(i)
-                                .with_context(|| {
-                                    format!("cannot get func index from element_section")
-                                })? as usize;
+                                .with_context(|| "cannot get func index from element_section")?
+                                as usize;
                         }
                         elem
                     }
@@ -115,22 +216,19 @@ impl Store {
         };
 
         // 10. copy data to memory
-        match module.data {
-            Some(ref data) => {
-                for d in data {
-                    let offset = {
-                        let offset: i32 = d.offset.clone().into();
-                        offset as usize
-                    };
+        if let Some(ref data) = module.data {
+            for d in data {
+                let offset = {
+                    let offset: i32 = d.offset.clone().into();
+                    offset as usize
+                };
 
-                    let data = &d.init;
-                    if offset + data.len() > memory.data.len() {
-                        bail!("data is too large to fit in memory");
-                    }
-                    memory.data[offset..offset + data.len()].copy_from_slice(data);
+                let data = &d.init;
+                if offset + data.len() > memory.data.len() {
+                    bail!("data is too large to fit in memory");
                 }
+                memory.data[offset..offset + data.len()].copy_from_slice(data);
             }
-            _ => {}
         }
 
         let globals = match module.global_section {
@@ -152,11 +250,16 @@ impl Store {
             None => vec![],
         };
 
+        let module_inst = ModuleInst::allocate(module);
+
         let store = Self {
             funcs,
             tables,
             memory,
             globals,
+            imports,
+            module: module_inst,
+            start: module.start_section,
         };
 
         Ok(store)

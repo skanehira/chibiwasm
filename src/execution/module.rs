@@ -1,16 +1,11 @@
-#![allow(unused)]
-
-use anyhow::{bail, Result};
-
 use super::address::*;
 use super::indices::TypeIdx;
-use super::store::Store;
 use super::value::{ExternalVal, Numberic, Value};
 use crate::binary::instruction::{Instruction, MemoryArg};
 use crate::binary::module::Module;
 use crate::binary::types::ValueType;
+use anyhow::{bail, Result};
 use std::collections::HashMap;
-use std::rc::Rc;
 
 // https://www.w3.org/TR/wasm-core-1/#memory-instances%E2%91%A0
 pub const PAGE_SIZE: u32 = 65536; // 64Ki
@@ -31,17 +26,16 @@ pub struct Func {
 #[derive(Debug, Clone)]
 pub struct FuncInst {
     pub func_type: FuncType,
-    // pub module: Rc<ModuleInst>, TODO: add module instance
     pub code: Func,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TableInst {
     pub elem: Vec<FuncAddr>,
     pub max: Option<u32>,
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct MemoryInst {
     pub data: Vec<u8>,
     pub max: Option<u32>,
@@ -71,31 +65,31 @@ impl MemoryInst {
 
     pub fn load<T: Numberic>(&self, addr: usize, arg: &MemoryArg) -> Result<T> {
         // TODO: check align and memory size
-        let at = (addr + arg.offset as usize);
+        let at = addr + arg.offset as usize;
         Ok(Numberic::read(&self.data, at)?)
     }
 
     pub fn write<T: Numberic>(&mut self, addr: usize, arg: &MemoryArg, value: T) -> Result<()> {
         // TODO: check align and memory size
-        let at = (addr + arg.offset as usize);
+        let at = addr + arg.offset as usize;
         Numberic::write(&mut self.data, at, value)?;
         Ok(())
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GlobalInst {
     pub value: Value,
     pub mutability: bool,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ExportInst {
     pub name: String,
     pub desc: ExternalVal,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct ModuleInst {
     pub func_types: Vec<FuncType>,
     pub func_addrs: Vec<FuncAddr>,
