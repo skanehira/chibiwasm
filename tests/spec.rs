@@ -50,6 +50,7 @@ mod tests {
 (module
   (table (export "table") 10 funcref)
   (global (export "global_i32") i32 (i32.const 42))
+  (memory (export "memory") 1)
   
   (func $print (export "print")
     (nop)
@@ -353,12 +354,12 @@ mod tests {
     test!(imports);
     test!(func_ptrs);
     test!(elem);
+    test!(data);
 
     //test!(linking);
     //test!(conversions);
     //test!(float_literals);
     //test!(endianness);
-    //test!(data);
     //test!(traps);
 
     // Skip this tests because they are not implemented

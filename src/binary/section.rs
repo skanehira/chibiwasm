@@ -158,7 +158,7 @@ fn decode_data_section(reader: &mut SectionReader) -> Result<Section> {
     let count = reader.u32()?;
     for _ in 0..count {
         let memory_index = reader.u32()?;
-        let offset = decode_expr_value(reader)?;
+        let offset = decode_expr(reader)?;
         let size = reader.u32()?;
         let init = reader.bytes(size as usize)?;
         data.push(Data {

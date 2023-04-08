@@ -6,7 +6,7 @@ use super::{
 };
 use crate::binary::{
     module::{Decoder, Module},
-    types::{ExprValue, Mutability, Expr},
+    types::{Expr, ExprValue, Mutability},
 };
 use anyhow::{bail, Context, Result};
 use std::{
@@ -18,10 +18,10 @@ use std::{
 };
 
 #[derive(Debug)]
-pub enum Exports<'export> {
-    Func(Rc<InternalFuncInst>),
-    Table(Rc<RefCell<InternalTableInst>>),
-    Memory(&'export mut MemoryInst),
+pub enum Exports {
+    Func(FuncInst),
+    Table(TableInst),
+    Memory(MemoryInst),
     Global(GlobalInst),
 }
 
@@ -43,16 +43,17 @@ impl Imports {
                     .module
                     .exports
                     .get(field)
-                    .context(format!("not found exported function by name: {name}"))?;
+                    .context(format!("not found exported table '{field}' from {name}"))?;
 
                 let external_val = &export_inst.desc;
                 let ExternalVal::Table(idx) = external_val else {
                     bail!("invalid export desc: {:?}", external_val);
                 };
 
-                let table = store.tables.get(*idx as usize).with_context(|| {
-                    format!("not found table by {name} in module: {name}", name = name)
-                })?;
+                let table = store
+                    .tables
+                    .get(*idx as usize)
+                    .with_context(|| format!("not found table {idx} in module: {name}"))?;
 
                 Ok(Rc::clone(table))
             }
@@ -74,7 +75,7 @@ impl Imports {
                     .module
                     .exports
                     .get(field)
-                    .context(format!("not found exported function by name: {name}"))?;
+                    .context(format!("not found exported global '{field}' from {name}"))?;
                 let external_val = &export_inst.desc;
 
                 let ExternalVal::Global(idx) = external_val else {
@@ -83,7 +84,7 @@ impl Imports {
                 let global = store
                     .globals
                     .get(*idx as usize)
-                    .with_context(|| format!("not found global by {name}"))?;
+                    .with_context(|| format!("not found global index '{idx}' from {name}"))?;
 
                 Ok(Rc::clone(global))
             }
@@ -106,7 +107,7 @@ impl Imports {
                     .module
                     .exports
                     .get(field)
-                    .context(format!("not found exported function by name: {name}"))?;
+                    .context(format!("not found exported function '{field}' from {name}"))?;
                 let external_val = &export_inst.desc;
 
                 let ExternalVal::Func(idx) = external_val else {
@@ -127,13 +128,49 @@ impl Imports {
             }
         }
     }
+
+    pub fn resolve_memory(
+        &self,
+        name: &str,
+        field: &str,
+    ) -> Result<Rc<RefCell<InternalMemoryInst>>> {
+        let store = self.0.get(name);
+        match store {
+            Some(store) => {
+                let store = store.borrow();
+
+                let export_inst = store
+                    .module
+                    .exports
+                    .get(field)
+                    .context(format!("not found exported memory '{field}' from {name}"))?;
+                let external_val = &export_inst.desc;
+
+                let ExternalVal::Memory(idx) = external_val else {
+                    bail!("invalid export desc: {:?}", external_val);
+                };
+                let memory = store
+                    .memory
+                    .get(*idx as usize)
+                    .with_context(|| format!("not found memory from {name}"))?;
+
+                Ok(Rc::clone(memory))
+            }
+            None => {
+                bail!(
+                    "cannot resolve memory. not found module: {name} in imports: {:?}",
+                    self.0
+                );
+            }
+        }
+    }
 }
 
 #[derive(Debug, Default, Clone)]
 pub struct Store {
     pub funcs: Vec<FuncInst>,
     pub tables: Vec<TableInst>,
-    pub memory: MemoryInst,
+    pub memory: Vec<MemoryInst>,
     pub globals: Vec<GlobalInst>,
     pub imports: Option<Imports>,
     pub module: ModuleInst,
@@ -170,6 +207,7 @@ impl Store {
         let mut funcs = vec![];
         let mut tables = vec![];
         let mut globals = vec![];
+        let mut memories = vec![];
 
         if let Some(ref section) = module.import_section {
             let imports = imports.as_ref().with_context(|| {
@@ -193,7 +231,10 @@ impl Store {
                         let global = imports.resolve_global(module, field)?;
                         globals.push(global);
                     }
-                    _ => todo!(),
+                    crate::binary::types::ImportKind::Memory(_) => {
+                        let memory = imports.resolve_memory(module, field)?;
+                        memories.push(memory);
+                    }
                 }
             }
         }
@@ -213,24 +254,6 @@ impl Store {
                 globals.push(Rc::new(RefCell::new(global)));
             }
         }
-        //let globals = match module.global_section {
-        //    Some(ref globals) => globals
-        //        .iter()
-        //        .map(|g| {
-        //            let value = match g.init_expr {
-        //                ExprValue::I32(v) => Value::I32(v),
-        //                ExprValue::I64(v) => Value::I64(v),
-        //                ExprValue::F32(v) => Value::F32(v),
-        //                ExprValue::F64(v) => Value::F64(v),
-        //            };
-        //            InternalGlobalInst {
-        //                value,
-        //                mutability: g.global_type.mutability == Mutability::Var,
-        //            }
-        //        })
-        //        .collect(),
-        //    None => vec![],
-        //};
 
         if let Some(ref code_section) = module.code_section {
             if code_section.len() != func_type_idxs.len() {
@@ -269,31 +292,25 @@ impl Store {
         }
 
         // NOTE: only support one memory now
-        let mut memory = match module.memory_section {
-            Some(ref memory) => {
-                let memory = memory.get(0);
-                match memory {
-                    Some(memory) => {
-                        // https://www.w3.org/TR/wasm-core-1/#memories%E2%91%A5
-                        let min = memory.limits.min * PAGE_SIZE;
-                        MemoryInst {
-                            data: vec![0; min as usize],
-                            max: memory.limits.max,
-                        }
-                    }
-                    None => MemoryInst::default(),
-                }
+        if let Some(ref section) = module.memory_section {
+            for memory in section {
+                let min = memory.limits.min * PAGE_SIZE;
+                let memory = InternalMemoryInst {
+                    data: vec![0; min as usize],
+                    max: memory.limits.max,
+                };
+                memories.push(Rc::new(RefCell::new(memory)));
             }
-            _ => MemoryInst::default(),
-        };
+        }
 
-        let eval = |globals: &Vec<GlobalInst>, offset: Expr | -> Result<usize> {
+        let eval = |globals: &Vec<GlobalInst>, offset: Expr| -> Result<usize> {
             match offset {
-                Expr::Value(value) => {
-                    Ok(i32::from(value) as usize)
-                }
+                Expr::Value(value) => Ok(i32::from(value) as usize),
                 Expr::GlobalIndex(idx) => {
-                    let global = globals.get(idx).with_context(|| "not found offset from globals")?.borrow();
+                    let global = globals
+                        .get(idx)
+                        .with_context(|| "not found offset from globals")?
+                        .borrow();
                     Ok(i32::from(global.value.clone()) as usize)
                 }
             }
@@ -348,12 +365,12 @@ impl Store {
         // 10. copy data to memory
         if let Some(ref data) = module.data {
             for d in data {
-                let offset = {
-                    let offset: i32 = d.offset.clone().into();
-                    offset as usize
-                };
-
+                let offset = eval(&globals, d.offset.clone())?;
                 let data = &d.init;
+                let mut memory = memories
+                    .get(d.memory_index as usize)
+                    .with_context(|| "not found memory")?
+                    .borrow_mut();
                 if offset + data.len() > memory.data.len() {
                     bail!("data is too large to fit in memory");
                 }
@@ -366,7 +383,7 @@ impl Store {
         let store = Self {
             funcs,
             tables,
-            memory,
+            memory: memories,
             globals,
             imports,
             module: module_inst,

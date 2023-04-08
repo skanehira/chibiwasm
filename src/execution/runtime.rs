@@ -1,4 +1,4 @@
-use super::module::{FuncInst, InternalFuncInst};
+use super::module::{FuncInst, InternalFuncInst, MemoryInst};
 use super::op::*;
 use super::store::{Exports, Imports, Store};
 use super::value::{ExternalVal, Frame, Label, StackAccess as _, State, Value};
@@ -100,6 +100,15 @@ impl Runtime {
             .with_context(|| format!("no frame in the call stack, call stack: {:?}", self.stack))
     }
 
+    fn resolve_memory(&mut self) -> Result<MemoryInst> {
+        let memory = self
+            .store
+            .memory
+            .get(0)
+            .with_context(|| "not found memory")?;
+        Ok(Rc::clone(memory))
+    }
+
     pub fn call(&mut self, name: String, args: Vec<Value>) -> Result<Option<Value>> {
         trace!("call function: {}", name);
         let (idx, func) = self.resolve_by_name(name)?;
@@ -161,8 +170,8 @@ impl Runtime {
                 Exports::Table(Rc::clone(table))
             }
             ExternalVal::Memory(_) => {
-                let mem = &mut self.store.memory;
-                Exports::Memory(mem)
+                let memory = self.resolve_memory()?;
+                Exports::Memory(Rc::clone(&memory))
             }
             ExternalVal::Global(idx) => {
                 let global = self
@@ -543,9 +552,10 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
             }
             // NOTE: only support 1 memory now
             Instruction::MemoryGrow(_) => {
-                let memory = &mut runtime.store.memory;
-                let size = memory.size();
                 let n = runtime.stack.pop1::<i32>()?;
+                let memory = runtime.resolve_memory()?;
+                let mut memory = memory.borrow_mut();
+                let size = memory.size();
                 match memory.grow(n as u32) {
                     Ok(_) => {
                         runtime.stack.push((size as i32).into());
@@ -557,7 +567,8 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                 }
             }
             Instruction::MemorySize => {
-                let size = runtime.store.memory.size() as i32;
+                let memory = runtime.resolve_memory()?;
+                let size = memory.borrow().size() as i32;
                 runtime.stack.push(size.into());
             }
             Instruction::I32Load(arg) => load!(runtime, i32, arg),

@@ -30,25 +30,25 @@ pub struct InternalFuncInst {
     pub func_type: FuncType,
     pub code: Func,
 }
-
 pub type FuncInst = Rc<InternalFuncInst>;
+
 
 #[derive(Debug, Clone, Default)]
 pub struct InternalTableInst {
     pub funcs: Vec<Option<FuncInst>>,
     pub max: Option<u32>,
 }
-
 pub type TableInst = Rc<RefCell<InternalTableInst>>;
 
 #[derive(Default, Debug, Clone)]
-pub struct MemoryInst {
+pub struct InternalMemoryInst {
     pub data: Vec<u8>,
     pub max: Option<u32>,
 }
+pub type MemoryInst = Rc<RefCell<InternalMemoryInst>>;
 
 // size of MemoryInst
-impl MemoryInst {
+impl InternalMemoryInst {
     pub fn size(&self) -> usize {
         self.data.len() / PAGE_SIZE as usize
     }
