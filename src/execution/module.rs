@@ -31,17 +31,7 @@ pub struct InternalFuncInst {
     pub code: Func,
 }
 
-#[derive(Debug, Clone)]
-pub struct ExternalFuncInst {
-    pub module: String,
-    pub field: String,
-}
-
-#[derive(Debug, Clone)]
-pub enum FuncInst {
-    External(ExternalFuncInst),
-    Internal(InternalFuncInst),
-}
+pub type FuncInst = Rc<InternalFuncInst>;
 
 #[derive(Debug, Clone, Default)]
 pub struct InternalTableInst {

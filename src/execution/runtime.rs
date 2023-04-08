@@ -1,4 +1,4 @@
-use super::module::{FuncInst, InternalFuncInst};
+use super::module::InternalFuncInst;
 use super::op::*;
 use super::store::{Exports, Imports, Store};
 use super::value::{ExternalVal, Frame, Label, StackAccess as _, State, Value};
@@ -8,6 +8,7 @@ use crate::{load, store};
 use anyhow::{bail, Context as _, Result};
 use log::{error, trace};
 use std::io::Read;
+use std::rc::Rc;
 
 #[derive(Debug, Default)]
 pub struct Runtime {
@@ -173,10 +174,7 @@ impl Runtime {
             }
             ExternalVal::Func(idx) => {
                 let func = self.store.funcs.get(idx as usize).expect("not found func");
-                let FuncInst::Internal(func) = func else {
-                    bail!("not found internal function");
-                };
-                Exports::Func(func)
+                Exports::Func(Rc::clone(func))
             }
         };
 
@@ -236,24 +234,16 @@ impl Runtime {
         Ok(result)
     }
 
-    fn resolve_by_idx(&mut self, idx: usize) -> Result<InternalFuncInst> {
-        let function = self
+    fn resolve_by_idx(&mut self, idx: usize) -> Result<Rc<InternalFuncInst>> {
+        let func = self
             .store
             .funcs
             .get(idx)
             .context(format!("not found function by index: {idx}"))?;
-        match function {
-            FuncInst::Internal(func) => Ok((*func).clone()),
-            FuncInst::External(func) => self
-                .store
-                .imports
-                .as_ref()
-                .with_context(|| format!("not found module: {}", func.module))?
-                .resolve_func(&func.module, &func.field),
-        }
+        Ok(Rc::clone(func))
     }
 
-    fn resolve_by_name(&mut self, name: String) -> Result<(usize, InternalFuncInst)> {
+    fn resolve_by_name(&mut self, name: String) -> Result<(usize, Rc<InternalFuncInst>)> {
         let export_inst = self
             .store
             .module
@@ -271,18 +261,7 @@ impl Runtime {
             .funcs
             .get(idx)
             .with_context(|| format!("not found function by {name}"))?;
-        match function {
-            FuncInst::Internal(func) => Ok((idx, (*func).clone())),
-            FuncInst::External(func) => {
-                let func_inst = self
-                    .store
-                    .imports
-                    .as_ref()
-                    .with_context(|| format!("not found module: {}", func.module))?
-                    .resolve_func(&func.module, &func.field)?;
-                Ok((idx, func_inst))
-            }
-        }
+        Ok((idx, Rc::clone(function)))
     }
 }
 

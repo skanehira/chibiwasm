@@ -19,7 +19,7 @@ use std::{
 
 #[derive(Debug)]
 pub enum Exports<'export> {
-    Func(&'export InternalFuncInst),
+    Func(Rc<InternalFuncInst>),
     Table(Rc<RefCell<InternalTableInst>>),
     Memory(&'export mut MemoryInst),
     Global(&'export mut GlobalInst),
@@ -68,7 +68,7 @@ impl Imports {
     //    }
     //}
 
-    pub fn resolve_func(&self, name: &str, field: &str) -> Result<InternalFuncInst> {
+    pub fn resolve_func(&self, name: &str, field: &str) -> Result<FuncInst> {
         let store = self.0.get(name);
         match store {
             Some(store) => {
@@ -84,15 +84,12 @@ impl Imports {
                 let ExternalVal::Func(idx) = external_val else {
                     bail!("invalid export desc: {:?}", external_val);
                 };
-                let func_inst = store
+                let func = store
                     .funcs
                     .get(*idx as usize)
                     .with_context(|| format!("not found function by {name}"))?;
 
-                let FuncInst::Internal(func) = func_inst else {
-                    bail!("is not internal function: {:?}", func_inst);
-                };
-                Ok(func.clone())
+                Ok(Rc::clone(func))
             }
             None => {
                 bail!(
@@ -145,18 +142,18 @@ impl Store {
         let mut funcs = vec![];
         //let mut tables = vec![];
         if let Some(ref section) = module.import_section {
-            //let imports = imports.as_ref().with_context(|| {
-            //    "the module has import section, but not found any imported module"
-            //})?;
+            let imports = imports.as_ref().with_context(|| {
+                "the module has import section, but not found any imported module"
+            })?;
 
             for import in section {
-                let module = import.module.clone();
-                let field = import.field.clone();
+                let module = import.module.as_str();
+                let field = import.field.as_str();
 
                 match import.kind {
                     crate::binary::types::ImportKind::Func(_) => {
-                        let func = ExternalFuncInst { module, field };
-                        funcs.push(FuncInst::External(func));
+                        let func = imports.resolve_func(module, field)?;
+                        funcs.push(func);
                     }
                     crate::binary::types::ImportKind::Table(_) => {
                         //let table = ExternalTableInst { module, field };
@@ -199,7 +196,7 @@ impl Store {
                         body: func_body.code.clone(),
                     },
                 };
-                funcs.push(FuncInst::Internal(func));
+                funcs.push(Rc::new(func));
             }
         }
 
