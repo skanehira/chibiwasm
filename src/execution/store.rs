@@ -117,7 +117,7 @@ impl Store {
                 match import.kind {
                     crate::binary::types::ImportKind::Func(_) => {
                         let func_inst =
-                            imports.resolve_func(&import.module_name, &import.field_name)?;
+                            imports.resolve_func(&import.module, &import.field)?;
                         funcs.push(func_inst.clone());
                     }
                     _ => todo!(),

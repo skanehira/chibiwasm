@@ -205,11 +205,11 @@ fn decode_import_section(reader: &mut SectionReader) -> Result<Section> {
     for _ in 0..count {
         // module name
         let size = reader.u32()? as usize;
-        let module_name = reader.string(size)?;
+        let module = reader.string(size)?;
 
         // field name
         let size = reader.u32()? as usize;
-        let field_name = reader.string(size)?;
+        let field = reader.string(size)?;
 
         // implrt kind
         let import_kind = reader.byte()?;
@@ -238,8 +238,8 @@ fn decode_import_section(reader: &mut SectionReader) -> Result<Section> {
         };
 
         imports.push(Import {
-            module_name,
-            field_name,
+            module,
+            field,
             kind,
         })
     }

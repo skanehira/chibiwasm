@@ -67,15 +67,15 @@ Module {
     import_section: Some(
         [
             Import {
-                module_name: "test",
-                field_name: "print_i32",
+                module: "test",
+                field: "print_i32",
                 kind: Func(
                     0,
                 ),
             },
             Import {
-                module_name: "test",
-                field_name: "memory-2-inf",
+                module: "test",
+                field: "memory-2-inf",
                 kind: Table(
                     Table {
                         elem_type: FuncRef,
@@ -87,8 +87,8 @@ Module {
                 ),
             },
             Import {
-                module_name: "test",
-                field_name: "global-i32",
+                module: "test",
+                field: "global-i32",
                 kind: Global(
                     GlobalType {
                         value_type: I32,

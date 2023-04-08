@@ -133,8 +133,8 @@ pub enum ImportKind {
 
 #[derive(Debug, PartialEq)]
 pub struct Import {
-    pub module_name: String,
-    pub field_name: String,
+    pub module: String,
+    pub field: String,
     pub kind: ImportKind,
 }
 
