@@ -66,12 +66,12 @@ NOTE: Checking only the test cases that have passed both assert_return and asser
 - [x] float_misc.wast
 - [x] forward.wast
 - [x] func.wast
-- [ ] func_ptrs.wast
+- [x] func_ptrs.wast
 - [x] globals.wast
 - [x] i32.wast
 - [x] i64.wast
 - [x] if.wast
-- [ ] imports.wast
+- [x] imports.wast
 - [x] inline_module.wast
 - [x] int_exprs.wast
 - [x] int_literals.wast
@@ -94,7 +94,7 @@ NOTE: Checking only the test cases that have passed both assert_return and asser
 - [x] select.wast
 - [x] skip_stack_guard_page.wast
 - [x] stack.wast
-- [ ] start.wast
+- [x] start.wast
 - [x] store.wast
 - [x] switch.wast
 - [ ] ~~token.wast~~
