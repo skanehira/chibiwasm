@@ -356,10 +356,10 @@ mod tests {
     test!(elem);
     test!(data);
     test!(float_literals);
+    test!(endianness);
 
     //test!(linking);
     //test!(conversions);
-    //test!(endianness);
     //test!(traps);
 
     // Skip this tests because they are not implemented
