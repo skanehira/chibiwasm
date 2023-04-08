@@ -355,10 +355,10 @@ mod tests {
     test!(func_ptrs);
     test!(elem);
     test!(data);
+    test!(float_literals);
 
     //test!(linking);
     //test!(conversions);
-    //test!(float_literals);
     //test!(endianness);
     //test!(traps);
 

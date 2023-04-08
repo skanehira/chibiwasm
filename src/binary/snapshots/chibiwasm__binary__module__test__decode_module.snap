@@ -190,8 +190,10 @@ Module {
         [
             Data {
                 memory_index: 0,
-                offset: I32(
-                    1,
+                offset: Value(
+                    I32(
+                        1,
+                    ),
                 ),
                 init: [
                     97,

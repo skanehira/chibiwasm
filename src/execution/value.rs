@@ -432,7 +432,7 @@ impl Value {
 
     pub fn f64_convert_i64_u(&self) -> Result<Self> {
         match self {
-            Value::I64(l) => Ok(Value::F64(*l as u64 as f64)),
+            Value::I64(i) => Ok(Value::F64(*i as u64 as f64)),
             _ => panic!("unexpected value. {self}"),
         }
     }
@@ -446,28 +446,28 @@ impl Value {
 
     pub fn i32_reinterpret_f32(&self) -> Result<Self> {
         match self {
-            Value::F32(f) => Ok(Value::I32(*f as i32)),
+            Value::F32(f) => Ok(Value::I32((*f).to_bits() as i32)),
             _ => panic!("unexpected value. {self}"),
         }
     }
 
     pub fn i64_reinterpret_f64(&self) -> Result<Self> {
         match self {
-            Value::F64(f) => Ok(Value::I64(*f as i64)),
+            Value::F64(f) => Ok(Value::I64((*f).to_bits() as i64)),
             _ => panic!("unexpected value. {self}"),
         }
     }
 
     pub fn f32_reinterpret_i32(&self) -> Result<Self> {
         match self {
-            Value::I32(l) => Ok(Value::F32(*l as f32)),
+            Value::I32(i) => Ok(Value::F32(*i as f32)),
             _ => panic!("unexpected value. {self}"),
         }
     }
 
     pub fn f64_reinterpret_i64(&self) -> Result<Self> {
         match self {
-            Value::I64(l) => Ok(Value::F64(*l as f64)),
+            Value::I64(i) => Ok(Value::F64(*i as f64)),
             _ => panic!("unexpected value. {self}"),
         }
     }
