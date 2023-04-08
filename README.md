@@ -49,9 +49,9 @@ NOTE: Checking only the test cases that have passed both assert_return and asser
 - [x] const.wast
 - [ ] conversions.wast
 - [x] custom.wast
-- [ ] data.wast
-- [ ] elem.wast
-- [ ] endianness.wast
+- [x] data.wast
+- [x] elem.wast
+- [x] endianness.wast
 - [x] exports.wast
 - [x] f32.wast
 - [x] f32_bitwise.wast
@@ -61,7 +61,7 @@ NOTE: Checking only the test cases that have passed both assert_return and asser
 - [x] f64_cmp.wast
 - [x] fac.wast
 - [x] float_exprs.wast
-- [ ] float_literals.wast
+- [x] float_literals.wast
 - [x] float_memory.wast
 - [x] float_misc.wast
 - [x] forward.wast
