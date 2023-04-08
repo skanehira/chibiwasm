@@ -158,7 +158,7 @@ fn decode_data_section(reader: &mut SectionReader) -> Result<Section> {
     let count = reader.u32()?;
     for _ in 0..count {
         let memory_index = reader.u32()?;
-        let offset = decode_expr(reader)?;
+        let offset = decode_expr_value(reader)?;
         let size = reader.u32()?;
         let init = reader.bytes(size as usize)?;
         data.push(Data {
@@ -262,7 +262,7 @@ fn decode_global_section(reader: &mut SectionReader) -> Result<Section> {
     let mut globals = vec![];
     for _ in 0..count {
         let global_type = decode_global_type(reader)?;
-        let init_expr = decode_expr(reader)?;
+        let init_expr = decode_expr_value(reader)?;
         let global = Global {
             global_type,
             init_expr,
@@ -272,7 +272,7 @@ fn decode_global_section(reader: &mut SectionReader) -> Result<Section> {
     Ok(Section::Global(globals))
 }
 
-fn decode_expr(reader: &mut SectionReader) -> Result<ExprValue> {
+fn decode_expr_value(reader: &mut SectionReader) -> Result<ExprValue> {
     let byte = reader.byte()?;
     let opcode = Opcode::from_u8(byte).unwrap();
     let value = match opcode {
@@ -291,6 +291,40 @@ fn decode_expr(reader: &mut SectionReader) -> Result<ExprValue> {
         Opcode::F64Const => {
             let value = reader.f64()?;
             ExprValue::F64(value)
+        }
+        _ => bail!(InvalidInitExprOpcode(byte)),
+    };
+
+    let end_opcode = Opcode::from_u8(reader.byte()?).unwrap();
+    if end_opcode != Opcode::End {
+        bail!(InvalidInitExprEndOpcode(end_opcode));
+    }
+    Ok(value)
+}
+
+fn decode_expr(reader: &mut SectionReader) -> Result<Expr> {
+    let byte = reader.byte()?;
+    let opcode = Opcode::from_u8(byte).unwrap();
+    let value = match opcode {
+        Opcode::I32Const => {
+            let value = reader.i32()?;
+            Expr::Value(ExprValue::I32(value))
+        }
+        Opcode::I64Const => {
+            let value = reader.i64()?;
+            Expr::Value(ExprValue::I64(value))
+        }
+        Opcode::F32Const => {
+            let value = reader.f32()?;
+            Expr::Value(ExprValue::F32(value))
+        }
+        Opcode::F64Const => {
+            let value = reader.f64()?;
+            Expr::Value(ExprValue::F64(value))
+        }
+        Opcode::GlobalGet => {
+            let value = reader.u32()?;
+            Expr::GlobalIndex(value as usize)
         }
         _ => bail!(InvalidInitExprOpcode(byte)),
     };

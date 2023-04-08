@@ -158,7 +158,7 @@ impl Runtime {
                     .tables
                     .get(idx as usize)
                     .expect("not found table");
-                Exports::Table(table.clone())
+                Exports::Table(Rc::clone(table))
             }
             ExternalVal::Memory(_) => {
                 let mem = &mut self.store.memory;
@@ -168,9 +168,9 @@ impl Runtime {
                 let global = self
                     .store
                     .globals
-                    .get_mut(idx as usize)
+                    .get(idx as usize)
                     .expect("not found global");
-                Exports::Global(global)
+                Exports::Global(Rc::clone(global))
             }
             ExternalVal::Func(idx) => {
                 let func = self.store.funcs.get(idx as usize).expect("not found func");

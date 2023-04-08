@@ -48,6 +48,9 @@ mod tests {
         let testspec = {
             let wat = r#"
 (module
+  (table (export "table") 10 funcref)
+  (global (export "global_i32") i32 (i32.const 42))
+  
   (func $print (export "print")
     (nop)
   )
@@ -180,7 +183,7 @@ mod tests {
                         let exports = runtime.exports(field.clone())?;
 
                         let results = match exports {
-                            Exports::Global(global) => vec![global.value.clone()],
+                            Exports::Global(global) => vec![global.borrow().value.clone()],
                             _ => {
                                 todo!();
                             }
@@ -349,11 +352,11 @@ mod tests {
     test!(start);
     test!(imports);
     test!(func_ptrs);
+    test!(elem);
 
     //test!(linking);
     //test!(conversions);
     //test!(float_literals);
-    //test!(elem);
     //test!(endianness);
     //test!(data);
     //test!(traps);

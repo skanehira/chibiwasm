@@ -99,6 +99,12 @@ pub enum ExprValue {
     F64(f64),
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub enum Expr {
+    Value(ExprValue),
+    GlobalIndex(usize),
+}
+
 macro_rules! from_expr_value {
     ($ty:ty, $atrr:ident) => {
         impl From<ExprValue> for $ty {
@@ -141,7 +147,7 @@ pub struct Import {
 #[derive(Debug, PartialEq)]
 pub struct Element {
     pub table_index: u32,
-    pub offset: ExprValue, // offset in table
+    pub offset: Expr, // offset in table
     pub init: Vec<u32>,    // index of function
 }
 

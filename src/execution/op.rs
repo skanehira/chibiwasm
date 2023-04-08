@@ -48,11 +48,12 @@ pub fn global_set(runtime: &mut Runtime, idx: usize) -> Result<()> {
         .stack
         .pop()
         .with_context(|| "not found value in the stack")?;
-    let global = runtime
+    let mut global = runtime
         .store
         .globals
-        .get_mut(idx)
-        .with_context(|| format!("not found global by index: {idx}"))?;
+        .get(idx)
+        .with_context(|| format!("not found global by index: {idx}"))?
+        .borrow_mut();
     global.value = value;
     Ok(())
 }
@@ -63,7 +64,7 @@ pub fn global_get(runtime: &mut Runtime, idx: usize) -> Result<()> {
         .globals
         .get(idx)
         .with_context(|| format!("not found global by index: {idx}"))?;
-    runtime.stack.push(global.value.clone());
+    runtime.stack.push(global.borrow().value.clone());
     Ok(())
 }
 

@@ -175,8 +175,10 @@ Module {
         [
             Element {
                 table_index: 0,
-                offset: I32(
-                    0,
+                offset: Value(
+                    I32(
+                        0,
+                    ),
                 ),
                 init: [
                     3,

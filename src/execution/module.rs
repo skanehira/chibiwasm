@@ -82,8 +82,10 @@ impl MemoryInst {
     }
 }
 
+pub type GlobalInst = Rc<RefCell<InternalGlobalInst>>;
+
 #[derive(Debug, Clone)]
-pub struct GlobalInst {
+pub struct InternalGlobalInst {
     pub value: Value,
     pub mutability: bool,
 }

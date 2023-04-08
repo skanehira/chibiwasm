@@ -6,7 +6,7 @@ use super::{
 };
 use crate::binary::{
     module::{Decoder, Module},
-    types::{ExprValue, Mutability},
+    types::{ExprValue, Mutability, Expr},
 };
 use anyhow::{bail, Context, Result};
 use std::{
@@ -22,7 +22,7 @@ pub enum Exports<'export> {
     Func(Rc<InternalFuncInst>),
     Table(Rc<RefCell<InternalTableInst>>),
     Memory(&'export mut MemoryInst),
-    Global(&'export mut GlobalInst),
+    Global(GlobalInst),
 }
 
 #[derive(Default, Debug, Clone)]
@@ -59,6 +59,37 @@ impl Imports {
             None => {
                 bail!(
                     "cannot resolve function. not found module: {name} in imports: {:?}",
+                    self.0
+                );
+            }
+        }
+    }
+
+    pub fn resolve_global(&self, name: &str, field: &str) -> Result<GlobalInst> {
+        let store = self.0.get(name);
+        match store {
+            Some(store) => {
+                let store = store.borrow();
+                let export_inst = store
+                    .module
+                    .exports
+                    .get(field)
+                    .context(format!("not found exported function by name: {name}"))?;
+                let external_val = &export_inst.desc;
+
+                let ExternalVal::Global(idx) = external_val else {
+                    bail!("invalid export desc: {:?}", external_val);
+                };
+                let global = store
+                    .globals
+                    .get(*idx as usize)
+                    .with_context(|| format!("not found global by {name}"))?;
+
+                Ok(Rc::clone(global))
+            }
+            None => {
+                bail!(
+                    "cannot resolve global. not found module: {name} in imports: {:?}",
                     self.0
                 );
             }
@@ -138,6 +169,8 @@ impl Store {
 
         let mut funcs = vec![];
         let mut tables = vec![];
+        let mut globals = vec![];
+
         if let Some(ref section) = module.import_section {
             let imports = imports.as_ref().with_context(|| {
                 "the module has import section, but not found any imported module"
@@ -156,10 +189,48 @@ impl Store {
                         let table = imports.resolve_table(module, field)?;
                         tables.push(table);
                     }
+                    crate::binary::types::ImportKind::Global(_) => {
+                        let global = imports.resolve_global(module, field)?;
+                        globals.push(global);
+                    }
                     _ => todo!(),
                 }
             }
         }
+
+        if let Some(ref section) = module.global_section {
+            for global in section {
+                let value = match global.init_expr {
+                    ExprValue::I32(v) => Value::I32(v),
+                    ExprValue::I64(v) => Value::I64(v),
+                    ExprValue::F32(v) => Value::F32(v),
+                    ExprValue::F64(v) => Value::F64(v),
+                };
+                let global = InternalGlobalInst {
+                    value,
+                    mutability: global.global_type.mutability == Mutability::Var,
+                };
+                globals.push(Rc::new(RefCell::new(global)));
+            }
+        }
+        //let globals = match module.global_section {
+        //    Some(ref globals) => globals
+        //        .iter()
+        //        .map(|g| {
+        //            let value = match g.init_expr {
+        //                ExprValue::I32(v) => Value::I32(v),
+        //                ExprValue::I64(v) => Value::I64(v),
+        //                ExprValue::F32(v) => Value::F32(v),
+        //                ExprValue::F64(v) => Value::F64(v),
+        //            };
+        //            InternalGlobalInst {
+        //                value,
+        //                mutability: g.global_type.mutability == Mutability::Var,
+        //            }
+        //        })
+        //        .collect(),
+        //    None => vec![],
+        //};
 
         if let Some(ref code_section) = module.code_section {
             if code_section.len() != func_type_idxs.len() {
@@ -216,11 +287,23 @@ impl Store {
             _ => MemoryInst::default(),
         };
 
+        let eval = |globals: &Vec<GlobalInst>, offset: Expr | -> Result<usize> {
+            match offset {
+                Expr::Value(value) => {
+                    Ok(i32::from(value) as usize)
+                }
+                Expr::GlobalIndex(idx) => {
+                    let global = globals.get(idx).with_context(|| "not found offset from globals")?.borrow();
+                    Ok(i32::from(global.value.clone()) as usize)
+                }
+            }
+        };
+
         let update_funcs_in_table =
             |entries: &mut Vec<Option<Rc<InternalFuncInst>>>| -> Result<()> {
                 if let Some(ref elems) = module.element_section {
                     for elem in elems {
-                        let offset = i32::from(elem.offset.clone()) as usize;
+                        let offset = eval(&globals, elem.offset.clone())?;
                         if entries.len() <= offset {
                             entries.resize(entries.len() + offset + elem.init.len(), None);
                         }
@@ -277,25 +360,6 @@ impl Store {
                 memory.data[offset..offset + data.len()].copy_from_slice(data);
             }
         }
-
-        let globals = match module.global_section {
-            Some(ref globals) => globals
-                .iter()
-                .map(|g| {
-                    let value = match g.init_expr {
-                        ExprValue::I32(v) => Value::I32(v),
-                        ExprValue::I64(v) => Value::I64(v),
-                        ExprValue::F32(v) => Value::F32(v),
-                        ExprValue::F64(v) => Value::F64(v),
-                    };
-                    GlobalInst {
-                        value,
-                        mutability: g.global_type.mutability == Mutability::Var,
-                    }
-                })
-                .collect(),
-            None => vec![],
-        };
 
         let module_inst = ModuleInst::allocate(module);
 
