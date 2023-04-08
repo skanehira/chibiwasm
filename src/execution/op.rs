@@ -2,6 +2,7 @@ use super::{
     runtime::Runtime,
     value::{StackAccess as _, Value},
 };
+use crate::{impl_binary_operation, impl_cvtop_operation, impl_unary_operation};
 use anyhow::{bail, Context as _, Result};
 use log::trace;
 
@@ -100,45 +101,6 @@ pub fn i64extend_32s(runtime: &mut Runtime) -> Result<()> {
         _ => bail!("unexpected value type"),
     }
     Ok(())
-}
-
-macro_rules! impl_binary_operation {
-    ($($op: ident),*) => {
-        $(
-            pub fn $op(runtime: &mut Runtime) -> Result<()> {
-                let (r, l): (Value, Value) = runtime.stack.pop_rl()?;
-                let value = l.$op(&r)?;
-                runtime.stack.push(value.into());
-                Ok(())
-            }
-        )*
-    };
-}
-
-macro_rules! impl_unary_operation {
-    ($($op: ident),*) => {
-        $(
-            pub fn $op(runtime: &mut Runtime) -> Result<()> {
-                let value: Value = runtime.stack.pop1()?;
-                let value = value.$op()?;
-                runtime.stack.push(value.into());
-                Ok(())
-            }
-         )*
-    };
-}
-
-macro_rules! impl_cvtop_operation {
-    ($($op: ident),*) => {
-        $(
-            pub fn $op(runtime: &mut Runtime) -> Result<()> {
-                let value: Value = runtime.stack.pop1()?;
-                let value = value.$op()?;
-                runtime.stack.push(value.into());
-                Ok(())
-            }
-         )*
-    };
 }
 
 impl_unary_operation!(
