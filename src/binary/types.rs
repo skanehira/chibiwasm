@@ -141,8 +141,8 @@ pub struct Import {
 #[derive(Debug, PartialEq)]
 pub struct Element {
     pub table_index: u32,
-    pub offset: ExprValue,
-    pub init: Vec<u32>,
+    pub offset: ExprValue, // offset in table
+    pub init: Vec<u32>,    // index of function
 }
 
 #[derive(Debug, PartialEq)]

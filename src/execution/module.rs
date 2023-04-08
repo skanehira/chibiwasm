@@ -35,7 +35,7 @@ pub type FuncInst = Rc<InternalFuncInst>;
 
 #[derive(Debug, Clone, Default)]
 pub struct InternalTableInst {
-    pub elem: Vec<FuncAddr>,
+    pub funcs: Vec<Option<FuncInst>>,
     pub max: Option<u32>,
 }
 

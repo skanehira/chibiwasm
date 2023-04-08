@@ -33,40 +33,37 @@ impl Imports {
         self.0.insert(name.into(), module);
     }
 
-    //pub fn resolve_table(&self, name: &str, field: &str) -> Result<Rc<RefCell<InternalTableInst>>> {
-    //    let store = self.0.get(name);
-    //    match store {
-    //        Some(store) => {
-    //            let store = store.borrow();
+    pub fn resolve_table(&self, name: &str, field: &str) -> Result<Rc<RefCell<InternalTableInst>>> {
+        let store = self.0.get(name);
+        match store {
+            Some(store) => {
+                let store = store.borrow();
 
-    //            let export_inst = store
-    //                .module
-    //                .exports
-    //                .get(field)
-    //                .context(format!("not found exported function by name: {name}"))?;
+                let export_inst = store
+                    .module
+                    .exports
+                    .get(field)
+                    .context(format!("not found exported function by name: {name}"))?;
 
-    //            let external_val = &export_inst.desc;
-    //            let ExternalVal::Table(idx) = external_val else {
-    //                bail!("invalid export desc: {:?}", external_val);
-    //            };
+                let external_val = &export_inst.desc;
+                let ExternalVal::Table(idx) = external_val else {
+                    bail!("invalid export desc: {:?}", external_val);
+                };
 
-    //            let table = store.tables.get(*idx as usize).with_context(|| {
-    //                format!("not found table by {name} in module: {name}", name = name)
-    //            })?;
+                let table = store.tables.get(*idx as usize).with_context(|| {
+                    format!("not found table by {name} in module: {name}", name = name)
+                })?;
 
-    //            let TableInst::Internal(table) = table else {
-    //                bail!("is not internal function: {:?}", table);
-    //            };
-    //            Ok(Rc::clone(table))
-    //        }
-    //        None => {
-    //            bail!(
-    //                "cannot resolve function. not found module: {name} in imports: {:?}",
-    //                self.0
-    //            );
-    //        }
-    //    }
-    //}
+                Ok(Rc::clone(table))
+            }
+            None => {
+                bail!(
+                    "cannot resolve function. not found module: {name} in imports: {:?}",
+                    self.0
+                );
+            }
+        }
+    }
 
     pub fn resolve_func(&self, name: &str, field: &str) -> Result<FuncInst> {
         let store = self.0.get(name);
@@ -140,7 +137,7 @@ impl Store {
         };
 
         let mut funcs = vec![];
-        //let mut tables = vec![];
+        let mut tables = vec![];
         if let Some(ref section) = module.import_section {
             let imports = imports.as_ref().with_context(|| {
                 "the module has import section, but not found any imported module"
@@ -156,8 +153,8 @@ impl Store {
                         funcs.push(func);
                     }
                     crate::binary::types::ImportKind::Table(_) => {
-                        //let table = ExternalTableInst { module, field };
-                        //tables.push(TableInst::External(Rc::new(RefCell::new(table))));
+                        let table = imports.resolve_table(module, field)?;
+                        tables.push(table);
                     }
                     _ => todo!(),
                 }
@@ -219,35 +216,51 @@ impl Store {
             _ => MemoryInst::default(),
         };
 
-        // table
-        let tables = match module.table_section {
-            Some(ref tables) => {
-                let table = tables.get(0).expect("cannot get table from table section"); // NOTE: only support one table now
-
-                let elem = match &module.element_section {
-                    Some(elems) => {
-                        let mut elem = vec![0; table.limits.max.unwrap_or(0) as usize];
-                        for i in 0..elem.len() {
-                            elem[i] = *elems
-                                .get(0) // NOTE: only support one elem now
-                                .with_context(|| format!( "cannot get element from element section, element_section: {:#?}", elems))?
-                                .init
-                                .get(i)
-                                .with_context(|| "cannot get func index from element_section")?
-                                as usize;
+        let update_funcs_in_table =
+            |entries: &mut Vec<Option<Rc<InternalFuncInst>>>| -> Result<()> {
+                if let Some(ref elems) = module.element_section {
+                    for elem in elems {
+                        let offset = i32::from(elem.offset.clone()) as usize;
+                        if entries.len() <= offset {
+                            entries.resize(entries.len() + offset + elem.init.len(), None);
                         }
-                        elem
+                        for (i, func_idx) in elem.init.iter().enumerate() {
+                            let func = funcs
+                                .get(*func_idx as usize)
+                                .with_context(|| format!("not found function by {func_idx}"))?;
+                            entries[offset + i] = Some(Rc::clone(func));
+                        }
                     }
-                    None => vec![],
                 };
-                let table_inst = InternalTableInst {
-                    elem,
-                    max: table.limits.max,
-                };
-                vec![Rc::new(RefCell::new(table_inst))]
+                Ok(())
+            };
+
+        // table
+        if let Some(ref table_section) = module.table_section {
+            let table = table_section
+                .get(0) // NOTE: only support one table now
+                .with_context(|| "cannot get table from table section")?; // NOTE: only support one table now
+            let min = table.limits.min as usize;
+
+            let mut entries = vec![None; min];
+            update_funcs_in_table(&mut entries)?;
+
+            let table_inst = InternalTableInst {
+                funcs: entries,
+                max: table.limits.max,
+            };
+            tables.push(Rc::new(RefCell::new(table_inst)));
+        } else {
+            // update table if element section exists
+            if !tables.is_empty() {
+                let entries = &mut tables
+                    .first()
+                    .with_context(|| "not found table")?
+                    .borrow_mut()
+                    .funcs;
+                update_funcs_in_table(entries)?;
             }
-            None => vec![],
-        };
+        }
 
         // 10. copy data to memory
         if let Some(ref data) = module.data {

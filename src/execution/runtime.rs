@@ -1,4 +1,4 @@
-use super::module::InternalFuncInst;
+use super::module::{FuncInst, InternalFuncInst};
 use super::op::*;
 use super::store::{Exports, Imports, Store};
 use super::value::{ExternalVal, Frame, Label, StackAccess as _, State, Value};
@@ -111,7 +111,7 @@ impl Runtime {
             self.stack.push(arg);
         }
 
-        let result = match self.invoke(idx) {
+        let result = match self.invoke_by_idx(idx) {
             Ok(value) => Ok(value),
             Err(e) => {
                 self.stack = vec![]; // when traped, need to cleanup stack
@@ -131,7 +131,7 @@ impl Runtime {
             self.stack.push(arg);
         }
 
-        let result = match self.invoke(idx) {
+        let result = match self.invoke_by_idx(idx) {
             Ok(value) => Ok(value),
             Err(e) => {
                 self.stack = vec![]; // when traped, need to cleanup stack
@@ -181,12 +181,7 @@ impl Runtime {
         Ok(exports)
     }
 
-    // https://www.w3.org/TR/wasm-core-1/#exec-invoke
-    fn invoke(&mut self, idx: usize) -> Result<Option<Value>> {
-        // 1. get function instance from store
-        let func = self.resolve_by_idx(idx)?;
-
-        // 2. push the arguments to frame local
+    fn invoke(&mut self, func: FuncInst) -> Result<Option<Value>> {
         let bottom = self.stack.len() - func.func_type.params.len();
         let mut locals: Vec<_> = self
             .stack
@@ -232,6 +227,12 @@ impl Runtime {
         let _ = self.pop_frame()?;
 
         Ok(result)
+    }
+
+    // https://www.w3.org/TR/wasm-core-1/#exec-invoke
+    fn invoke_by_idx(&mut self, idx: usize) -> Result<Option<Value>> {
+        let func = self.resolve_by_idx(idx)?;
+        self.invoke(func)
     }
 
     fn resolve_by_idx(&mut self, idx: usize) -> Result<Rc<InternalFuncInst>> {
@@ -475,38 +476,42 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                 }
             }
             Instruction::Call(idx) => {
-                let result = runtime.invoke(*idx as usize)?;
+                let result = runtime.invoke_by_idx(*idx as usize)?;
                 if let Some(value) = result {
                     runtime.stack.push(value);
                 }
             }
             Instruction::CallIndirect((signature_idx, table_idx)) => {
-                let table = runtime
-                    .store
-                    .tables
-                    .get(*table_idx as usize) // NOTE: table_idx is always 0 now
-                    .with_context(|| {
-                        format!(
-                            "not found table with index {}, tables: {:?}",
-                            table_idx, &runtime.store.tables
-                        )
-                    })?;
                 let elem_idx = runtime.stack.pop1::<i32>()? as usize;
-                let func_idx = *table.clone().borrow().elem.get(elem_idx).with_context(|| {
-                    trace!(
-                        "not found function with index {}, stack: {:?}",
-                        elem_idx,
-                        &runtime.stack
-                    );
-                    "undefined element"
-                })?;
-                trace!(
-                    "func_idx: {}, func instance: {:#?}",
-                    func_idx,
-                    &runtime.store.funcs
-                );
 
-                // validation
+                let func = {
+                    let table = runtime
+                        .store
+                        .tables
+                        .get(*table_idx as usize) // NOTE: table_idx is always 0 now
+                        .with_context(|| {
+                            format!(
+                                "not found table with index {}, tables: {:?}",
+                                table_idx, &runtime.store.tables
+                            )
+                        })?;
+                    let table = table.borrow();
+                    let func = table
+                        .funcs
+                        .get(elem_idx)
+                        .with_context(|| {
+                            trace!(
+                                "not found function with index {}, stack: {:?}",
+                                elem_idx,
+                                &runtime.stack
+                            );
+                            "undefined element"
+                        })?
+                        .as_ref()
+                        .with_context(|| format!("uninitialized element {}", elem_idx))?;
+                    (**func).clone()
+                };
+
                 // validate expect func signature and actual func signature
                 let expect_func_type = runtime
                     .store
@@ -516,12 +521,11 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                     .with_context(|| {
                         format!(
                             "not found type from module.func_types with index {}, types: {:?}",
-                            func_idx, &runtime.store.module.func_types
+                            signature_idx, &runtime.store.module.func_types
                         )
                     })?
                     .clone();
 
-                let func = runtime.resolve_by_idx(func_idx)?;
                 if func.func_type.params != expect_func_type.params
                     || func.func_type.results != expect_func_type.results
                 {
@@ -533,7 +537,7 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                     bail!("indirect call type mismatch")
                 }
 
-                if let Some(value) = runtime.invoke(func_idx)? {
+                if let Some(value) = runtime.invoke(Rc::new(func))? {
                     runtime.stack.push(value);
                 }
             }
