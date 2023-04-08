@@ -1,4 +1,4 @@
-use super::module::FuncInst;
+use super::module::{FuncInst, InternalFuncInst};
 use super::op::*;
 use super::store::{Exports, Imports, Store};
 use super::value::{ExternalVal, Frame, Label, StackAccess as _, State, Value};
@@ -155,9 +155,9 @@ impl Runtime {
                 let table = self
                     .store
                     .tables
-                    .get_mut(idx as usize)
+                    .get(idx as usize)
                     .expect("not found table");
-                Exports::Table(table)
+                Exports::Table(table.clone())
             }
             ExternalVal::Memory(_) => {
                 let mem = &mut self.store.memory;
@@ -173,6 +173,9 @@ impl Runtime {
             }
             ExternalVal::Func(idx) => {
                 let func = self.store.funcs.get(idx as usize).expect("not found func");
+                let FuncInst::Internal(func) = func else {
+                    bail!("not found internal function");
+                };
                 Exports::Func(func)
             }
         };
@@ -233,16 +236,24 @@ impl Runtime {
         Ok(result)
     }
 
-    fn resolve_by_idx(&mut self, idx: usize) -> Result<FuncInst> {
+    fn resolve_by_idx(&mut self, idx: usize) -> Result<InternalFuncInst> {
         let function = self
             .store
             .funcs
             .get(idx)
             .context(format!("not found function by index: {idx}"))?;
-        Ok((*function).clone())
+        match function {
+            FuncInst::Internal(func) => Ok((*func).clone()),
+            FuncInst::External(func) => self
+                .store
+                .imports
+                .as_ref()
+                .with_context(|| format!("not found module: {}", func.module))?
+                .resolve_func(&func.module, &func.field),
+        }
     }
 
-    fn resolve_by_name(&mut self, name: String) -> Result<(usize, FuncInst)> {
+    fn resolve_by_name(&mut self, name: String) -> Result<(usize, InternalFuncInst)> {
         let export_inst = self
             .store
             .module
@@ -254,12 +265,24 @@ impl Runtime {
         let ExternalVal::Func(idx) = external_val else {
             bail!("invalid export desc: {:?}", external_val);
         };
+        let idx = *idx as usize;
         let function = self
             .store
             .funcs
-            .get(*idx as usize)
+            .get(idx)
             .with_context(|| format!("not found function by {name}"))?;
-        Ok(((*idx) as usize, (*function).clone()))
+        match function {
+            FuncInst::Internal(func) => Ok((idx, (*func).clone())),
+            FuncInst::External(func) => {
+                let func_inst = self
+                    .store
+                    .imports
+                    .as_ref()
+                    .with_context(|| format!("not found module: {}", func.module))?
+                    .resolve_func(&func.module, &func.field)?;
+                Ok((idx, func_inst))
+            }
+        }
     }
 }
 
@@ -490,7 +513,7 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                         )
                     })?;
                 let elem_idx = runtime.stack.pop1::<i32>()? as usize;
-                let func_idx = table.elem.get(elem_idx).with_context(|| {
+                let func_idx = *table.clone().borrow().elem.get(elem_idx).with_context(|| {
                     trace!(
                         "not found function with index {}, stack: {:?}",
                         elem_idx,
@@ -505,12 +528,6 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                 );
 
                 // validation
-                let func = runtime.store.funcs.get(*func_idx).with_context(|| {
-                    format!(
-                        "not found function from store.funcs with index {}, funcs: {:?}",
-                        func_idx, &runtime.store.funcs
-                    )
-                })?;
                 // validate expect func signature and actual func signature
                 let expect_func_type = runtime
                     .store
@@ -525,6 +542,7 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                     })?
                     .clone();
 
+                let func = runtime.resolve_by_idx(func_idx)?;
                 if func.func_type.params != expect_func_type.params
                     || func.func_type.results != expect_func_type.results
                 {
@@ -536,7 +554,7 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                     bail!("indirect call type mismatch")
                 }
 
-                if let Some(value) = runtime.invoke(*func_idx)? {
+                if let Some(value) = runtime.invoke(func_idx)? {
                     runtime.stack.push(value);
                 }
             }

@@ -5,7 +5,9 @@ use crate::binary::instruction::{Instruction, MemoryArg};
 use crate::binary::module::Module;
 use crate::binary::types::ValueType;
 use anyhow::{bail, Result};
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 // https://www.w3.org/TR/wasm-core-1/#memory-instances%E2%91%A0
 pub const PAGE_SIZE: u32 = 65536; // 64Ki
@@ -24,16 +26,30 @@ pub struct Func {
 }
 
 #[derive(Debug, Clone)]
-pub struct FuncInst {
+pub struct InternalFuncInst {
     pub func_type: FuncType,
     pub code: Func,
 }
 
 #[derive(Debug, Clone)]
-pub struct TableInst {
+pub struct ExternalFuncInst {
+    pub module: String,
+    pub field: String,
+}
+
+#[derive(Debug, Clone)]
+pub enum FuncInst {
+    External(ExternalFuncInst),
+    Internal(InternalFuncInst),
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct InternalTableInst {
     pub elem: Vec<FuncAddr>,
     pub max: Option<u32>,
 }
+
+pub type TableInst = Rc<RefCell<InternalTableInst>>;
 
 #[derive(Default, Debug, Clone)]
 pub struct MemoryInst {

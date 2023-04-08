@@ -19,8 +19,8 @@ use std::{
 
 #[derive(Debug)]
 pub enum Exports<'export> {
-    Func(&'export FuncInst),
-    Table(&'export mut TableInst),
+    Func(&'export InternalFuncInst),
+    Table(Rc<RefCell<InternalTableInst>>),
     Memory(&'export mut MemoryInst),
     Global(&'export mut GlobalInst),
 }
@@ -33,14 +33,45 @@ impl Imports {
         self.0.insert(name.into(), module);
     }
 
-    //pub fn resolve_memory(&self) -> RefMut<MemoryInst> {
+    //pub fn resolve_table(&self, name: &str, field: &str) -> Result<Rc<RefCell<InternalTableInst>>> {
+    //    let store = self.0.get(name);
+    //    match store {
+    //        Some(store) => {
+    //            let store = store.borrow();
+
+    //            let export_inst = store
+    //                .module
+    //                .exports
+    //                .get(field)
+    //                .context(format!("not found exported function by name: {name}"))?;
+
+    //            let external_val = &export_inst.desc;
+    //            let ExternalVal::Table(idx) = external_val else {
+    //                bail!("invalid export desc: {:?}", external_val);
+    //            };
+
+    //            let table = store.tables.get(*idx as usize).with_context(|| {
+    //                format!("not found table by {name} in module: {name}", name = name)
+    //            })?;
+
+    //            let TableInst::Internal(table) = table else {
+    //                bail!("is not internal function: {:?}", table);
+    //            };
+    //            Ok(Rc::clone(table))
+    //        }
+    //        None => {
+    //            bail!(
+    //                "cannot resolve function. not found module: {name} in imports: {:?}",
+    //                self.0
+    //            );
+    //        }
+    //    }
     //}
 
-    pub fn resolve_func(&self, name: &str, field: &str) -> Result<FuncInst> {
+    pub fn resolve_func(&self, name: &str, field: &str) -> Result<InternalFuncInst> {
         let store = self.0.get(name);
         match store {
             Some(store) => {
-                let store = Rc::clone(store);
                 let store = store.borrow();
 
                 let export_inst = store
@@ -57,7 +88,11 @@ impl Imports {
                     .funcs
                     .get(*idx as usize)
                     .with_context(|| format!("not found function by {name}"))?;
-                Ok(func_inst.clone())
+
+                let FuncInst::Internal(func) = func_inst else {
+                    bail!("is not internal function: {:?}", func_inst);
+                };
+                Ok(func.clone())
             }
             None => {
                 bail!(
@@ -108,17 +143,24 @@ impl Store {
         };
 
         let mut funcs = vec![];
+        //let mut tables = vec![];
         if let Some(ref section) = module.import_section {
-            let imports = imports.as_ref().with_context(|| {
-                "the module has import section, but not found any imported module"
-            })?;
+            //let imports = imports.as_ref().with_context(|| {
+            //    "the module has import section, but not found any imported module"
+            //})?;
 
             for import in section {
+                let module = import.module.clone();
+                let field = import.field.clone();
+
                 match import.kind {
                     crate::binary::types::ImportKind::Func(_) => {
-                        let func_inst =
-                            imports.resolve_func(&import.module, &import.field)?;
-                        funcs.push(func_inst.clone());
+                        let func = ExternalFuncInst { module, field };
+                        funcs.push(FuncInst::External(func));
+                    }
+                    crate::binary::types::ImportKind::Table(_) => {
+                        //let table = ExternalTableInst { module, field };
+                        //tables.push(TableInst::External(Rc::new(RefCell::new(table))));
                     }
                     _ => todo!(),
                 }
@@ -149,17 +191,15 @@ impl Store {
                 }
 
                 // NOTE: locals length must be func_type.params + func_body.locals
-                let func = Func {
-                    type_idx: *typeidx,
-                    locals,
-                    body: func_body.code.clone(),
-                };
-
-                let func_inst = FuncInst {
+                let func = InternalFuncInst {
                     func_type,
-                    code: func,
+                    code: Func {
+                        type_idx: *typeidx,
+                        locals,
+                        body: func_body.code.clone(),
+                    },
                 };
-                funcs.push(func_inst);
+                funcs.push(FuncInst::Internal(func));
             }
         }
 
@@ -203,11 +243,11 @@ impl Store {
                     }
                     None => vec![],
                 };
-                let table_inst = TableInst {
+                let table_inst = InternalTableInst {
                     elem,
                     max: table.limits.max,
                 };
-                vec![table_inst]
+                vec![Rc::new(RefCell::new(table_inst))]
             }
             None => vec![],
         };
