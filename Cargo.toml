@@ -11,14 +11,12 @@ clap = { version = "4.1.8", features = ["derive"] }
 leb128 = "0.2.5"
 num-traits = "0.2"
 num-derive = "0.3"
-serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0.39"
 log = "0.4.17"
 pretty_env_logger = "0.4.0"
 
 [dev-dependencies]
 paste = "1.0.12"
-wasmer = "3.1.1"
 wabt = { git = "https://github.com/skanehira/wabt-rs" }
 insta = "1.29.0"
 pretty_assertions = "1.3.0"

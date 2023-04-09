@@ -5,23 +5,7 @@ expression: module
 Module {
     magic: "\0asm",
     version: 1,
-    custom_section: Some(
-        Custom {
-            name: "name",
-            data: [
-                1,
-                8,
-                1,
-                0,
-                5,
-                100,
-                117,
-                109,
-                109,
-                121,
-            ],
-        },
-    ),
+    custom_section: None,
     type_section: Some(
         [
             FuncType {

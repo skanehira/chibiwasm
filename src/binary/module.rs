@@ -126,7 +126,7 @@ mod test {
     use super::Decoder;
     use anyhow::Result;
     use insta::assert_debug_snapshot;
-    use wasmer::wat2wasm;
+    use wabt::wat2wasm;
 
     #[test]
     fn test_decode_module() -> Result<()> {

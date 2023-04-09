@@ -644,7 +644,7 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
 mod test {
     use super::{Runtime, Value};
     use anyhow::{Context, Result};
-    use wasmer::wat2wasm;
+    use wabt::wat2wasm;
 
     #[test]
     fn invoke() -> Result<()> {
