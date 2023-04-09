@@ -215,7 +215,7 @@ impl Runtime {
         // 4. execute instruction of function
         // TODO: check state
         trace!("call stack: {:?}", &self.call_stack.last());
-        let _ = execute(self, &func.code.body)?;
+        let _ = self.execute(&func.code.body)?;
 
         // 5. if the function has return value, pop it from stack
         let result = if arity > 0 {
@@ -272,358 +272,358 @@ impl Runtime {
             .context(format!("not found function by index: {idx}"))?;
         Ok(func.clone())
     }
-}
 
-fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
-    for inst in insts {
-        if !matches!(
-            inst,
-            Instruction::Block(_) | Instruction::If(_) | Instruction::Loop(_)
-        ) {
-            trace!("instruction: {:?}", &inst);
-        }
-        match inst {
-            Instruction::Unreachable => bail!("unreachable"),
-            Instruction::Nop | Instruction::End => {}
-            Instruction::LocalGet(idx) => local_get(runtime, *idx as usize)?,
-            Instruction::LocalSet(idx) => local_set(runtime, *idx as usize)?,
-            Instruction::LocalTee(idx) => local_tee(runtime, *idx as usize)?,
-            Instruction::GlobalGet(idx) => global_get(runtime, *idx as usize)?,
-            Instruction::GlobalSet(idx) => global_set(runtime, *idx as usize)?,
-            Instruction::I32Add | Instruction::I64Add => add(runtime)?,
-            Instruction::I32Sub | Instruction::I64Sub => sub(runtime)?,
-            Instruction::I32Mul | Instruction::I64Mul => mul(runtime)?,
-            Instruction::I32Clz | Instruction::I64Clz => clz(runtime)?,
-            Instruction::I32Ctz | Instruction::I64Ctz => ctz(runtime)?,
-            Instruction::I32DivU | Instruction::I64DivU => div_u(runtime)?,
-            Instruction::I32DivS | Instruction::I64DivS => div_s(runtime)?,
-            Instruction::I32Eq | Instruction::I64Eq => equal(runtime)?,
-            Instruction::I32Eqz | Instruction::I64Eqz => eqz(runtime)?,
-            Instruction::I32Ne | Instruction::I64Ne => not_equal(runtime)?,
-            Instruction::I32LtS | Instruction::I64LtS => lt_s(runtime)?,
-            Instruction::I32LtU | Instruction::I64LtU => lt_u(runtime)?,
-            Instruction::I32GtS | Instruction::I64GtS => gt_s(runtime)?,
-            Instruction::I32GtU | Instruction::I64GtU => gt_u(runtime)?,
-            Instruction::I32LeS | Instruction::I64LeS => le_s(runtime)?,
-            Instruction::I32LeU | Instruction::I64LeU => le_u(runtime)?,
-            Instruction::I32GeS | Instruction::I64GeS => ge_s(runtime)?,
-            Instruction::I32GeU | Instruction::I64GeU => ge_u(runtime)?,
-            Instruction::I32Popcnt | Instruction::I64Popcnt => popcnt(runtime)?,
-            Instruction::I32RemU | Instruction::I64RemU => rem_u(runtime)?,
-            Instruction::I32RemS | Instruction::I64RemS => rem_s(runtime)?,
-            Instruction::I32And | Instruction::I64And => and(runtime)?,
-            Instruction::I32Or | Instruction::I64Or => or(runtime)?,
-            Instruction::I32Xor | Instruction::I64Xor => xor(runtime)?,
-            Instruction::I32ShL | Instruction::I64ShL => shl(runtime)?,
-            Instruction::I32ShrU | Instruction::I64ShrU => shr_u(runtime)?,
-            Instruction::I32ShrS | Instruction::I64ShrS => shr_s(runtime)?,
-            Instruction::I32RtoL | Instruction::I64RtoL => rotl(runtime)?,
-            Instruction::I32RtoR | Instruction::I64RtoR => rotr(runtime)?,
-            Instruction::I32Extend8S | Instruction::I64Extend8S => extend8_s(runtime)?,
-            Instruction::I32Extend16S | Instruction::I64Extend16S => extend16_s(runtime)?,
-            Instruction::I32Const(v) => push(runtime, *v)?,
-            Instruction::I64Extend32S => i64extend_32s(runtime)?,
-            Instruction::I64Const(v) => push(runtime, *v)?,
-            Instruction::F32Const(v) => push(runtime, *v)?,
-            Instruction::F64Const(v) => push(runtime, *v)?,
-            Instruction::F32Add | Instruction::F64Add => add(runtime)?,
-            Instruction::F32Sub | Instruction::F64Sub => sub(runtime)?,
-            Instruction::F32Mul | Instruction::F64Mul => mul(runtime)?,
-            Instruction::F32Div | Instruction::F64Div => div(runtime)?,
-            Instruction::F32Ceil | Instruction::F64Ceil => ceil(runtime)?,
-            Instruction::F32Floor | Instruction::F64Floor => floor(runtime)?,
-            Instruction::F32Max | Instruction::F64Max => max(runtime)?,
-            Instruction::F32Min | Instruction::F64Min => min(runtime)?,
-            Instruction::F32Nearest | Instruction::F64Nearest => nearest(runtime)?,
-            Instruction::F32Sqrt | Instruction::F64Sqrt => sqrt(runtime)?,
-            Instruction::F32Trunc | Instruction::F64Trunc => trunc(runtime)?,
-            Instruction::F32Copysign | Instruction::F64Copysign => copysign(runtime)?,
-            Instruction::I32WrapI64 => i32_wrap_i64(runtime)?,
-            Instruction::F32Abs | Instruction::F64Abs => abs(runtime)?,
-            Instruction::F32Neg | Instruction::F64Neg => neg(runtime)?,
-            Instruction::F32Eq | Instruction::F64Eq => equal(runtime)?,
-            Instruction::F32Ne | Instruction::F64Ne => not_equal(runtime)?,
-            Instruction::F32Lt | Instruction::F64Lt => flt(runtime)?,
-            Instruction::F32Gt | Instruction::F64Gt => fgt(runtime)?,
-            Instruction::F32Le | Instruction::F64Le => fle(runtime)?,
-            Instruction::F32Ge | Instruction::F64Ge => fge(runtime)?,
-            Instruction::Drop => {
-                runtime.stack.pop();
+    fn execute(&mut self, insts: &Vec<Instruction>) -> Result<State> {
+        for inst in insts {
+            if !matches!(
+                inst,
+                Instruction::Block(_) | Instruction::If(_) | Instruction::Loop(_)
+            ) {
+                trace!("instruction: {:?}", &inst);
             }
-            Instruction::Return => return Ok(State::Return),
-            Instruction::Br(level) => return Ok(State::Break(*level as usize)),
-            Instruction::BrIf(level) => {
-                let value: Value = runtime.stack.pop1()?;
-                if value.is_true() {
-                    return Ok(State::Break(*level as usize));
+            match inst {
+                Instruction::Unreachable => bail!("unreachable"),
+                Instruction::Nop | Instruction::End => {}
+                Instruction::LocalGet(idx) => local_get(self, *idx as usize)?,
+                Instruction::LocalSet(idx) => local_set(self, *idx as usize)?,
+                Instruction::LocalTee(idx) => local_tee(self, *idx as usize)?,
+                Instruction::GlobalGet(idx) => global_get(self, *idx as usize)?,
+                Instruction::GlobalSet(idx) => global_set(self, *idx as usize)?,
+                Instruction::I32Add | Instruction::I64Add => add(self)?,
+                Instruction::I32Sub | Instruction::I64Sub => sub(self)?,
+                Instruction::I32Mul | Instruction::I64Mul => mul(self)?,
+                Instruction::I32Clz | Instruction::I64Clz => clz(self)?,
+                Instruction::I32Ctz | Instruction::I64Ctz => ctz(self)?,
+                Instruction::I32DivU | Instruction::I64DivU => div_u(self)?,
+                Instruction::I32DivS | Instruction::I64DivS => div_s(self)?,
+                Instruction::I32Eq | Instruction::I64Eq => equal(self)?,
+                Instruction::I32Eqz | Instruction::I64Eqz => eqz(self)?,
+                Instruction::I32Ne | Instruction::I64Ne => not_equal(self)?,
+                Instruction::I32LtS | Instruction::I64LtS => lt_s(self)?,
+                Instruction::I32LtU | Instruction::I64LtU => lt_u(self)?,
+                Instruction::I32GtS | Instruction::I64GtS => gt_s(self)?,
+                Instruction::I32GtU | Instruction::I64GtU => gt_u(self)?,
+                Instruction::I32LeS | Instruction::I64LeS => le_s(self)?,
+                Instruction::I32LeU | Instruction::I64LeU => le_u(self)?,
+                Instruction::I32GeS | Instruction::I64GeS => ge_s(self)?,
+                Instruction::I32GeU | Instruction::I64GeU => ge_u(self)?,
+                Instruction::I32Popcnt | Instruction::I64Popcnt => popcnt(self)?,
+                Instruction::I32RemU | Instruction::I64RemU => rem_u(self)?,
+                Instruction::I32RemS | Instruction::I64RemS => rem_s(self)?,
+                Instruction::I32And | Instruction::I64And => and(self)?,
+                Instruction::I32Or | Instruction::I64Or => or(self)?,
+                Instruction::I32Xor | Instruction::I64Xor => xor(self)?,
+                Instruction::I32ShL | Instruction::I64ShL => shl(self)?,
+                Instruction::I32ShrU | Instruction::I64ShrU => shr_u(self)?,
+                Instruction::I32ShrS | Instruction::I64ShrS => shr_s(self)?,
+                Instruction::I32RtoL | Instruction::I64RtoL => rotl(self)?,
+                Instruction::I32RtoR | Instruction::I64RtoR => rotr(self)?,
+                Instruction::I32Extend8S | Instruction::I64Extend8S => extend8_s(self)?,
+                Instruction::I32Extend16S | Instruction::I64Extend16S => extend16_s(self)?,
+                Instruction::I32Const(v) => push(self, *v)?,
+                Instruction::I64Extend32S => i64extend_32s(self)?,
+                Instruction::I64Const(v) => push(self, *v)?,
+                Instruction::F32Const(v) => push(self, *v)?,
+                Instruction::F64Const(v) => push(self, *v)?,
+                Instruction::F32Add | Instruction::F64Add => add(self)?,
+                Instruction::F32Sub | Instruction::F64Sub => sub(self)?,
+                Instruction::F32Mul | Instruction::F64Mul => mul(self)?,
+                Instruction::F32Div | Instruction::F64Div => div(self)?,
+                Instruction::F32Ceil | Instruction::F64Ceil => ceil(self)?,
+                Instruction::F32Floor | Instruction::F64Floor => floor(self)?,
+                Instruction::F32Max | Instruction::F64Max => max(self)?,
+                Instruction::F32Min | Instruction::F64Min => min(self)?,
+                Instruction::F32Nearest | Instruction::F64Nearest => nearest(self)?,
+                Instruction::F32Sqrt | Instruction::F64Sqrt => sqrt(self)?,
+                Instruction::F32Trunc | Instruction::F64Trunc => trunc(self)?,
+                Instruction::F32Copysign | Instruction::F64Copysign => copysign(self)?,
+                Instruction::I32WrapI64 => i32_wrap_i64(self)?,
+                Instruction::F32Abs | Instruction::F64Abs => abs(self)?,
+                Instruction::F32Neg | Instruction::F64Neg => neg(self)?,
+                Instruction::F32Eq | Instruction::F64Eq => equal(self)?,
+                Instruction::F32Ne | Instruction::F64Ne => not_equal(self)?,
+                Instruction::F32Lt | Instruction::F64Lt => flt(self)?,
+                Instruction::F32Gt | Instruction::F64Gt => fgt(self)?,
+                Instruction::F32Le | Instruction::F64Le => fle(self)?,
+                Instruction::F32Ge | Instruction::F64Ge => fge(self)?,
+                Instruction::Drop => {
+                    self.stack.pop();
                 }
-            }
-            Instruction::BrTable(label_idxs, default_idx) => {
-                return br_table(runtime, label_idxs, default_idx)
-            }
-            Instruction::Loop(block) => {
-                // 1. push a label to the stack
-                let arity = block.block_type.result_count();
-                let _ = runtime.push_label(arity);
+                Instruction::Return => return Ok(State::Return),
+                Instruction::Br(level) => return Ok(State::Break(*level as usize)),
+                Instruction::BrIf(level) => {
+                    let value: Value = self.stack.pop1()?;
+                    if value.is_true() {
+                        return Ok(State::Break(*level as usize));
+                    }
+                }
+                Instruction::BrTable(label_idxs, default_idx) => {
+                    return br_table(self, label_idxs, default_idx)
+                }
+                Instruction::Loop(block) => {
+                    // 1. push a label to the stack
+                    let arity = block.block_type.result_count();
+                    let _ = self.push_label(arity);
 
-                let sp = runtime.stack.len();
+                    let sp = self.stack.len();
 
-                // 2. execute the loop body
-                loop {
-                    match execute(runtime, &block.then_body)? {
-                        State::Break(0) => {
-                            // it's mean we need start loop again and unwind the stack
-                            runtime.stack.drain(sp..);
+                    // 2. execute the loop body
+                    loop {
+                        match self.execute(&block.then_body)? {
+                            State::Break(0) => {
+                                // it's mean we need start loop again and unwind the stack
+                                self.stack.drain(sp..);
+                            }
+                            State::Return => {
+                                // break current loop and return
+                                return Ok(State::Return);
+                            }
+                            state => {
+                                let _ = self.pop_label()?;
+                                match state {
+                                    State::Continue => {
+                                        // break current loop
+                                        break;
+                                    }
+                                    State::Break(level) => {
+                                        // break outer block
+                                        return Ok(State::Break(level - 1));
+                                    }
+                                    _ => {
+                                        unreachable!()
+                                    }
+                                }
+                            }
                         }
-                        State::Return => {
-                            // break current loop and return
-                            return Ok(State::Return);
-                        }
+                    }
+                }
+                Instruction::If(block) => {
+                    // 1. pop the value from the stack for check if true
+                    let value: Value = self.stack.pop1()?;
+
+                    // 2. push a label to the stack
+                    let arity = block.block_type.result_count();
+                    let _ = self.push_label(arity);
+
+                    // 3. if true, execute the then_body, otherwise execute the else_body
+                    let result = if value.is_true() {
+                        self.execute(&block.then_body)?
+                    } else {
+                        self.execute(&block.else_body)?
+                    };
+
+                    match result {
+                        State::Return => return Ok(State::Return),
                         state => {
-                            let _ = runtime.pop_label()?;
+                            // 3. pop the label from the stack
+                            let label = self.pop_label()?;
                             match state {
-                                State::Continue => {
-                                    // break current loop
-                                    break;
+                                State::Continue => {}
+                                State::Break(0) => {
+                                    if label.arity > 0 {
+                                        let value = self.stack.pop1()?;
+                                        self.stack.drain(label.sp..);
+                                        self.stack.push(value);
+                                    } else {
+                                        self.stack.drain(label.sp..);
+                                    }
+                                    trace!("if break(0), stack: {:?}", &self.stack);
                                 }
-                                State::Break(level) => {
-                                    // break outer block
-                                    return Ok(State::Break(level - 1));
-                                }
-                                _ => {
-                                    unreachable!()
-                                }
+                                State::Break(level) => return Ok(State::Break(level - 1)),
+                                _ => unreachable!(),
                             }
                         }
                     }
                 }
-            }
-            Instruction::If(block) => {
-                // 1. pop the value from the stack for check if true
-                let value: Value = runtime.stack.pop1()?;
+                // NOTE: this instruction will not be executed
+                Instruction::Else => unreachable!(),
+                Instruction::Block(block) => {
+                    // 1. push a label to the stack
+                    let arity = block.block_type.result_count();
+                    let _ = self.push_label(arity);
 
-                // 2. push a label to the stack
-                let arity = block.block_type.result_count();
-                let _ = runtime.push_label(arity);
+                    // 2. execute the block body
+                    let result = self.execute(&block.then_body)?;
 
-                // 3. if true, execute the then_body, otherwise execute the else_body
-                let result = if value.is_true() {
-                    execute(runtime, &block.then_body)?
-                } else {
-                    execute(runtime, &block.else_body)?
-                };
-
-                match result {
-                    State::Return => return Ok(State::Return),
-                    state => {
-                        // 3. pop the label from the stack
-                        let label = runtime.pop_label()?;
-                        match state {
-                            State::Continue => {}
-                            State::Break(0) => {
-                                if label.arity > 0 {
-                                    let value = runtime.stack.pop1()?;
-                                    runtime.stack.drain(label.sp..);
-                                    runtime.stack.push(value);
-                                } else {
-                                    runtime.stack.drain(label.sp..);
+                    match result {
+                        State::Return => return Ok(State::Return),
+                        state => {
+                            // 3. pop the label from the stack
+                            let label = self.pop_label()?;
+                            match state {
+                                State::Continue => {}
+                                State::Break(0) => {
+                                    if label.arity > 0 {
+                                        let value = self.stack.pop1()?;
+                                        self.stack.drain(label.sp..);
+                                        self.stack.push(value);
+                                    } else {
+                                        self.stack.drain(label.sp..);
+                                    }
+                                    trace!("block break(0), stack: {:?}", &self.stack);
                                 }
-                                trace!("if break(0), stack: {:?}", &runtime.stack);
+                                State::Break(level) => return Ok(State::Break(level - 1)),
+                                _ => unreachable!(),
                             }
-                            State::Break(level) => return Ok(State::Break(level - 1)),
-                            _ => unreachable!(),
                         }
                     }
                 }
-            }
-            // NOTE: this instruction will not be executed
-            Instruction::Else => unreachable!(),
-            Instruction::Block(block) => {
-                // 1. push a label to the stack
-                let arity = block.block_type.result_count();
-                let _ = runtime.push_label(arity);
-
-                // 2. execute the block body
-                let result = execute(runtime, &block.then_body)?;
-
-                match result {
-                    State::Return => return Ok(State::Return),
-                    state => {
-                        // 3. pop the label from the stack
-                        let label = runtime.pop_label()?;
-                        match state {
-                            State::Continue => {}
-                            State::Break(0) => {
-                                if label.arity > 0 {
-                                    let value = runtime.stack.pop1()?;
-                                    runtime.stack.drain(label.sp..);
-                                    runtime.stack.push(value);
-                                } else {
-                                    runtime.stack.drain(label.sp..);
-                                }
-                                trace!("block break(0), stack: {:?}", &runtime.stack);
-                            }
-                            State::Break(level) => return Ok(State::Break(level - 1)),
-                            _ => unreachable!(),
-                        }
+                Instruction::Call(idx) => {
+                    let result = self.invoke_by_idx(*idx as usize)?;
+                    if let Some(value) = result {
+                        self.stack.push(value);
                     }
                 }
-            }
-            Instruction::Call(idx) => {
-                let result = runtime.invoke_by_idx(*idx as usize)?;
-                if let Some(value) = result {
-                    runtime.stack.push(value);
-                }
-            }
-            Instruction::CallIndirect((signature_idx, table_idx)) => {
-                let elem_idx = runtime.stack.pop1::<i32>()? as usize;
+                Instruction::CallIndirect((signature_idx, table_idx)) => {
+                    let elem_idx = self.stack.pop1::<i32>()? as usize;
 
-                let func = {
-                    let tables = runtime.store.borrow();
-                    let table = tables
-                        .tables
-                        .get(*table_idx as usize) // NOTE: table_idx is always 0 now
+                    let func = {
+                        let tables = self.store.borrow();
+                        let table = tables
+                            .tables
+                            .get(*table_idx as usize) // NOTE: table_idx is always 0 now
+                            .with_context(|| {
+                                format!(
+                                    "not found table with index {}, tables: {:?}",
+                                    table_idx,
+                                    &self.store.borrow().tables
+                                )
+                            })?;
+                        let table = table.borrow();
+                        let func = table
+                            .funcs
+                            .get(elem_idx)
+                            .with_context(|| {
+                                trace!(
+                                    "not found function with index {}, stack: {:?}",
+                                    elem_idx,
+                                    &self.stack
+                                );
+                                "undefined element"
+                            })?
+                            .as_ref()
+                            .with_context(|| format!("uninitialized element {}", elem_idx))?;
+                        (*func).clone()
+                    };
+
+                    // validate expect func signature and actual func signature
+                    let expect_func_type = self
+                        .store
+                        .borrow()
+                        .module
+                        .func_types
+                        .get(*signature_idx as usize)
                         .with_context(|| {
                             format!(
-                                "not found table with index {}, tables: {:?}",
-                                table_idx,
-                                &runtime.store.borrow().tables
+                                "not found type from module.func_types with index {}, types: {:?}",
+                                signature_idx,
+                                &self.store.borrow().module.func_types
                             )
-                        })?;
-                    let table = table.borrow();
-                    let func = table
-                        .funcs
-                        .get(elem_idx)
-                        .with_context(|| {
-                            trace!(
-                                "not found function with index {}, stack: {:?}",
-                                elem_idx,
-                                &runtime.stack
-                            );
-                            "undefined element"
                         })?
-                        .as_ref()
-                        .with_context(|| format!("uninitialized element {}", elem_idx))?;
-                    (*func).clone()
-                };
+                        .clone();
 
-                // validate expect func signature and actual func signature
-                let expect_func_type = runtime
-                    .store
-                    .borrow()
-                    .module
-                    .func_types
-                    .get(*signature_idx as usize)
-                    .with_context(|| {
-                        format!(
-                            "not found type from module.func_types with index {}, types: {:?}",
-                            signature_idx,
-                            &runtime.store.borrow().module.func_types
-                        )
-                    })?
-                    .clone();
+                    let func_type = match func {
+                        FuncInst::Internal(ref func) => func.func_type.clone(),
+                        FuncInst::External(ref func) => func.func_type.clone(),
+                    };
 
-                let func_type = match func {
-                    FuncInst::Internal(ref func) => func.func_type.clone(),
-                    FuncInst::External(ref func) => func.func_type.clone(),
-                };
-
-                if func_type.params != expect_func_type.params
-                    || func_type.results != expect_func_type.results
-                {
-                    trace!(
-                        "expect func signature: {:?}, actual func signature: {:?}",
-                        expect_func_type,
-                        func_type
-                    );
-                    bail!("indirect call type mismatch")
-                }
-
-                let result = match func {
-                    FuncInst::Internal(func) => runtime.invoke_internal(func),
-                    FuncInst::External(func) => runtime.invoke_external(func),
-                };
-                if let Some(value) = result? {
-                    runtime.stack.push(value);
-                }
-            }
-            // NOTE: only support 1 memory now
-            Instruction::MemoryGrow(_) => {
-                let n = runtime.stack.pop1::<i32>()?;
-                let memory = runtime.resolve_memory()?;
-                let mut memory = memory.borrow_mut();
-                let size = memory.size();
-                match memory.grow(n as u32) {
-                    Ok(_) => {
-                        runtime.stack.push((size as i32).into());
+                    if func_type.params != expect_func_type.params
+                        || func_type.results != expect_func_type.results
+                    {
+                        trace!(
+                            "expect func signature: {:?}, actual func signature: {:?}",
+                            expect_func_type,
+                            func_type
+                        );
+                        bail!("indirect call type mismatch")
                     }
-                    Err(e) => {
-                        error!("memory grow error: {}", e);
-                        runtime.stack.push((-1).into());
+
+                    let result = match func {
+                        FuncInst::Internal(func) => self.invoke_internal(func),
+                        FuncInst::External(func) => self.invoke_external(func),
+                    };
+                    if let Some(value) = result? {
+                        self.stack.push(value);
                     }
                 }
-            }
-            Instruction::MemorySize => {
-                let memory = runtime.resolve_memory()?;
-                let size = memory.borrow().size() as i32;
-                runtime.stack.push(size.into());
-            }
-            Instruction::I32Load(arg) => load!(runtime, i32, arg),
-            Instruction::I64Load(arg) => load!(runtime, i64, arg),
-            Instruction::F32Load(arg) => load!(runtime, f32, arg),
-            Instruction::F64Load(arg) => load!(runtime, f64, arg),
-            Instruction::I32Load8S(arg) => load!(runtime, i8, arg, i32),
-            Instruction::I32Load8U(arg) => load!(runtime, u8, arg, i32),
-            Instruction::I32Load16S(arg) => load!(runtime, i16, arg, i32),
-            Instruction::I32Load16U(arg) => load!(runtime, u16, arg, i32),
-            Instruction::I64Load8S(arg) => load!(runtime, i8, arg, i64),
-            Instruction::I64Load8U(arg) => load!(runtime, u8, arg, i64),
-            Instruction::I64Load16S(arg) => load!(runtime, i16, arg, i64),
-            Instruction::I64Load16U(arg) => load!(runtime, u16, arg, i64),
-            Instruction::I64Load32S(arg) => load!(runtime, i32, arg, i64),
-            Instruction::I64Load32U(arg) => load!(runtime, u32, arg, i64),
-            Instruction::I32Store(arg) => store!(runtime, i32, arg),
-            Instruction::I64Store(arg) => store!(runtime, i64, arg),
-            Instruction::F32Store(arg) => store!(runtime, f32, arg),
-            Instruction::F64Store(arg) => store!(runtime, f64, arg),
-            Instruction::I32Store8(arg) => store!(runtime, i32, arg, i8),
-            Instruction::I32Store16(arg) => store!(runtime, i32, arg, i16),
-            Instruction::I64Store16(arg) => store!(runtime, i64, arg, i16),
-            Instruction::I64Store8(arg) => store!(runtime, i64, arg, i8),
-            Instruction::I64Store32(arg) => store!(runtime, i64, arg, i32),
-            Instruction::Select => {
-                let cond = runtime.stack.pop1::<i32>()?;
-                let val2 = runtime.stack.pop1::<Value>()?;
-                let val1 = runtime.stack.pop1::<Value>()?;
-                runtime.stack.push(if cond != 0 { val1 } else { val2 });
-            }
-            Instruction::I32TruncF32S => i32_trunc_f32_s(runtime)?,
-            Instruction::I32TruncF32U => i32_trunc_f32_u(runtime)?,
-            Instruction::I32TruncF64S => i32_trunc_f64_s(runtime)?,
-            Instruction::I32TruncF64U => i32_trunc_f64_u(runtime)?,
-            Instruction::I64ExtendI32S => i64_extend_i32_s(runtime)?,
-            Instruction::I64ExtendI32U => i64_extend_i32_u(runtime)?,
-            Instruction::I64TruncF32S => i64_trunc_f32_s(runtime)?,
-            Instruction::I64TruncF32U => i64_trunc_f32_u(runtime)?,
-            Instruction::I64TruncF64S => i64_trunc_f64_s(runtime)?,
-            Instruction::I64TruncF64U => i64_trunc_f64_u(runtime)?,
-            Instruction::F32ConvertI32S => f32_convert_i32_s(runtime)?,
-            Instruction::F32ConvertI32U => f32_convert_i32_u(runtime)?,
-            Instruction::F32ConvertI64S => f32_convert_i64_s(runtime)?,
-            Instruction::F32ConvertI64U => f32_convert_i64_u(runtime)?,
-            Instruction::F32DemoteF64 => f32_demote_f64(runtime)?,
-            Instruction::F64ConvertI32S => f64_convert_i32_s(runtime)?,
-            Instruction::F64ConvertI32U => f64_convert_i32_u(runtime)?,
-            Instruction::F64ConvertI64S => f64_convert_i64_s(runtime)?,
-            Instruction::F64ConvertI64U => f64_convert_i64_u(runtime)?,
-            Instruction::F64PromoteF32 => f64_demote_f32(runtime)?,
-            Instruction::I32ReinterpretF32 => i32_reinterpret_f32(runtime)?,
-            Instruction::I64ReinterpretF64 => i64_reinterpret_f64(runtime)?,
-            Instruction::F32ReinterpretI32 => f32_reinterpret_i32(runtime)?,
-            Instruction::F64ReinterpretI64 => f64_reinterpret_i64(runtime)?,
-        };
+                // NOTE: only support 1 memory now
+                Instruction::MemoryGrow(_) => {
+                    let n = self.stack.pop1::<i32>()?;
+                    let memory = self.resolve_memory()?;
+                    let mut memory = memory.borrow_mut();
+                    let size = memory.size();
+                    match memory.grow(n as u32) {
+                        Ok(_) => {
+                            self.stack.push((size as i32).into());
+                        }
+                        Err(e) => {
+                            error!("memory grow error: {}", e);
+                            self.stack.push((-1).into());
+                        }
+                    }
+                }
+                Instruction::MemorySize => {
+                    let memory = self.resolve_memory()?;
+                    let size = memory.borrow().size() as i32;
+                    self.stack.push(size.into());
+                }
+                Instruction::I32Load(arg) => load!(self, i32, arg),
+                Instruction::I64Load(arg) => load!(self, i64, arg),
+                Instruction::F32Load(arg) => load!(self, f32, arg),
+                Instruction::F64Load(arg) => load!(self, f64, arg),
+                Instruction::I32Load8S(arg) => load!(self, i8, arg, i32),
+                Instruction::I32Load8U(arg) => load!(self, u8, arg, i32),
+                Instruction::I32Load16S(arg) => load!(self, i16, arg, i32),
+                Instruction::I32Load16U(arg) => load!(self, u16, arg, i32),
+                Instruction::I64Load8S(arg) => load!(self, i8, arg, i64),
+                Instruction::I64Load8U(arg) => load!(self, u8, arg, i64),
+                Instruction::I64Load16S(arg) => load!(self, i16, arg, i64),
+                Instruction::I64Load16U(arg) => load!(self, u16, arg, i64),
+                Instruction::I64Load32S(arg) => load!(self, i32, arg, i64),
+                Instruction::I64Load32U(arg) => load!(self, u32, arg, i64),
+                Instruction::I32Store(arg) => store!(self, i32, arg),
+                Instruction::I64Store(arg) => store!(self, i64, arg),
+                Instruction::F32Store(arg) => store!(self, f32, arg),
+                Instruction::F64Store(arg) => store!(self, f64, arg),
+                Instruction::I32Store8(arg) => store!(self, i32, arg, i8),
+                Instruction::I32Store16(arg) => store!(self, i32, arg, i16),
+                Instruction::I64Store16(arg) => store!(self, i64, arg, i16),
+                Instruction::I64Store8(arg) => store!(self, i64, arg, i8),
+                Instruction::I64Store32(arg) => store!(self, i64, arg, i32),
+                Instruction::Select => {
+                    let cond = self.stack.pop1::<i32>()?;
+                    let val2 = self.stack.pop1::<Value>()?;
+                    let val1 = self.stack.pop1::<Value>()?;
+                    self.stack.push(if cond != 0 { val1 } else { val2 });
+                }
+                Instruction::I32TruncF32S => i32_trunc_f32_s(self)?,
+                Instruction::I32TruncF32U => i32_trunc_f32_u(self)?,
+                Instruction::I32TruncF64S => i32_trunc_f64_s(self)?,
+                Instruction::I32TruncF64U => i32_trunc_f64_u(self)?,
+                Instruction::I64ExtendI32S => i64_extend_i32_s(self)?,
+                Instruction::I64ExtendI32U => i64_extend_i32_u(self)?,
+                Instruction::I64TruncF32S => i64_trunc_f32_s(self)?,
+                Instruction::I64TruncF32U => i64_trunc_f32_u(self)?,
+                Instruction::I64TruncF64S => i64_trunc_f64_s(self)?,
+                Instruction::I64TruncF64U => i64_trunc_f64_u(self)?,
+                Instruction::F32ConvertI32S => f32_convert_i32_s(self)?,
+                Instruction::F32ConvertI32U => f32_convert_i32_u(self)?,
+                Instruction::F32ConvertI64S => f32_convert_i64_s(self)?,
+                Instruction::F32ConvertI64U => f32_convert_i64_u(self)?,
+                Instruction::F32DemoteF64 => f32_demote_f64(self)?,
+                Instruction::F64ConvertI32S => f64_convert_i32_s(self)?,
+                Instruction::F64ConvertI32U => f64_convert_i32_u(self)?,
+                Instruction::F64ConvertI64S => f64_convert_i64_s(self)?,
+                Instruction::F64ConvertI64U => f64_convert_i64_u(self)?,
+                Instruction::F64PromoteF32 => f64_demote_f32(self)?,
+                Instruction::I32ReinterpretF32 => i32_reinterpret_f32(self)?,
+                Instruction::I64ReinterpretF64 => i64_reinterpret_f64(self)?,
+                Instruction::F32ReinterpretI32 => f32_reinterpret_i32(self)?,
+                Instruction::F64ReinterpretI64 => f64_reinterpret_i64(self)?,
+            };
+        }
+        Ok(State::Continue)
     }
-    Ok(State::Continue)
 }
 
 #[cfg(test)]
