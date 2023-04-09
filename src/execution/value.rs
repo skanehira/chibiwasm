@@ -8,6 +8,7 @@ use crate::binary::types::ExportDesc;
 use crate::binary::types::FuncType;
 use anyhow::{bail, Context as _, Result};
 use log::trace;
+use num_traits::NumCast;
 use std::fmt::Display;
 use std::i64;
 use std::mem::size_of;
@@ -280,6 +281,22 @@ macro_rules! funop {
     };
 }
 
+macro_rules! validate {
+    ($num: expr) => {
+        if $num.is_nan() {
+            bail!("invalid conversion to integer")
+        }
+        if $num.is_infinite() {
+            bail!("integer overflow")
+        }
+    };
+    ($num: expr, $ty: ty) => {
+        validate!($num);
+        let x: Option<$ty> = NumCast::from($num);
+        x.with_context(|| "integer overflow")?;
+    };
+}
+
 impl Value {
     binop!(add, sub, mul);
 
@@ -299,28 +316,42 @@ impl Value {
 
     pub fn i32_trunc_f32_s(&self) -> Result<Self> {
         match self {
-            Value::F32(f) => Ok(Value::I32(*f as i32)),
+            Value::F32(f) => {
+                validate!(*f, i32);
+                Ok(Value::I32((*f).trunc() as i32))
+            }
             _ => panic!("unexpected value. {self}"),
         }
     }
 
     pub fn i32_trunc_f32_u(&self) -> Result<Self> {
         match self {
-            Value::F32(f) => Ok(Value::I32(*f as u32 as i32)),
+            Value::F32(f) => {
+                validate!(*f, u32);
+                let x = (*f).trunc() as u32 as i32;
+
+                Ok(Value::I32(x))
+            }
             _ => panic!("unexpected value. {self}"),
         }
     }
 
     pub fn i32_trunc_f64_s(&self) -> Result<Self> {
         match self {
-            Value::F64(f) => Ok(Value::I32(*f as i32)),
+            Value::F64(f) => {
+                validate!(*f, i32);
+                Ok(Value::I32(*f as i32))
+            }
             _ => panic!("unexpected value. {self}"),
         }
     }
 
     pub fn i32_trunc_f64_u(&self) -> Result<Self> {
         match self {
-            Value::F64(f) => Ok(Value::I32(*f as u64 as i32)),
+            Value::F64(f) => {
+                validate!(*f, u32);
+                Ok(Value::I32(*f as u32 as i32))
+            }
             _ => panic!("unexpected value. {self}"),
         }
     }
@@ -334,28 +365,40 @@ impl Value {
 
     pub fn i64_trunc_f32_s(&self) -> Result<Self> {
         match self {
-            Value::F32(f) => Ok(Value::I64(*f as i64)),
+            Value::F32(f) => {
+                validate!(*f, i64);
+                Ok(Value::I64(*f as i64))
+            }
             _ => panic!("unexpected value. {self}"),
         }
     }
 
     pub fn i64_trunc_f32_u(&self) -> Result<Self> {
         match self {
-            Value::F32(f) => Ok(Value::I64(*f as u64 as i64)),
+            Value::F32(f) => {
+                validate!(*f, u64);
+                Ok(Value::I64(*f as u64 as i64))
+            }
             _ => panic!("unexpected value. {self}"),
         }
     }
 
     pub fn i64_trunc_f64_s(&self) -> Result<Self> {
         match self {
-            Value::F64(f) => Ok(Value::I64(*f as i64)),
+            Value::F64(f) => {
+                validate!(*f, i64);
+                Ok(Value::I64(*f as i64))
+            },
             _ => panic!("unexpected value. {self}"),
         }
     }
 
     pub fn i64_trunc_f64_u(&self) -> Result<Self> {
         match self {
-            Value::F64(f) => Ok(Value::I64(*f as u64 as i64)),
+            Value::F64(f) => {
+                validate!(*f, u64);
+                Ok(Value::I64(*f as u64 as i64))
+            },
             _ => panic!("unexpected value. {self}"),
         }
     }

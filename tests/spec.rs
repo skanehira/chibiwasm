@@ -357,9 +357,9 @@ mod tests {
     test!(data);
     test!(float_literals);
     test!(endianness);
+    test!(conversions);
 
     //test!(linking);
-    //test!(conversions);
     //test!(traps);
 
     // Skip this tests because they are not implemented
