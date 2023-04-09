@@ -1,6 +1,6 @@
 use super::{
     runtime::Runtime,
-    value::{StackAccess as _, Value},
+    value::{StackAccess as _, State, Value},
 };
 use crate::{impl_binary_operation, impl_cvtop_operation, impl_unary_operation};
 use anyhow::{bail, Context as _, Result};
@@ -48,9 +48,7 @@ pub fn global_set(runtime: &mut Runtime, idx: usize) -> Result<()> {
         .stack
         .pop()
         .with_context(|| "not found value in the stack")?;
-    let store = runtime
-        .store
-        .borrow();
+    let store = runtime.store.borrow();
     let mut global = store
         .globals
         .get(idx)
@@ -61,9 +59,7 @@ pub fn global_set(runtime: &mut Runtime, idx: usize) -> Result<()> {
 }
 
 pub fn global_get(runtime: &mut Runtime, idx: usize) -> Result<()> {
-    let store = runtime
-        .store
-        .borrow();
+    let store = runtime.store.borrow();
     let global = store
         .globals
         .get(idx)
@@ -106,6 +102,20 @@ pub fn i64extend_32s(runtime: &mut Runtime) -> Result<()> {
         _ => bail!("unexpected value type"),
     }
     Ok(())
+}
+
+pub fn br_table(runtime: &mut Runtime, label_idxs: &Vec<u32>, default_idx: &u32) -> Result<State> {
+    let value: i32 = runtime.stack.pop1::<Value>()?.into();
+    let idx = value as usize;
+
+    let state = if idx < label_idxs.len() {
+        let idx = label_idxs[idx];
+        State::Break(idx as usize)
+    } else {
+        State::Break((*default_idx) as usize)
+    };
+
+    Ok(state)
 }
 
 impl_unary_operation!(

@@ -350,12 +350,8 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
             Instruction::Drop => {
                 runtime.stack.pop();
             }
-            Instruction::Return => {
-                return Ok(State::Return);
-            }
-            Instruction::Br(level) => {
-                return Ok(State::Break(*level as usize));
-            }
+            Instruction::Return => return Ok(State::Return),
+            Instruction::Br(level) => return Ok(State::Break(*level as usize)),
             Instruction::BrIf(level) => {
                 let value: Value = runtime.stack.pop1()?;
                 if value.is_true() {
@@ -363,17 +359,7 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                 }
             }
             Instruction::BrTable(label_idxs, default_idx) => {
-                let value: i32 = runtime.stack.pop1::<Value>()?.into();
-                let idx = value as usize;
-
-                let state = if idx < label_idxs.len() {
-                    let idx = label_idxs[idx];
-                    State::Break(idx as usize)
-                } else {
-                    State::Break((*default_idx) as usize)
-                };
-
-                return Ok(state);
+                return br_table(runtime, label_idxs, default_idx)
             }
             Instruction::Loop(block) => {
                 // 1. push a label to the stack
