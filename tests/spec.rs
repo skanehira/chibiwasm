@@ -359,8 +359,7 @@ mod tests {
     test!(endianness);
     test!(conversions);
     test!(traps);
-
-    //test!(linking);
+    test!(linking);
 
     // Skip invalid tests
     //test!(token);

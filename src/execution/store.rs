@@ -26,7 +26,7 @@ pub enum Exports {
 }
 
 #[derive(Default, Debug, Clone)]
-pub struct Imports(HashMap<String, Rc<RefCell<Store>>>);
+pub struct Imports(pub HashMap<String, Rc<RefCell<Store>>>);
 
 impl Imports {
     pub fn add(&mut self, name: &str, module: Rc<RefCell<Store>>) {
@@ -118,7 +118,7 @@ impl Imports {
                     .get(*idx as usize)
                     .with_context(|| format!("not found function by {name}"))?;
 
-                Ok(Rc::clone(func))
+                Ok(func.clone())
             }
             None => {
                 bail!(
@@ -215,24 +215,39 @@ impl Store {
             })?;
 
             for import in section {
-                let module = import.module.as_str();
+                let module_name = import.module.as_str();
                 let field = import.field.as_str();
 
                 match import.kind {
-                    crate::binary::types::ImportKind::Func(_) => {
-                        let func = imports.resolve_func(module, field)?;
+                    crate::binary::types::ImportKind::Func(type_idx) => {
+                        let func_type = module
+                            .type_section
+                            .as_ref()
+                            .expect("not found type section for import function")
+                            .get(type_idx as usize)
+                            .expect("not found type from section");
+
+                        let func_type = FuncType {
+                            params: func_type.params.clone(),
+                            results: func_type.results.clone(),
+                        };
+                        let func = FuncInst::External(ExternalFuncInst {
+                            module: module_name.to_string(),
+                            field: field.to_string(),
+                            func_type,
+                        });
                         funcs.push(func);
                     }
                     crate::binary::types::ImportKind::Table(_) => {
-                        let table = imports.resolve_table(module, field)?;
+                        let table = imports.resolve_table(module_name, field)?;
                         tables.push(table);
                     }
                     crate::binary::types::ImportKind::Global(_) => {
-                        let global = imports.resolve_global(module, field)?;
+                        let global = imports.resolve_global(module_name, field)?;
                         globals.push(global);
                     }
                     crate::binary::types::ImportKind::Memory(_) => {
-                        let memory = imports.resolve_memory(module, field)?;
+                        let memory = imports.resolve_memory(module_name, field)?;
                         memories.push(memory);
                     }
                 }
@@ -287,7 +302,7 @@ impl Store {
                         body: func_body.code.clone(),
                     },
                 };
-                funcs.push(Rc::new(func));
+                funcs.push(FuncInst::Internal(func));
             }
         }
 
@@ -316,24 +331,23 @@ impl Store {
             }
         };
 
-        let update_funcs_in_table =
-            |entries: &mut Vec<Option<Rc<InternalFuncInst>>>| -> Result<()> {
-                if let Some(ref elems) = module.element_section {
-                    for elem in elems {
-                        let offset = eval(&globals, elem.offset.clone())?;
-                        if entries.len() <= offset {
-                            entries.resize(entries.len() + offset + elem.init.len(), None);
-                        }
-                        for (i, func_idx) in elem.init.iter().enumerate() {
-                            let func = funcs
-                                .get(*func_idx as usize)
-                                .with_context(|| format!("not found function by {func_idx}"))?;
-                            entries[offset + i] = Some(Rc::clone(func));
-                        }
+        let update_funcs_in_table = |entries: &mut Vec<Option<FuncInst>>| -> Result<()> {
+            if let Some(ref elems) = module.element_section {
+                for elem in elems {
+                    let offset = eval(&globals, elem.offset.clone())?;
+                    if entries.len() <= offset {
+                        entries.resize(entries.len() + offset + elem.init.len(), None);
                     }
-                };
-                Ok(())
+                    for (i, func_idx) in elem.init.iter().enumerate() {
+                        let func = funcs
+                            .get(*func_idx as usize)
+                            .with_context(|| format!("not found function by {func_idx}"))?;
+                        entries[offset + i] = Some(func.clone());
+                    }
+                }
             };
+            Ok(())
+        };
 
         // table
         if let Some(ref table_section) = module.table_section {

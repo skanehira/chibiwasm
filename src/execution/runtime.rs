@@ -1,4 +1,4 @@
-use super::module::{FuncInst, InternalFuncInst, MemoryInst};
+use super::module::{ExternalFuncInst, FuncInst, InternalFuncInst, MemoryInst};
 use super::op::*;
 use super::store::{Exports, Imports, Store};
 use super::value::{ExternalVal, Frame, Label, StackAccess as _, State, Value};
@@ -43,7 +43,7 @@ impl Runtime {
 
         // https://www.w3.org/TR/wasm-core-1/#start-function%E2%91%A1
         if let Some(idx) = runtime.store.start {
-            let result = runtime.call_by_index(idx as usize, vec![])?;
+            let result = runtime.call_start(idx as usize, vec![])?;
             if let Some(out) = result {
                 runtime.stack.push(out);
             }
@@ -111,14 +111,28 @@ impl Runtime {
 
     pub fn call(&mut self, name: String, args: Vec<Value>) -> Result<Option<Value>> {
         trace!("call function: {}", name);
-        let (idx, func) = self.resolve_by_name(name)?;
-        if func.func_type.params.len() != args.len() {
-            bail!("invalid argument length");
-        }
+        //let (idx, func) = self.resolve_by_name(name)?;
+        //if func.func_type.params.len() != args.len() {
+        //    bail!("invalid argument length");
+        //}
 
         for arg in args {
             self.stack.push(arg);
         }
+
+        let export_inst = self
+            .store
+            .module
+            .exports
+            .get(&name)
+            .context(format!("not found exported function by name: {name}"))?;
+        let external_val = &export_inst.desc;
+
+        let ExternalVal::Func(idx) = external_val else {
+            bail!("invalid export desc: {:?}", external_val);
+        };
+
+        let idx = *idx as usize;
 
         let result = match self.invoke_by_idx(idx) {
             Ok(value) => Ok(value),
@@ -131,15 +145,10 @@ impl Runtime {
         result
     }
 
-    pub fn call_by_index(&mut self, idx: usize, args: Vec<Value>) -> Result<Option<Value>> {
-        let func = self.resolve_by_idx(idx)?;
-        if func.func_type.params.len() != args.len() {
-            bail!("invalid argument length");
-        }
+    pub fn call_start(&mut self, idx: usize, args: Vec<Value>) -> Result<Option<Value>> {
         for arg in args {
             self.stack.push(arg);
         }
-
         let result = match self.invoke_by_idx(idx) {
             Ok(value) => Ok(value),
             Err(e) => {
@@ -183,14 +192,14 @@ impl Runtime {
             }
             ExternalVal::Func(idx) => {
                 let func = self.store.funcs.get(idx as usize).expect("not found func");
-                Exports::Func(Rc::clone(func))
+                Exports::Func(func.clone())
             }
         };
 
         Ok(exports)
     }
 
-    fn invoke(&mut self, func: FuncInst) -> Result<Option<Value>> {
+    fn invoke_internal(&mut self, func: InternalFuncInst) -> Result<Option<Value>> {
         let bottom = self.stack.len() - func.func_type.params.len();
         let mut locals: Vec<_> = self
             .stack
@@ -238,40 +247,39 @@ impl Runtime {
         Ok(result)
     }
 
+    fn invoke_external(&mut self, func: ExternalFuncInst) -> Result<Option<Value>> {
+        let mut args = Vec::with_capacity(func.func_type.params.len());
+        for _ in 0..func.func_type.params.len() {
+            args.push(self.stack.pop1()?);
+        }
+        let binding = self.store.imports.as_ref().expect("not found import store");
+        let store = binding
+            .0
+            .get(&func.module)
+            .expect("not found import module");
+
+        let mut runtime = Runtime::instantiate((*store).borrow().clone())?;
+        let result = runtime.call(func.field.clone(), args);
+        trace!("execut exteranal function, result is {:?}", &result);
+        result
+    }
+
     // https://www.w3.org/TR/wasm-core-1/#exec-invoke
     fn invoke_by_idx(&mut self, idx: usize) -> Result<Option<Value>> {
         let func = self.resolve_by_idx(idx)?;
-        self.invoke(func)
+        match func {
+            FuncInst::Internal(func) => self.invoke_internal(func),
+            FuncInst::External(func) => self.invoke_external(func),
+        }
     }
 
-    fn resolve_by_idx(&mut self, idx: usize) -> Result<Rc<InternalFuncInst>> {
+    fn resolve_by_idx(&mut self, idx: usize) -> Result<FuncInst> {
         let func = self
             .store
             .funcs
             .get(idx)
             .context(format!("not found function by index: {idx}"))?;
-        Ok(Rc::clone(func))
-    }
-
-    fn resolve_by_name(&mut self, name: String) -> Result<(usize, Rc<InternalFuncInst>)> {
-        let export_inst = self
-            .store
-            .module
-            .exports
-            .get(&name)
-            .context(format!("not found exported function by name: {name}"))?;
-        let external_val = &export_inst.desc;
-
-        let ExternalVal::Func(idx) = external_val else {
-            bail!("invalid export desc: {:?}", external_val);
-        };
-        let idx = *idx as usize;
-        let function = self
-            .store
-            .funcs
-            .get(idx)
-            .with_context(|| format!("not found function by {name}"))?;
-        Ok((idx, Rc::clone(function)))
+        Ok(func.clone())
     }
 }
 
@@ -518,7 +526,7 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                         })?
                         .as_ref()
                         .with_context(|| format!("uninitialized element {}", elem_idx))?;
-                    (**func).clone()
+                    (*func).clone()
                 };
 
                 // validate expect func signature and actual func signature
@@ -535,18 +543,33 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                     })?
                     .clone();
 
-                if func.func_type.params != expect_func_type.params
-                    || func.func_type.results != expect_func_type.results
+                let func_type = match func {
+                    FuncInst::Internal(ref func) => {
+                        let func_type = func.func_type.clone();
+                        func_type
+                    }
+                    FuncInst::External(ref func) => {
+                        let func_type = func.func_type.clone();
+                        func_type
+                    }
+                };
+
+                if func_type.params != expect_func_type.params
+                    || func_type.results != expect_func_type.results
                 {
                     trace!(
                         "expect func signature: {:?}, actual func signature: {:?}",
                         expect_func_type,
-                        func.func_type
+                        func_type
                     );
                     bail!("indirect call type mismatch")
                 }
 
-                if let Some(value) = runtime.invoke(Rc::new(func))? {
+                let result = match func {
+                    FuncInst::Internal(func) => runtime.invoke_internal(func),
+                    FuncInst::External(func) => runtime.invoke_external(func),
+                };
+                if let Some(value) = result? {
                     runtime.stack.push(value);
                 }
             }

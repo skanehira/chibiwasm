@@ -30,8 +30,19 @@ pub struct InternalFuncInst {
     pub func_type: FuncType,
     pub code: Func,
 }
-pub type FuncInst = Rc<InternalFuncInst>;
 
+#[derive(Debug, Clone)]
+pub struct ExternalFuncInst {
+    pub module: String,
+    pub field: String, // function name
+    pub func_type: FuncType,
+}
+
+#[derive(Debug, Clone)]
+pub enum FuncInst {
+    Internal(InternalFuncInst),
+    External(ExternalFuncInst),
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct InternalTableInst {
