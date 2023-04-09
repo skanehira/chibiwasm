@@ -7,12 +7,13 @@ use crate::binary::types::ValueType;
 use crate::{load, store};
 use anyhow::{bail, Context as _, Result};
 use log::{error, trace};
+use std::cell::RefCell;
 use std::io::Read;
 use std::rc::Rc;
 
 #[derive(Debug, Default)]
 pub struct Runtime {
-    pub store: Store,
+    pub store: Rc<RefCell<Store>>,
     pub stack: Vec<Value>,
     pub call_stack: Vec<Frame>,
     pub start: Option<usize>,
@@ -21,28 +22,29 @@ pub struct Runtime {
 impl Runtime {
     pub fn from_file(file: &str, imports: Option<Imports>) -> Result<Self> {
         let store = Store::from_file(file, imports)?;
-        Self::instantiate(store)
+        Self::instantiate(Rc::new(RefCell::new(store)))
     }
 
     pub fn from_reader(reader: &mut impl Read, imports: Option<Imports>) -> Result<Self> {
         let store = Store::from_reader(reader, imports)?;
-        Self::instantiate(store)
+        Self::instantiate(Rc::new(RefCell::new(store)))
     }
 
     pub fn from_bytes<T: AsRef<[u8]>>(b: T, imports: Option<Imports>) -> Result<Self> {
         let store = Store::from_bytes(b, imports)?;
-        Self::instantiate(store)
+        Self::instantiate(Rc::new(RefCell::new(store)))
     }
 
     // https://www.w3.org/TR/wasm-core-1/#instantiation%E2%91%A1
-    pub fn instantiate(store: Store) -> Result<Self> {
+    pub fn instantiate(store: Rc<RefCell<Store>>) -> Result<Self> {
+        let start = store.borrow().start;
         let mut runtime = Self {
             store,
             ..Default::default()
         };
 
         // https://www.w3.org/TR/wasm-core-1/#start-function%E2%91%A1
-        if let Some(idx) = runtime.store.start {
+        if let Some(idx) = start {
             let result = runtime.call_start(idx as usize, vec![])?;
             if let Some(out) = result {
                 runtime.stack.push(out);
@@ -100,39 +102,33 @@ impl Runtime {
             .with_context(|| format!("no frame in the call stack, call stack: {:?}", self.stack))
     }
 
-    fn resolve_memory(&mut self) -> Result<MemoryInst> {
-        let memory = self
-            .store
-            .memory
-            .get(0)
-            .with_context(|| "not found memory")?;
+    fn resolve_memory(&self) -> Result<MemoryInst> {
+        let store = self.store.borrow();
+        let memory = store.memory.get(0).with_context(|| "not found memory")?;
         Ok(Rc::clone(memory))
     }
 
     pub fn call(&mut self, name: String, args: Vec<Value>) -> Result<Option<Value>> {
         trace!("call function: {}", name);
-        //let (idx, func) = self.resolve_by_name(name)?;
-        //if func.func_type.params.len() != args.len() {
-        //    bail!("invalid argument length");
-        //}
-
         for arg in args {
             self.stack.push(arg);
         }
 
-        let export_inst = self
-            .store
-            .module
-            .exports
-            .get(&name)
-            .context(format!("not found exported function by name: {name}"))?;
-        let external_val = &export_inst.desc;
+        let idx = {
+            let store = self.store.borrow();
+            let export_inst = store
+                .module
+                .exports
+                .get(&name)
+                .context(format!("not found exported function by name: {name}"))?;
+            let external_val = &export_inst.desc;
 
-        let ExternalVal::Func(idx) = external_val else {
+            let ExternalVal::Func(idx) = external_val else {
             bail!("invalid export desc: {:?}", external_val);
         };
 
-        let idx = *idx as usize;
+            *idx as usize
+        };
 
         let result = match self.invoke_by_idx(idx) {
             Ok(value) => Ok(value),
@@ -162,8 +158,8 @@ impl Runtime {
 
     // get exported instances by name, like table, memory, global
     pub fn exports(&mut self, name: String) -> Result<Exports> {
-        let export_inst = self
-            .store
+        let store = self.store.borrow();
+        let export_inst = store
             .module
             .exports
             .get(&name)
@@ -171,27 +167,19 @@ impl Runtime {
 
         let exports = match export_inst.desc {
             ExternalVal::Table(idx) => {
-                let table = self
-                    .store
-                    .tables
-                    .get(idx as usize)
-                    .expect("not found table");
+                let table = store.tables.get(idx as usize).expect("not found table");
                 Exports::Table(Rc::clone(table))
             }
             ExternalVal::Memory(_) => {
                 let memory = self.resolve_memory()?;
-                Exports::Memory(Rc::clone(&memory))
+                Exports::Memory(memory)
             }
             ExternalVal::Global(idx) => {
-                let global = self
-                    .store
-                    .globals
-                    .get(idx as usize)
-                    .expect("not found global");
+                let global = store.globals.get(idx as usize).expect("not found global");
                 Exports::Global(Rc::clone(global))
             }
             ExternalVal::Func(idx) => {
-                let func = self.store.funcs.get(idx as usize).expect("not found func");
+                let func = store.funcs.get(idx as usize).expect("not found func");
                 Exports::Func(func.clone())
             }
         };
@@ -252,13 +240,16 @@ impl Runtime {
         for _ in 0..func.func_type.params.len() {
             args.push(self.stack.pop1()?);
         }
-        let binding = self.store.imports.as_ref().expect("not found import store");
-        let store = binding
+        let store = self.store.borrow();
+        let store = store
+            .imports
+            .as_ref()
+            .expect("not found import store")
             .0
             .get(&func.module)
             .expect("not found import module");
 
-        let mut runtime = Runtime::instantiate((*store).borrow().clone())?;
+        let mut runtime = Runtime::instantiate(Rc::clone(store))?;
         let result = runtime.call(func.field.clone(), args);
         trace!("execut exteranal function, result is {:?}", &result);
         result
@@ -274,8 +265,8 @@ impl Runtime {
     }
 
     fn resolve_by_idx(&mut self, idx: usize) -> Result<FuncInst> {
-        let func = self
-            .store
+        let store = self.store.borrow();
+        let func = store
             .funcs
             .get(idx)
             .context(format!("not found function by index: {idx}"))?;
@@ -502,14 +493,15 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                 let elem_idx = runtime.stack.pop1::<i32>()? as usize;
 
                 let func = {
-                    let table = runtime
-                        .store
+                    let tables = runtime.store.borrow();
+                    let table = tables
                         .tables
                         .get(*table_idx as usize) // NOTE: table_idx is always 0 now
                         .with_context(|| {
                             format!(
                                 "not found table with index {}, tables: {:?}",
-                                table_idx, &runtime.store.tables
+                                table_idx,
+                                &runtime.store.borrow().tables
                             )
                         })?;
                     let table = table.borrow();
@@ -532,26 +524,22 @@ fn execute(runtime: &mut Runtime, insts: &Vec<Instruction>) -> Result<State> {
                 // validate expect func signature and actual func signature
                 let expect_func_type = runtime
                     .store
+                    .borrow()
                     .module
                     .func_types
                     .get(*signature_idx as usize)
                     .with_context(|| {
                         format!(
                             "not found type from module.func_types with index {}, types: {:?}",
-                            signature_idx, &runtime.store.module.func_types
+                            signature_idx,
+                            &runtime.store.borrow().module.func_types
                         )
                     })?
                     .clone();
 
                 let func_type = match func {
-                    FuncInst::Internal(ref func) => {
-                        let func_type = func.func_type.clone();
-                        func_type
-                    }
-                    FuncInst::External(ref func) => {
-                        let func_type = func.func_type.clone();
-                        func_type
-                    }
+                    FuncInst::Internal(ref func) => func.func_type.clone(),
+                    FuncInst::External(ref func) => func.func_type.clone(),
                 };
 
                 if func_type.params != expect_func_type.params

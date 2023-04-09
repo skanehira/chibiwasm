@@ -264,8 +264,8 @@ mod tests {
                 }
                 CommandKind::Register { name, as_name } => {
                     let runtime = spec.modules.get(&name).expect("not found mdoule").clone();
-                    let store = Rc::new(RefCell::new(runtime.borrow().store.clone()));
-                    spec.imports.add(&as_name, store);
+                    let store = &runtime.borrow().store;
+                    spec.imports.add(&as_name, Rc::clone(store));
                 }
                 CommandKind::Module { module, name } => {
                     let mut reader = Cursor::new(module.into_vec());
