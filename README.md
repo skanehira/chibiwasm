@@ -47,7 +47,7 @@ NOTE: Checking only the test cases that have passed both assert_return and asser
 - [x] call_indirect.wast
 - [x] comments.wast
 - [x] const.wast
-- [ ] conversions.wast
+- [x] conversions.wast
 - [x] custom.wast
 - [x] data.wast
 - [x] elem.wast
@@ -77,7 +77,7 @@ NOTE: Checking only the test cases that have passed both assert_return and asser
 - [x] int_literals.wast
 - [x] labels.wast
 - [x] left_to_right.wast
-- [ ] linking.wast
+- [x] linking.wast
 - [x] load.wast
 - [x] local_get.wast
 - [x] local_set.wast
@@ -98,7 +98,7 @@ NOTE: Checking only the test cases that have passed both assert_return and asser
 - [x] store.wast
 - [x] switch.wast
 - [ ] ~~token.wast~~
-- [ ] traps.wast
+- [x] traps.wast
 - [x] type.wast
 - [x] unreachable.wast
 - [ ] ~~unreached_invalid.wast~~
