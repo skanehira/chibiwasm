@@ -358,11 +358,11 @@ mod tests {
     test!(float_literals);
     test!(endianness);
     test!(conversions);
+    test!(traps);
 
     //test!(linking);
-    //test!(traps);
 
-    // Skip this tests because they are not implemented
+    // Skip invalid tests
     //test!(token);
     //test!(unreached_invalid);
     //test!(utf8_custom_section_id);
