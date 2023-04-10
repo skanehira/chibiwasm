@@ -1,4 +1,4 @@
-# chibiwasm (WIP)
+# chibiwasm
 This repository was created for the purpose of learning how Wasm works.
 Please do not use it in production.
 
