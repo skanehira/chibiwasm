@@ -99,10 +99,12 @@ impl Runtime {
             *idx as usize
         };
 
+        // start call function
         let result = match self.invoke_by_idx(idx) {
             Ok(value) => Ok(value),
             Err(e) => {
                 self.stack = vec![]; // when traped, need to cleanup stack
+                self.call_stack = vec![];
                 Err(e)
             }
         };
@@ -118,6 +120,7 @@ impl Runtime {
             Ok(value) => Ok(value),
             Err(e) => {
                 self.stack = vec![]; // when traped, need to cleanup stack
+                self.call_stack = vec![];
                 Err(e)
             }
         };
@@ -352,6 +355,7 @@ impl Runtime {
                         // it label is not exists, this means the end of
                         // function
                         None => {
+                            trace!("frame: {:?}, stack: {:#?}", &frame, &stack);
                             let frame = self
                                 .call_stack
                                 .pop()
