@@ -515,12 +515,11 @@ impl Runtime {
                                 "not found type from module.func_types with index {}, types: {:?}",
                                 signature_idx, store.module.func_types
                             )
-                        })?
-                        .clone();
+                        })?;
 
                     let func_type = match func {
-                        FuncInst::Internal(ref func) => func.func_type.clone(),
-                        FuncInst::External(ref func) => func.func_type.clone(),
+                        FuncInst::Internal(ref func) => &func.func_type,
+                        FuncInst::External(ref func) => &func.func_type,
                     };
 
                     if func_type.params != expect_func_type.params
@@ -577,8 +576,8 @@ impl Runtime {
                 }
                 Instruction::MemorySize => {
                     let memory = store.memory.get(0).expect("not found memory");
-                    let memory = Rc::clone(memory);
-                    let size = memory.borrow().size() as i32;
+                    let memory = memory.borrow();
+                    let size = memory.size() as i32;
                     stack.push(size.into());
                 }
                 Instruction::I32Load(arg) => load!(stack, store, i32, arg),
@@ -666,7 +665,7 @@ mod test {
                 ("as-if-then", vec![0; 0], 1),
                 ("as-if-else", vec![], 1),
                 ("if", vec![1, 0], 0),
-                ("fib", vec![5], 5),
+                ("fib", vec![10], 55),
                 ("as-br-value", vec![], 9),
                 ("as-br-last", vec![], 5),
                 ("as-if-cond", vec![], 2),
