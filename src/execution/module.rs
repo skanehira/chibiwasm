@@ -1,9 +1,9 @@
-use super::address::*;
 use super::indices::TypeIdx;
 use super::value::{ExternalVal, Numberic, Value};
 use crate::binary::instruction::{Instruction, MemoryArg};
 use crate::binary::module::Module;
-use crate::binary::types::ValueType;
+use crate::binary::types::{FuncType, ValueType};
+use crate::execution::error::Error;
 use anyhow::{bail, Result};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -11,12 +11,6 @@ use std::rc::Rc;
 
 // https://www.w3.org/TR/wasm-core-1/#memory-instances%E2%91%A0
 pub const PAGE_SIZE: u32 = 65536; // 64Ki
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct FuncType {
-    pub params: Vec<ValueType>,
-    pub results: Vec<ValueType>,
-}
 
 #[derive(Debug, Clone)]
 pub struct Func {
@@ -58,7 +52,6 @@ pub struct InternalMemoryInst {
 }
 pub type MemoryInst = Rc<RefCell<InternalMemoryInst>>;
 
-// size of MemoryInst
 impl InternalMemoryInst {
     pub fn size(&self) -> usize {
         self.data.len() / PAGE_SIZE as usize
@@ -68,12 +61,12 @@ impl InternalMemoryInst {
     pub fn grow(&mut self, grow_size: u32) -> Result<()> {
         let size = self.size() as u32;
         if size % PAGE_SIZE != 0 {
-            bail!("memory size is not page aligned");
+            bail!(Error::MemorySizeNotPageAligned(PAGE_SIZE));
         }
         let len = size + grow_size;
         if let Some(max) = self.max {
             if max < len {
-                bail!("page overflow");
+                bail!(Error::MemoryPageOverflow(max, len));
             }
         }
         self.data.resize((len * PAGE_SIZE) as usize, 0);
@@ -110,94 +103,26 @@ pub struct ExportInst {
 #[derive(Debug, Default, Clone)]
 pub struct ModuleInst {
     pub func_types: Vec<FuncType>,
-    pub func_addrs: Vec<FuncAddr>,
-    pub table_addrs: Vec<TableAddr>,
-    pub memory_addrs: Vec<MemoryAddr>,
-    pub global_addrs: Vec<GlobalAddr>,
     pub exports: HashMap<String, ExportInst>,
 }
 
 impl ModuleInst {
     // https://www.w3.org/TR/wasm-core-1/#modules%E2%91%A6
     pub fn allocate(module: &Module) -> Self {
-        let func_types = Self::into_func_types(module);
-        let exports = Self::into_exports(module);
-        let func_addrs = Self::into_func_addrs(module);
-        let table_addrs = Self::into_table_addrs(module);
-        let memory_addrs = Self::into_memory_addrs(module);
-        let global_addrs = Self::into_global_addrs(module);
-
-        ModuleInst {
-            func_types,
-            func_addrs,
-            table_addrs,
-            memory_addrs,
-            global_addrs,
-            exports,
-        }
-    }
-
-    fn into_func_types(module: &Module) -> Vec<FuncType> {
-        let mut types = vec![];
-        if let Some(ref func_types) = module.type_section {
-            for ty in func_types {
+        // func types
+        let mut func_types = vec![];
+        if let Some(ref section) = module.type_section {
+            for ty in section {
                 let func_type = FuncType {
                     params: ty.params.clone(),
                     results: ty.results.clone(),
                 };
-                types.push(func_type);
+                func_types.push(func_type);
             }
         };
-        types
-    }
 
-    fn into_func_addrs(module: &Module) -> Vec<FuncAddr> {
-        let mut func_addrs = vec![];
-        if let Some(ref functions) = module.function_section {
-            for addr in 0..functions.len() {
-                func_addrs.push(addr);
-            }
-        }
-
-        func_addrs
-    }
-
-    fn into_table_addrs(module: &Module) -> Vec<TableAddr> {
-        let mut table_addrs = vec![];
-        if let Some(ref tables) = module.table_section {
-            for addr in 0..tables.len() {
-                table_addrs.push(addr);
-            }
-        }
-
-        table_addrs
-    }
-
-    fn into_memory_addrs(module: &Module) -> Vec<MemoryAddr> {
-        let mut memory_addrs = vec![];
-        if let Some(ref memories) = module.memory_section {
-            for addr in 0..memories.len() {
-                memory_addrs.push(addr);
-            }
-        }
-
-        memory_addrs
-    }
-
-    fn into_global_addrs(module: &Module) -> Vec<GlobalAddr> {
-        let mut global_addrs = vec![];
-        if let Some(ref globals) = module.global_section {
-            for addr in 0..globals.len() {
-                global_addrs.push(addr);
-            }
-        }
-
-        global_addrs
-    }
-
-    fn into_exports(module: &Module) -> HashMap<String, ExportInst> {
+        // exports
         let mut exports = HashMap::default();
-
         if let Some(ref sections) = module.export_section {
             for export in sections {
                 let desc = match export.desc {
@@ -214,6 +139,10 @@ impl ModuleInst {
                 exports.insert(name, export_inst);
             }
         };
-        exports
+
+        ModuleInst {
+            func_types,
+            exports,
+        }
     }
 }

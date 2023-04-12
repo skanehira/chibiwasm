@@ -6,6 +6,7 @@ use super::{float::*, integer::*};
 use crate::binary::instruction::*;
 use crate::binary::types::ExportDesc;
 use crate::binary::types::FuncType;
+use crate::execution::error::Error;
 use anyhow::{bail, Context as _, Result};
 use log::trace;
 use num_traits::NumCast;
@@ -93,7 +94,7 @@ impl StackAccess for Vec<Value> {
     }
     fn pop1<T: From<Value>>(&mut self) -> Result<T> {
         trace!("pop value from stack. stack: {:#?}", self);
-        let value: T = self.pop().expect("no value in the stack").into();
+        let value: T = self.pop().with_context(|| Error::StackPopError)?.into();
         Ok(value)
     }
 

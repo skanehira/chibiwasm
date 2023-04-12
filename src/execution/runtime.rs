@@ -4,6 +4,7 @@ use super::store::{Exports, Imports, Store};
 use super::value::{ExternalVal, Frame, Label, StackAccess, Value};
 use crate::binary::instruction::*;
 use crate::binary::types::ValueType;
+use crate::execution::error::Error;
 use crate::execution::value::LabelKind;
 use crate::{load, store};
 use anyhow::{bail, Context as _, Result};
@@ -67,7 +68,7 @@ impl Runtime {
                 .module
                 .exports
                 .get(&name)
-                .context(format!("not found exported function by name: {name}"))?;
+                .with_context(|| Error::NotFoundExportInstance(name))?;
             let external_val = &export_inst.desc;
 
             let ExternalVal::Func(idx) = external_val else {
@@ -94,23 +95,35 @@ impl Runtime {
             .module
             .exports
             .get(&name)
-            .expect("not found export instance");
+            .with_context(|| Error::NotFoundExportInstance(name))?;
 
         let exports = match export_inst.desc {
             ExternalVal::Table(idx) => {
-                let table = store.tables.get(idx as usize).expect("not found table");
+                let table = store
+                    .tables
+                    .get(idx as usize)
+                    .with_context(|| Error::NotFoundExportedTable(idx))?;
                 Exports::Table(Rc::clone(table))
             }
-            ExternalVal::Memory(_) => {
-                let memory = store.memory.get(0).with_context(|| "not found memory")?;
+            ExternalVal::Memory(idx) => {
+                let memory = store
+                    .memory
+                    .get(idx as usize)
+                    .with_context(|| Error::NotFoundExportedMemory(idx))?;
                 Exports::Memory(Rc::clone(memory))
             }
             ExternalVal::Global(idx) => {
-                let global = store.globals.get(idx as usize).expect("not found global");
+                let global = store
+                    .globals
+                    .get(idx as usize)
+                    .with_context(|| Error::NotFoundExportedGlobal(idx))?;
                 Exports::Global(Rc::clone(global))
             }
             ExternalVal::Func(idx) => {
-                let func = store.funcs.get(idx as usize).expect("not found func");
+                let func = store
+                    .funcs
+                    .get(idx as usize)
+                    .with_context(|| Error::NotFoundExportedFunction(idx))?;
                 Exports::Func(func.clone())
             }
         };
@@ -164,7 +177,7 @@ impl Runtime {
             FuncInst::Internal(func) => self.invoke_internal(func),
             FuncInst::External(func) => {
                 let store = self.store.borrow();
-                let imports = store.imports.as_ref().expect("not found any imports");
+                let imports = store.imports.as_ref().with_context(|| Error::NoImports)?;
                 let stack = &mut self.stack;
                 invoke_external(imports, stack, func)
             }
@@ -184,7 +197,7 @@ impl Runtime {
         let func = store
             .funcs
             .get(idx)
-            .context(format!("not found function by index: {idx}"))?;
+            .with_context(|| Error::NotFoundFunction(idx))?;
         Ok(func.clone())
     }
 
@@ -208,7 +221,7 @@ impl Runtime {
                 Instruction::Unreachable => bail!("unreachable"),
                 Instruction::Nop => {}
                 Instruction::LocalGet(idx) => {
-                    local_get(&mut frame.locals, stack, *idx as usize)?;
+                    local_get(&frame.locals, stack, *idx as usize)?;
                 }
                 Instruction::LocalSet(idx) => {
                     local_set(&mut frame.locals, stack, *idx as usize)?;
@@ -282,10 +295,10 @@ impl Runtime {
                     let frame = self
                         .call_stack
                         .pop()
-                        .expect("not found any frame in the call stack when return");
+                        .with_context(|| Error::CallStackPopError("return".into()))?;
                     trace!("frame in the return instruction: {:?}", &frame);
                     let Frame { sp, arity, .. } = frame;
-                    stack_unwind(stack, sp, arity);
+                    stack_unwind(stack, sp, arity)?;
                 }
                 Instruction::End => {
                     match frame.labels.pop() {
@@ -295,7 +308,7 @@ impl Runtime {
                             trace!("end instruction, label: {:?}", &label);
                             let Label { pc, sp, arity, .. } = label;
                             frame.pc = pc as isize;
-                            stack_unwind(stack, sp, arity);
+                            stack_unwind(stack, sp, arity)?;
                         }
                         // it label is not exists, this means the end of
                         // function
@@ -304,10 +317,10 @@ impl Runtime {
                             let frame = self
                                 .call_stack
                                 .pop()
-                                .expect("not found any frame in the call stack");
+                                .with_context(|| Error::CallStackPopError("end".into()))?;
                             trace!("end instruction, frame: {:?}", &frame);
                             let Frame { sp, arity, .. } = frame;
-                            stack_unwind(stack, sp, arity);
+                            stack_unwind(stack, sp, arity)?;
                         }
                     }
                 }
@@ -329,7 +342,9 @@ impl Runtime {
                     let idx = value as usize;
 
                     let level = if idx < label_idxs.len() {
-                        label_idxs.get(idx).expect("invalid br_table index")
+                        label_idxs
+                            .get(idx)
+                            .with_context(|| Error::InvalidBrTableIndex(idx))?
                     } else {
                         default_idx
                     };
@@ -375,10 +390,13 @@ impl Runtime {
                     frame.labels.push(label);
                 }
                 Instruction::Else => {
-                    let label = frame.labels.pop().expect("not found label in else block");
+                    let label = frame
+                        .labels
+                        .pop()
+                        .with_context(|| Error::LabelPopError("else".into()))?;
                     let Label { pc, sp, arity, .. } = label;
                     frame.pc = pc as isize;
-                    stack_unwind(stack, sp, arity);
+                    stack_unwind(stack, sp, arity)?;
                 }
                 Instruction::Block(block) => {
                     let arity = block.block_type.result_count();
@@ -395,13 +413,18 @@ impl Runtime {
                     frame.labels.push(label);
                 }
                 Instruction::Call(idx) => {
-                    let func = store.funcs.get(*idx as usize).expect("not found function");
+                    let idx = *idx as usize;
+                    let func = store
+                        .funcs
+                        .get(idx)
+                        .with_context(|| Error::NotFoundFunction(idx))?;
                     match func {
                         FuncInst::Internal(func) => {
                             push_frame(stack, &mut self.call_stack, func);
                         }
                         FuncInst::External(func) => {
-                            let imports = store.imports.as_ref().expect("not found any imports");
+                            let imports =
+                                store.imports.as_ref().with_context(|| Error::NoImports)?;
                             let result = invoke_external(imports, stack, func.clone())?;
                             if let Some(value) = result {
                                 stack.push(value);
@@ -413,44 +436,31 @@ impl Runtime {
                     let elem_idx = stack.pop1::<i32>()? as usize;
 
                     let func = {
+                        let idx = *table_idx as usize;
                         let tables = &store.tables;
                         let table = tables
-                            .get(*table_idx as usize) // NOTE: table_idx is always 0 now
-                            .with_context(|| {
-                                format!(
-                                    "not found table with index {}, tables: {:?}",
-                                    table_idx, &store.tables
-                                )
-                            })?;
+                            .get(idx) // NOTE: table_idx is always 0 now
+                            .with_context(|| Error::NotFoundTable(idx))?;
+
                         let table = Rc::clone(table);
                         let table = table.borrow();
                         let func = table
                             .funcs
                             .get(elem_idx)
-                            .with_context(|| {
-                                trace!(
-                                    "not found function with index {}, stack: {:?}",
-                                    elem_idx,
-                                    &stack
-                                );
-                                "undefined element"
-                            })?
+                            .with_context(|| Error::UndefinedElement)?
                             .as_ref()
-                            .with_context(|| format!("uninitialized element {}", elem_idx))?;
+                            .with_context(|| Error::UninitializedElement(elem_idx))?;
+
                         (*func).clone()
                     };
 
                     // validate expect func signature and actual func signature
+                    let idx = *signature_idx as usize;
                     let expect_func_type = store
                         .module
                         .func_types
-                        .get(*signature_idx as usize)
-                        .with_context(|| {
-                            format!(
-                                "not found type from module.func_types with index {}, types: {:?}",
-                                signature_idx, store.module.func_types
-                            )
-                        })?;
+                        .get(idx)
+                        .with_context(|| Error::NotFoundFuncType(idx))?;
 
                     let func_type = match func {
                         FuncInst::Internal(ref func) => &func.func_type,
@@ -465,7 +475,7 @@ impl Runtime {
                             expect_func_type,
                             func_type
                         );
-                        bail!("indirect call type mismatch")
+                        bail!(Error::TypeMismatchIndirectCall)
                     }
 
                     match func {
@@ -473,7 +483,8 @@ impl Runtime {
                             push_frame(stack, &mut self.call_stack, func);
                         }
                         FuncInst::External(func) => {
-                            let imports = store.imports.as_ref().expect("not found any imports");
+                            let imports =
+                                store.imports.as_ref().with_context(|| Error::NoImports)?;
                             let result = invoke_external(imports, stack, func);
                             if let Some(value) = result? {
                                 stack.push(value);
@@ -482,8 +493,12 @@ impl Runtime {
                     };
                 }
                 // NOTE: only support 1 memory now
-                Instruction::MemoryGrow(_) => {
-                    let memory = store.memory.get(0).expect("not found memory");
+                Instruction::MemoryGrow(idx) => {
+                    let idx = *idx as usize;
+                    let memory = store
+                        .memory
+                        .get(idx)
+                        .with_context(|| Error::NotFoundMemory(idx))?;
                     let memory = Rc::clone(memory);
                     let n = stack.pop1::<i32>()?;
                     let mut memory = memory.borrow_mut();
@@ -499,7 +514,11 @@ impl Runtime {
                     }
                 }
                 Instruction::MemorySize => {
-                    let memory = store.memory.get(0).expect("not found memory");
+                    let idx = 0;
+                    let memory = store
+                        .memory
+                        .get(idx)
+                        .with_context(|| Error::NotFoundMemory(idx))?;
                     let memory = memory.borrow();
                     let size = memory.size() as i32;
                     stack.push(size.into());

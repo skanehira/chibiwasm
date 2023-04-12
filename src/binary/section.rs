@@ -1,9 +1,9 @@
 #![allow(clippy::needless_range_loop)]
 
-use super::error::Error::*;
+use super::error::Error;
 use super::instruction::{Instruction, MemoryArg, Opcode};
 use super::types::*;
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Context as _, Result};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive as _;
 use std::io::{BufRead, Cursor, Read};
@@ -233,7 +233,7 @@ fn decode_import_section(reader: &mut SectionReader) -> Result<Section> {
                 let global_type = decode_global_type(reader)?;
                 ImportKind::Global(global_type)
             }
-            _ => bail!(InvalidImportKind(import_kind)),
+            _ => bail!(Error::InvalidImportKind(import_kind)),
         };
 
         imports.push(Import {
@@ -273,8 +273,8 @@ fn decode_global_section(reader: &mut SectionReader) -> Result<Section> {
 
 fn decode_expr_value(reader: &mut SectionReader) -> Result<ExprValue> {
     let byte = reader.byte()?;
-    let opcode = Opcode::from_u8(byte).unwrap();
-    let value = match opcode {
+    let op: Opcode = Opcode::from_u8(byte).with_context(|| Error::InvalidOpcode(byte))?;
+    let value = match op {
         Opcode::I32Const => {
             let value = reader.i32()?;
             ExprValue::I32(value)
@@ -291,20 +291,21 @@ fn decode_expr_value(reader: &mut SectionReader) -> Result<ExprValue> {
             let value = reader.f64()?;
             ExprValue::F64(value)
         }
-        _ => bail!(InvalidInitExprOpcode(byte)),
+        _ => bail!(Error::InvalidInitExprOpcode(byte)),
     };
 
-    let end_opcode = Opcode::from_u8(reader.byte()?).unwrap();
-    if end_opcode != Opcode::End {
-        bail!(InvalidInitExprEndOpcode(end_opcode));
+    let byte = reader.byte()?;
+    let op: Opcode = Opcode::from_u8(byte).with_context(|| Error::InvalidOpcode(byte))?;
+    if op != Opcode::End {
+        bail!(Error::InvalidInitExprEndOpcode(byte));
     }
     Ok(value)
 }
 
 fn decode_expr(reader: &mut SectionReader) -> Result<Expr> {
     let byte = reader.byte()?;
-    let opcode = Opcode::from_u8(byte).unwrap();
-    let value = match opcode {
+    let op = Opcode::from_u8(byte).with_context(|| Error::InvalidOpcode(byte))?;
+    let value = match op {
         Opcode::I32Const => {
             let value = reader.i32()?;
             Expr::Value(ExprValue::I32(value))
@@ -325,12 +326,13 @@ fn decode_expr(reader: &mut SectionReader) -> Result<Expr> {
             let value = reader.u32()?;
             Expr::GlobalIndex(value as usize)
         }
-        _ => bail!(InvalidInitExprOpcode(byte)),
+        _ => bail!(Error::InvalidInitExprOpcode(byte)),
     };
 
-    let end_opcode = Opcode::from_u8(reader.byte()?).unwrap();
-    if end_opcode != Opcode::End {
-        bail!(InvalidInitExprEndOpcode(end_opcode));
+    let byte = reader.byte()?;
+    let op = Opcode::from_u8(byte).with_context(|| Error::InvalidOpcode(byte))?;
+    if op != Opcode::End {
+        bail!(Error::InvalidInitExprEndOpcode(byte));
     }
     Ok(value)
 }
@@ -338,7 +340,7 @@ fn decode_expr(reader: &mut SectionReader) -> Result<Expr> {
 fn decode_table(reader: &mut SectionReader) -> Result<Table> {
     let elem_type = reader.byte()?;
     if elem_type != 0x70 {
-        bail!(InvalidElmType(elem_type));
+        bail!(Error::InvalidElmType(elem_type));
     }
     let limits = decode_limits(reader)?;
     let table = Table {
@@ -351,7 +353,7 @@ fn decode_table(reader: &mut SectionReader) -> Result<Table> {
 fn decode_table_secttion(reader: &mut SectionReader) -> Result<Section> {
     let count = reader.u32()?;
     if count != 1 {
-        bail!(InvalidTableCount);
+        bail!(Error::InvalidTableCount);
     }
     let mut tables = vec![];
     for _ in 0..count {
@@ -382,7 +384,7 @@ fn decode_memory_section(reader: &mut SectionReader) -> Result<Section> {
     let count = reader.u32()?;
     let mut mems: Vec<Memory> = vec![];
     if count != 1 {
-        bail!(InvalidMemoryCount);
+        bail!(Error::InvalidMemoryCount);
     }
     for _ in 0..count {
         mems.push(decode_memory(reader)?);
@@ -507,9 +509,8 @@ fn decode_block(reader: &mut SectionReader) -> Result<Block> {
 }
 
 fn decode_instruction(reader: &mut SectionReader) -> Result<Instruction> {
-    let op = reader.byte()?;
-    let op: Opcode =
-        Opcode::from_u8(op).with_context(|| format!("unimplemented opcode: {:x}", op))?;
+    let byte = reader.byte()?;
+    let op: Opcode = Opcode::from_u8(byte).with_context(|| Error::InvalidOpcode(byte))?;
     //trace!("decode opcode: {:?}", op);
     let inst = match op {
         Opcode::Unreachable => Instruction::Unreachable,

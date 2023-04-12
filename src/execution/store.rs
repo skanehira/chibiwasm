@@ -1,12 +1,11 @@
-#![allow(clippy::needless_range_loop)]
-
 use super::{
+    error::Error,
     module::*,
     value::{ExternalVal, Value},
 };
 use crate::binary::{
     module::{Decoder, Module},
-    types::{Expr, ExprValue, Mutability},
+    types::{Expr, ExprValue, FuncType, Mutability},
 };
 use anyhow::{bail, Context, Result};
 use std::{
@@ -210,22 +209,23 @@ impl Store {
         let mut memories = vec![];
 
         if let Some(ref section) = module.import_section {
-            let imports = imports.as_ref().with_context(|| {
-                "the module has import section, but not found any imported module"
-            })?;
+            let imports = imports
+                .as_ref()
+                .with_context(|| "module has import section, but not found any imported module")?;
 
             for import in section {
                 let module_name = import.module.as_str();
                 let field = import.field.as_str();
 
                 match import.kind {
-                    crate::binary::types::ImportKind::Func(type_idx) => {
+                    crate::binary::types::ImportKind::Func(typeidx) => {
+                        let idx = typeidx as usize;
                         let func_type = module
                             .type_section
                             .as_ref()
-                            .expect("not found type section for import function")
-                            .get(type_idx as usize)
-                            .expect("not found type from section");
+                            .with_context(|| Error::NotFoundTypeSection)?
+                            .get(idx)
+                            .with_context(|| Error::NotFoundFuncType(idx))?;
 
                         let func_type = FuncType {
                             params: func_type.params.clone(),
@@ -280,11 +280,8 @@ impl Store {
                     .as_ref()
                     .with_context(|| "cannot get type section")?
                     .get(*typeidx as usize)
-                    .with_context(|| "cannot get func type from type section")?;
-                let func_type = FuncType {
-                    params: func_type.params.clone(),
-                    results: func_type.results.clone(),
-                };
+                    .with_context(|| "cannot get func type from type section")?
+                    .clone();
 
                 let mut locals = Vec::with_capacity(func_body.locals.len());
                 for local in func_body.locals.iter() {
@@ -318,6 +315,7 @@ impl Store {
             }
         }
 
+        // eval for offset in the table
         let eval = |globals: &Vec<GlobalInst>, offset: Expr| -> Result<usize> {
             match offset {
                 Expr::Value(value) => Ok(i32::from(value) as usize),
@@ -331,6 +329,8 @@ impl Store {
             }
         };
 
+        // table will be shared by all module instance
+        // so if element is exists in the same index, overwrite the table
         let update_funcs_in_table = |entries: &mut Vec<Option<FuncInst>>| -> Result<()> {
             if let Some(ref elems) = module.element_section {
                 for elem in elems {
@@ -376,7 +376,7 @@ impl Store {
             }
         }
 
-        // 10. copy data to memory
+        // copy data to memory
         if let Some(ref data) = module.data {
             for d in data {
                 let offset = eval(&globals, d.offset.clone())?;

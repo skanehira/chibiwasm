@@ -106,22 +106,21 @@ pub enum Expr {
 }
 
 macro_rules! from_expr_value {
-    ($ty:ty, $atrr:ident) => {
-        impl From<ExprValue> for $ty {
-            fn from(value: ExprValue) -> Self {
-                match value {
-                    ExprValue::$atrr(v) => v,
-                    _ => unreachable!(),
+    ($($ty:ty => $atrr:ident),+) => {
+        $(
+            impl From<ExprValue> for $ty {
+                fn from(value: ExprValue) -> Self {
+                    match value {
+                        ExprValue::$atrr(v) => v,
+                        _ => unreachable!(),
+                    }
                 }
             }
-        }
+         )+
     };
 }
 
-from_expr_value!(i32, I32);
-from_expr_value!(i64, I64);
-from_expr_value!(f32, F32);
-from_expr_value!(f64, F64);
+from_expr_value!(i32 => I32, i64 => I64, f32 => F32, f64 => F64);
 
 #[derive(Debug, PartialEq)]
 pub struct Global {

@@ -1,4 +1,3 @@
-pub(crate) mod address;
 pub mod error;
 pub(crate) mod float;
 pub(crate) mod indices;

@@ -1,6 +1,4 @@
 #![allow(clippy::enum_variant_names)]
-
-use super::instruction::Opcode;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -11,10 +9,12 @@ pub enum Error {
     InvalidTableCount,
     #[error("invalid elemtype of table, must be funcref, got {0}")]
     InvalidElmType(u8),
-    #[error("invalid init expr instruction in expressions, got {0:?}")]
+    #[error("invalid init expr instruction in expressions, got {0}")]
     InvalidInitExprOpcode(u8),
-    #[error("invalid end instruction in expressions, got {0:?}")]
-    InvalidInitExprEndOpcode(Opcode),
+    #[error("invalid end instruction in expressions, got {0}")]
+    InvalidInitExprEndOpcode(u8),
     #[error("invalid import kind at import section, got {0}")]
     InvalidImportKind(u8),
+    #[error("invalid opecode: {0}")]
+    InvalidOpcode(u8),
 }

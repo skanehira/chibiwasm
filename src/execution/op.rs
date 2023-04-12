@@ -4,15 +4,18 @@ use super::{
     value::{Frame, Label, LabelKind, StackAccess, Value},
 };
 use crate::{
-    binary::instruction::Instruction, execution::runtime::Runtime, impl_binary_operation,
-    impl_cvtop_operation, impl_unary_operation,
+    binary::instruction::Instruction,
+    execution::{error::Error, runtime::Runtime},
+    impl_binary_operation, impl_cvtop_operation, impl_unary_operation,
 };
 use anyhow::{bail, Context as _, Result};
 use log::trace;
 use std::rc::Rc;
 
-pub fn local_get(locals: &mut [Value], stack: &mut impl StackAccess, idx: usize) -> Result<()> {
-    let value = locals.get(idx).context("not found local variable")?;
+pub fn local_get(locals: &[Value], stack: &mut impl StackAccess, idx: usize) -> Result<()> {
+    let value = locals
+        .get(idx)
+        .with_context(|| Error::NotFoundLocalVariable(idx))?;
     stack.push(value.clone());
     Ok(())
 }
@@ -32,13 +35,11 @@ pub fn local_tee(locals: &mut [Value], stack: &mut impl StackAccess, idx: usize)
 }
 
 pub fn global_set(store: &mut Store, stack: &mut impl StackAccess, idx: usize) -> Result<()> {
-    let value: Value = stack
-        .pop1()
-        .with_context(|| "not found value in the stack")?;
+    let value: Value = stack.pop1().with_context(|| Error::StackPopError)?;
     let mut global = store
         .globals
         .get(idx)
-        .with_context(|| format!("not found global by index: {idx}"))?
+        .with_context(|| Error::NotFoundGlobalVariable(idx))?
         .borrow_mut();
     global.value = value;
     Ok(())
@@ -48,13 +49,13 @@ pub fn global_get(store: &mut Store, stack: &mut impl StackAccess, idx: usize) -
     let global = store
         .globals
         .get(idx)
-        .with_context(|| format!("not found global by index: {idx}"))?;
+        .with_context(|| Error::NotFoundGlobalVariable(idx))?;
     stack.push(global.borrow().value.clone());
     Ok(())
 }
 
 pub fn popcnt(stack: &mut impl StackAccess) -> Result<()> {
-    let value = stack.pop1().context("not found value in the stack")?;
+    let value = stack.pop1().with_context(|| Error::StackPopError)?;
 
     match value {
         Value::I32(v) => {
@@ -63,7 +64,7 @@ pub fn popcnt(stack: &mut impl StackAccess) -> Result<()> {
         Value::I64(v) => {
             stack.push(v.count_ones() as i64);
         }
-        _ => bail!("unexpected value"),
+        _ => bail!(Error::UnexpectedStackValueType(value)),
     }
     Ok(())
 }
@@ -76,7 +77,7 @@ pub fn i64extend_32s(stack: &mut impl StackAccess) -> Result<()> {
             let value: Value = result.into();
             stack.push(value);
         }
-        _ => bail!("unexpected value type"),
+        _ => bail!(Error::UnexpectedStackValueType(value)),
     }
     Ok(())
 }
@@ -86,7 +87,9 @@ pub fn get_end_address(insts: &[Instruction], pc: isize) -> Result<usize> {
     let mut depth = 0;
     loop {
         pc += 1;
-        let inst = insts.get(pc).expect("invalid end instruction");
+        let inst = insts
+            .get(pc)
+            .with_context(|| Error::NotFoundInstruction(pc))?;
         match inst {
             Instruction::If(_) | Instruction::Block(_) | Instruction::Loop(_) => depth += 1,
             Instruction::End => {
@@ -108,7 +111,9 @@ pub fn get_else_or_end_address(insts: &[Instruction], pc: isize) -> Result<usize
     let mut depth = 0;
     loop {
         pc += 1;
-        let inst = insts.get(pc).expect("invalid end instruction");
+        let inst = insts
+            .get(pc)
+            .with_context(|| Error::NotFoundInstruction(pc))?;
         match inst {
             Instruction::If(_) => {
                 depth += 1;
@@ -149,14 +154,15 @@ pub fn push_frame(stack: &mut Vec<Value>, call_stack: &mut Vec<Frame>, func: &In
     call_stack.push(frame);
 }
 
-pub fn stack_unwind(stack: &mut Vec<Value>, sp: usize, arity: usize) {
+pub fn stack_unwind(stack: &mut Vec<Value>, sp: usize, arity: usize) -> Result<()> {
     if arity > 0 {
-        let value = stack.pop().expect("not found result value");
+        let value = stack.pop().with_context(|| Error::StackPopError)?;
         stack.drain(sp..);
         stack.push(value);
     } else {
         stack.drain(sp..);
     }
+    Ok(())
 }
 
 pub fn br(labels: &mut Vec<Label>, stack: &mut Vec<Value>, level: &u32) -> Result<isize> {
@@ -170,14 +176,16 @@ pub fn br(labels: &mut Vec<Label>, stack: &mut Vec<Value>, level: &u32) -> Resul
     } = labels
         .get(label_index)
         .cloned()
-        .expect("not found label when br");
+        .with_context(|| Error::NotFoundLabel(label_index))?;
 
     let pc = if kind == LabelKind::Loop {
-        stack_unwind(stack, sp, 0);
-        start.expect("not found start cp when loop")
+        // since it jumps to the beginning of the loop,
+        // the stack is unwound without considering the return value.
+        stack_unwind(stack, sp, 0)?;
+        start.with_context(|| Error::NotFoundStartPc)?
     } else {
         labels.drain(label_index..);
-        stack_unwind(stack, sp, arity);
+        stack_unwind(stack, sp, arity)?;
         pc as isize
     };
     Ok(pc)
@@ -195,7 +203,7 @@ pub fn invoke_external(
     let store = imports
         .0
         .get(&func.module)
-        .expect("not found import module");
+        .with_context(|| Error::NotFoundImportModule(func.module))?;
 
     let mut runtime = Runtime::instantiate(Rc::clone(store))?;
     runtime.call(func.field.clone(), args)
