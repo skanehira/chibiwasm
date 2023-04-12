@@ -1,9 +1,7 @@
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use chibiwasm::execution::runtime::Runtime;
-    use chibiwasm::execution::store::{Exports, Imports, Store};
-    use chibiwasm::execution::value::Value;
+    use chibiwasm::execution::{Exports, Imports, Runtime, Store, Value};
     use log::debug;
     use paste::paste;
     use std::cell::RefCell;

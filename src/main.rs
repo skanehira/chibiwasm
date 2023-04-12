@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chibiwasm::execution::runtime::Runtime;
+use chibiwasm::execution::Runtime;
 use clap::Parser;
 
 #[derive(Debug, Parser)]
