@@ -71,42 +71,6 @@ impl Runtime {
         Ok(frame)
     }
 
-    //fn push_label(&mut self, arity: usize) -> Result<()> {
-    //    let sp = self.stack.len();
-    //    let label = Label { arity, sp };
-    //    let frame = self.current_frame_mut()?;
-    //    frame.labels.push(label);
-    //    Ok(())
-    //}
-
-    //fn pop_label(&mut self) -> Result<Label> {
-    //    let frame = self.current_frame_mut()?;
-    //    let label = frame
-    //        .labels
-    //        .pop()
-    //        .with_context(|| format!("no label in the frame. frame: {:?}", frame))?;
-    //    Ok(label)
-    //}
-
-    //fn push_frame(
-    //    &self,
-    //    call_stack: &mut Vec<Frame>,
-    //    arity: usize,
-    //    sp: usize,
-    //    locals: Vec<Value>,
-    //    insts: Vec<Instruction>,
-    //) {
-    //    let frame = Frame {
-    //        pc: 0,
-    //        sp,
-    //        insts,
-    //        arity,
-    //        locals,
-    //        labels: vec![],
-    //    };
-    //    call_stack.push(frame);
-    //}
-
     fn resolve_memory(&self) -> Result<MemoryInst> {
         let store = self.store.borrow();
         let memory = store.memory.get(0).with_context(|| "not found memory")?;
@@ -367,10 +331,12 @@ impl Runtime {
                     stack.pop();
                 }
                 Instruction::Return => {
-                    let Frame { sp, arity, .. } = self
+                    let frame = self
                         .call_stack
                         .pop()
                         .expect("not found any frame in the call stack when return");
+                    trace!("frame in the return instruction: {:?}", &frame);
+                    let Frame { sp, arity, .. } = frame;
                     stack_unwind(stack, sp, arity);
                 }
                 Instruction::End => {
@@ -455,18 +421,6 @@ impl Runtime {
                     if !cond.is_true() {
                         frame.pc = get_else_or_end_address(insts, frame.pc as usize)? as isize;
                     }
-                    //let mut has_else = false;
-                    //let next_pc = get_end_address(insts, frame.pc as usize)?;
-                    //if cond.is_true() {
-                    //    let inst = &insts[(frame.pc + 1) as usize];
-                    //    if *inst == Instruction::Else {
-                    //        has_else = true;
-                    //    }
-                    //};
-                    //if has_else && !cond.is_true() {
-                    //    // elseまでpcをすすめる
-                    //    frame.pc = get_else_or_end_address(insts, frame.pc as usize)? as isize;
-                    //}
 
                     let label = Label {
                         start: None,
@@ -503,10 +457,8 @@ impl Runtime {
                     match func {
                         FuncInst::Internal(func) => {
                             let arity = func.func_type.results.len();
-                            let mut locals: Vec<Value> = vec![];
-                            for _ in 0..func.func_type.params.len() {
-                                locals.push(stack.pop1()?);
-                            }
+                            let len = stack.len();
+                            let locals = stack.split_off(len - func.func_type.params.len());
                             let sp = stack.len();
                             let frame = Frame {
                                 pc: -1,
@@ -522,78 +474,90 @@ impl Runtime {
                         _ => todo!(),
                     }
                 }
-                //Instruction::CallIndirect((signature_idx, table_idx)) => {
-                //    let elem_idx = self.stack.pop1::<i32>()? as usize;
+                Instruction::CallIndirect((signature_idx, table_idx)) => {
+                    let elem_idx = stack.pop1::<i32>()? as usize;
 
-                //    let func = {
-                //        let tables = self.store.borrow();
-                //        let table = tables
-                //            .tables
-                //            .get(*table_idx as usize) // NOTE: table_idx is always 0 now
-                //            .with_context(|| {
-                //                format!(
-                //                    "not found table with index {}, tables: {:?}",
-                //                    table_idx,
-                //                    &self.store.borrow().tables
-                //                )
-                //            })?;
-                //        let table = table.borrow();
-                //        let func = table
-                //            .funcs
-                //            .get(elem_idx)
-                //            .with_context(|| {
-                //                trace!(
-                //                    "not found function with index {}, stack: {:?}",
-                //                    elem_idx,
-                //                    &self.stack
-                //                );
-                //                "undefined element"
-                //            })?
-                //            .as_ref()
-                //            .with_context(|| format!("uninitialized element {}", elem_idx))?;
-                //        (*func).clone()
-                //    };
+                    let func = {
+                        let tables = &store.tables;
+                        let table = tables
+                            .get(*table_idx as usize) // NOTE: table_idx is always 0 now
+                            .with_context(|| {
+                                format!(
+                                    "not found table with index {}, tables: {:?}",
+                                    table_idx, &store.tables
+                                )
+                            })?;
+                        let table = Rc::clone(table);
+                        let table = table.borrow();
+                        let func = table
+                            .funcs
+                            .get(elem_idx)
+                            .with_context(|| {
+                                trace!(
+                                    "not found function with index {}, stack: {:?}",
+                                    elem_idx,
+                                    &stack
+                                );
+                                "undefined element"
+                            })?
+                            .as_ref()
+                            .with_context(|| format!("uninitialized element {}", elem_idx))?;
+                        (*func).clone()
+                    };
 
-                //    // validate expect func signature and actual func signature
-                //    let expect_func_type = self
-                //        .store
-                //        .borrow()
-                //        .module
-                //        .func_types
-                //        .get(*signature_idx as usize)
-                //        .with_context(|| {
-                //            format!(
-                //                "not found type from module.func_types with index {}, types: {:?}",
-                //                signature_idx,
-                //                &self.store.borrow().module.func_types
-                //            )
-                //        })?
-                //        .clone();
+                    // validate expect func signature and actual func signature
+                    let expect_func_type = store
+                        .module
+                        .func_types
+                        .get(*signature_idx as usize)
+                        .with_context(|| {
+                            format!(
+                                "not found type from module.func_types with index {}, types: {:?}",
+                                signature_idx, store.module.func_types
+                            )
+                        })?
+                        .clone();
 
-                //    let func_type = match func {
-                //        FuncInst::Internal(ref func) => func.func_type.clone(),
-                //        FuncInst::External(ref func) => func.func_type.clone(),
-                //    };
+                    let func_type = match func {
+                        FuncInst::Internal(ref func) => func.func_type.clone(),
+                        FuncInst::External(ref func) => func.func_type.clone(),
+                    };
 
-                //    if func_type.params != expect_func_type.params
-                //        || func_type.results != expect_func_type.results
-                //    {
-                //        trace!(
-                //            "expect func signature: {:?}, actual func signature: {:?}",
-                //            expect_func_type,
-                //            func_type
-                //        );
-                //        bail!("indirect call type mismatch")
-                //    }
+                    if func_type.params != expect_func_type.params
+                        || func_type.results != expect_func_type.results
+                    {
+                        trace!(
+                            "expect func signature: {:?}, actual func signature: {:?}",
+                            expect_func_type,
+                            func_type
+                        );
+                        bail!("indirect call type mismatch")
+                    }
 
-                //    let result = match func {
-                //        FuncInst::Internal(func) => self.invoke_internal(func),
-                //        FuncInst::External(func) => self.invoke_external(func),
-                //    };
-                //    if let Some(value) = result? {
-                //        self.stack.push(value);
-                //    }
-                //}
+                    match func {
+                        FuncInst::Internal(func) => {
+                            let arity = func.func_type.results.len();
+                            let len = stack.len();
+                            let locals = stack.split_off(len - func.func_type.params.len());
+                            let sp = stack.len();
+                            let frame = Frame {
+                                pc: -1,
+                                sp,
+                                insts: func.code.body.clone(),
+                                arity,
+                                locals,
+                                labels: vec![],
+                            };
+                            trace!("call internal function: {:?}", &frame);
+                            self.call_stack.push(frame);
+                        }
+                        _ => todo!(),
+                        //FuncInst::External(func) => self.invoke_external(func),
+                    };
+                    //if let Some(value) = result? {
+                    //    stack.push(value);
+                    //}
+                }
                 // NOTE: only support 1 memory now
                 Instruction::MemoryGrow(_) => {
                     let memory = store.memory.get(0).expect("not found memory");
@@ -670,7 +634,6 @@ impl Runtime {
                 Instruction::I64ReinterpretF64 => i64_reinterpret_f64(stack)?,
                 Instruction::F32ReinterpretI32 => f32_reinterpret_i32(stack)?,
                 Instruction::F64ReinterpretI64 => f64_reinterpret_i64(stack)?,
-                _ => todo!(),
             };
         }
         Ok(State::Continue)
@@ -693,28 +656,28 @@ mod test {
         // expect some return value
         {
             let tests = [
-                //("call", vec![10, 10], 20),
-                //("return", vec![], 15),
-                //("as-loop-first", vec![], 1),
-                //("as-loop-mid", vec![], 1),
-                //("as-loop-last", vec![], 1),
-                //("singular", vec![0; 0], 7),
-                //("nested", vec![], 9),
-                //("as-if-then", vec![0; 0], 1),
-                //("as-if-else", vec![], 1),
-                //("if", vec![1, 0], 0),
-                ("fib", vec![5], 8),
-                //("as-br-value", vec![], 9),
-                //("as-br-last", vec![], 5),
-                //("as-if-cond", vec![], 2),
-                //("as-br_if-value", vec![], 8),
-                //("while", vec![5], 120),
-                //("as-if-then-return", vec![1, 2], 3),
-                //("call-nested", vec![1, 0], 10),
-                //("if1", vec![], 5),
-                //("br-nested", vec![], 1),
-                //("singleton", vec![0], 22),
-                //("memsize", vec![], 1),
+                ("call", vec![10, 10], 20),
+                ("return", vec![], 15),
+                ("as-loop-first", vec![], 1),
+                ("as-loop-mid", vec![], 1),
+                ("as-loop-last", vec![], 1),
+                ("singular", vec![0; 0], 7),
+                ("nested", vec![], 9),
+                ("as-if-then", vec![0; 0], 1),
+                ("as-if-else", vec![], 1),
+                ("if", vec![1, 0], 0),
+                ("fib", vec![5], 5),
+                ("as-br-value", vec![], 9),
+                ("as-br-last", vec![], 5),
+                ("as-if-cond", vec![], 2),
+                ("as-br_if-value", vec![], 8),
+                ("while", vec![5], 120),
+                ("as-if-then-return", vec![1, 2], 3),
+                ("call-nested", vec![1, 0], 10),
+                ("if1", vec![], 5),
+                ("br-nested", vec![], 1),
+                ("singleton", vec![0], 22),
+                ("memsize", vec![], 1),
             ];
 
             for test in tests.into_iter() {
