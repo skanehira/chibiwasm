@@ -147,8 +147,8 @@ pub struct Import {
 #[derive(Debug, PartialEq)]
 pub struct Element {
     pub table_index: u32,
-    pub offset: Expr, // offset in table
-    pub init: Vec<u32>,    // index of function
+    pub offset: Expr,   // offset in table
+    pub init: Vec<u32>, // index of function
 }
 
 #[derive(Debug, PartialEq)]
@@ -183,6 +183,4 @@ impl BlockType {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Block {
     pub block_type: BlockType,
-    pub then_body: Vec<Instruction>,
-    pub else_body: Vec<Instruction>,
 }

@@ -54,26 +54,43 @@ impl Display for Value {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum LabelKind {
+    If,
+    Loop,
+    Block,
+}
+
 #[derive(Debug, Clone)]
 pub struct Label {
-    pub sp: usize,    // stack pointer
-    pub arity: usize, // argument or result? arity
+    pub kind: LabelKind,
+    pub start: Option<isize>, // when label kind is loop, start will be used for jump to loop start
+    pub pc: usize,            // next pc
+    pub sp: usize,            // stack pointer
+    pub arity: usize,         // result arity
 }
 
 #[derive(Clone, Debug, Default)]
 pub struct Frame {
-    pub arity: usize,       // result arity
-    pub locals: Vec<Value>, // local variables
-    pub labels: Vec<Label>,
+    pub pc: isize,               // next pc
+    pub sp: usize,               // stack pointer when frame created
+    pub insts: Vec<Instruction>, // function instructions
+    pub arity: usize,            // result arity
+    pub locals: Vec<Value>,      // local variables
+    pub labels: Vec<Label>,      // labels for if, loop, block
 }
 
 // trait for stack access
 pub trait StackAccess {
+    fn push<T: Into<Value>>(&mut self, value: T);
     fn pop1<T: From<Value>>(&mut self) -> Result<T>;
     fn pop_rl<T: From<Value>>(&mut self) -> Result<(T, T)>;
 }
 
 impl StackAccess for Vec<Value> {
+    fn push<T: Into<Value>>(&mut self, value: T) {
+        self.push(value.into());
+    }
     fn pop1<T: From<Value>>(&mut self) -> Result<T> {
         trace!("pop value from stack. stack: {:#?}", self);
         let value: T = self.pop().expect("no value in the stack").into();
@@ -388,7 +405,7 @@ impl Value {
             Value::F64(f) => {
                 validate!(*f, i64);
                 Ok(Value::I64(*f as i64))
-            },
+            }
             _ => panic!("unexpected value. {self}"),
         }
     }
@@ -398,7 +415,7 @@ impl Value {
             Value::F64(f) => {
                 validate!(*f, u64);
                 Ok(Value::I64(*f as u64 as i64))
-            },
+            }
             _ => panic!("unexpected value. {self}"),
         }
     }

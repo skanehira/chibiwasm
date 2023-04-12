@@ -1,34 +1,36 @@
 #[macro_export]
 macro_rules! load {
-    ($runtime: expr, $ty: ty, $arg: expr) => {{
-        let addr = $runtime.stack.pop1::<i32>()? as usize;
-        let value = $runtime
-            .resolve_memory()?
-            .borrow()
-            .load::<$ty>(addr, $arg)?;
-        $runtime.stack.push(value.into());
+    ($stack: expr, $store: expr, $ty: ty, $arg: expr) => {{
+        let memory = $store.memory.get(0).expect("not found memory");
+        let memory = memory.borrow();
+        let addr = $stack.pop1::<i32>()? as usize;
+        let value = memory.load::<$ty>(addr, $arg)?;
+        $stack.push(value.into());
     }};
-    ($runtime: expr, $ty: ty, $arg: expr, $tz: ty) => {{
-        let addr = $runtime.stack.pop1::<i32>()? as usize;
-        let value = $runtime
-            .resolve_memory()?
-            .borrow()
-            .load::<$ty>(addr, $arg)? as $tz;
-        $runtime.stack.push(value.into());
+    ($stack: expr, $store: expr, $ty: ty, $arg: expr, $tz: ty) => {{
+        let addr = $stack.pop1::<i32>()? as usize;
+        let memory = $store.memory.get(0).expect("not found memory");
+        let memory = memory.borrow();
+        let value = memory.load::<$ty>(addr, $arg)? as $tz;
+        $stack.push(value.into());
     }};
 }
 
 #[macro_export]
 macro_rules! store {
-    ($runtime: expr, $ty: ty, $arg: expr) => {{
-        let value = $runtime.stack.pop1::<$ty>()?;
-        let addr = $runtime.stack.pop1::<i32>()? as usize;
-        $runtime.resolve_memory()?.borrow_mut().write(addr, $arg, value)?;
+    ($stack: expr, $store: expr, $ty: ty, $arg: expr) => {{
+        let memory = $store.memory.get(0).expect("not found memory");
+        let mut memory = memory.borrow_mut();
+        let value = $stack.pop1::<$ty>()?;
+        let addr = $stack.pop1::<i32>()? as usize;
+        memory.write(addr, $arg, value)?;
     }};
-    ($runtime: expr, $ty: ty, $arg: expr, $tz: ty) => {{
-        let value = $runtime.stack.pop1::<$ty>()? as $tz;
-        let addr = $runtime.stack.pop1::<i32>()? as usize;
-        $runtime.resolve_memory()?.borrow_mut().write(addr, $arg, value)?;
+    ($stack: expr, $store: expr, $ty: ty, $arg: expr, $tz: ty) => {{
+        let memory = $store.memory.get(0).expect("not found memory");
+        let mut memory = memory.borrow_mut();
+        let value = $stack.pop1::<$ty>()? as $tz;
+        let addr = $stack.pop1::<i32>()? as usize;
+        memory.write(addr, $arg, value)?;
     }};
 }
 
@@ -36,10 +38,10 @@ macro_rules! store {
 macro_rules! impl_binary_operation {
     ($($op: ident),*) => {
         $(
-            pub fn $op(runtime: &mut Runtime) -> Result<()> {
-                let (r, l): (Value, Value) = runtime.stack.pop_rl()?;
+            pub fn $op(stack: &mut impl StackAccess) -> Result<()> {
+                let (r, l): (Value, Value) = stack.pop_rl()?;
                 let value = l.$op(&r)?;
-                runtime.stack.push(value.into());
+                stack.push(value);
                 Ok(())
             }
         )*
@@ -50,10 +52,10 @@ macro_rules! impl_binary_operation {
 macro_rules! impl_unary_operation {
     ($($op: ident),*) => {
         $(
-            pub fn $op(runtime: &mut Runtime) -> Result<()> {
-                let value: Value = runtime.stack.pop1()?;
+            pub fn $op(stack: &mut impl StackAccess) -> Result<()> {
+                let value: Value = stack.pop1()?;
                 let value = value.$op()?;
-                runtime.stack.push(value.into());
+                stack.push(value);
                 Ok(())
             }
          )*
@@ -64,10 +66,10 @@ macro_rules! impl_unary_operation {
 macro_rules! impl_cvtop_operation {
     ($($op: ident),*) => {
         $(
-            pub fn $op(runtime: &mut Runtime) -> Result<()> {
-                let value: Value = runtime.stack.pop1()?;
+            pub fn $op(stack: &mut impl StackAccess) -> Result<()> {
+                let value: Value = stack.pop1()?;
                 let value = value.$op()?;
-                runtime.stack.push(value.into());
+                stack.push(value);
                 Ok(())
             }
          )*

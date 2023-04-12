@@ -50,16 +50,14 @@ Module {
                                     I32,
                                 ],
                             ),
-                            then_body: [
-                                I32Const(
-                                    1,
-                                ),
-                                Return,
-                                I32Ctz,
-                            ],
-                            else_body: [],
                         },
                     ),
+                    I32Const(
+                        1,
+                    ),
+                    Return,
+                    I32Ctz,
+                    End,
                     End,
                 ],
             },

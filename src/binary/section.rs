@@ -4,7 +4,6 @@ use super::error::Error::*;
 use super::instruction::{Instruction, MemoryArg, Opcode};
 use super::types::*;
 use anyhow::{bail, Context, Result};
-use log::trace;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive as _;
 use std::io::{BufRead, Cursor, Read};
@@ -503,40 +502,7 @@ fn decode_block_type(reader: &mut SectionReader) -> Result<BlockType> {
 
 fn decode_block(reader: &mut SectionReader) -> Result<Block> {
     let block_type = decode_block_type(reader)?;
-    let mut then_body = vec![];
-    let mut else_body = vec![];
-
-    // blockの命令部分をデコードする
-    loop {
-        let inst = decode_instruction(reader)?;
-
-        // elseがあったら、elseの命令部分をデコードする
-        if inst == Instruction::Else {
-            loop {
-                let inst = decode_instruction(reader)?;
-                if inst == Instruction::End {
-                    break;
-                }
-                else_body.push(inst);
-            }
-            break;
-        }
-
-        // endがあったら、命令部分のデコードを終了する
-        if inst == Instruction::End {
-            break;
-        }
-
-        // それ以外はthenの命令部分として追加する
-        then_body.push(inst);
-    }
-
-    let block = Block {
-        block_type,
-        then_body,
-        else_body,
-    };
-
+    let block = Block { block_type };
     Ok(block)
 }
 
@@ -544,7 +510,7 @@ fn decode_instruction(reader: &mut SectionReader) -> Result<Instruction> {
     let op = reader.byte()?;
     let op: Opcode =
         Opcode::from_u8(op).with_context(|| format!("unimplemented opcode: {:x}", op))?;
-    trace!("decode opcode: {:?}", op);
+    //trace!("decode opcode: {:?}", op);
     let inst = match op {
         Opcode::Unreachable => Instruction::Unreachable,
         Opcode::Nop => Instruction::Nop,

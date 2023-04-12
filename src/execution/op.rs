@@ -1,54 +1,37 @@
 use super::{
-    runtime::Runtime,
-    value::{StackAccess as _, State, Value},
+    store::Store,
+    value::{Label, LabelKind, StackAccess, Value},
 };
-use crate::{impl_binary_operation, impl_cvtop_operation, impl_unary_operation};
+use crate::{
+    binary::instruction::Instruction, impl_binary_operation, impl_cvtop_operation,
+    impl_unary_operation,
+};
 use anyhow::{bail, Context as _, Result};
-use log::trace;
 
-pub fn local_get(runtime: &mut Runtime, idx: usize) -> Result<()> {
-    let value = runtime
-        .current_frame()?
-        .locals
-        .get(idx)
-        .context("not found local variable")?;
-    runtime.stack.push(value.clone());
-
-    trace!(
-        "local.get: current frame locals: {:?}, stack: {:?}",
-        &runtime.current_frame()?.locals,
-        &runtime.stack
-    );
-
+pub fn local_get(locals: &mut [Value], stack: &mut impl StackAccess, idx: usize) -> Result<()> {
+    let value = locals.get(idx).context("not found local variable")?;
+    stack.push(value.clone());
     Ok(())
 }
 
-pub fn local_set(runtime: &mut Runtime, idx: usize) -> Result<()> {
-    let value: Value = runtime.stack.pop1()?;
-    let frame = runtime.current_frame_mut()?;
-    frame.locals[idx] = value;
-    trace!(
-        "local.set: current frame locals: {:?}, stack: {:?}",
-        &runtime.current_frame()?.locals,
-        &runtime.stack
-    );
+pub fn local_set(locals: &mut [Value], stack: &mut impl StackAccess, idx: usize) -> Result<()> {
+    let value: Value = stack.pop1()?;
+    locals[idx] = value;
     Ok(())
 }
 
-pub fn local_tee(runtime: &mut Runtime, idx: usize) -> Result<()> {
-    let value: Value = runtime.stack.pop1()?;
-    runtime.stack.push(value.clone());
-    runtime.stack.push(value);
-    local_set(runtime, idx)?;
+pub fn local_tee(locals: &mut [Value], stack: &mut impl StackAccess, idx: usize) -> Result<()> {
+    let value: Value = stack.pop1()?;
+    stack.push(value.clone());
+    stack.push(value);
+    local_set(locals, stack, idx)?;
     Ok(())
 }
 
-pub fn global_set(runtime: &mut Runtime, idx: usize) -> Result<()> {
-    let value = runtime
-        .stack
-        .pop()
+pub fn global_set(store: &mut Store, stack: &mut impl StackAccess, idx: usize) -> Result<()> {
+    let value: Value = stack
+        .pop1()
         .with_context(|| "not found value in the stack")?;
-    let store = runtime.store.borrow();
     let mut global = store
         .globals
         .get(idx)
@@ -58,64 +41,126 @@ pub fn global_set(runtime: &mut Runtime, idx: usize) -> Result<()> {
     Ok(())
 }
 
-pub fn global_get(runtime: &mut Runtime, idx: usize) -> Result<()> {
-    let store = runtime.store.borrow();
+pub fn global_get(store: &mut Store, stack: &mut impl StackAccess, idx: usize) -> Result<()> {
     let global = store
         .globals
         .get(idx)
         .with_context(|| format!("not found global by index: {idx}"))?;
-    runtime.stack.push(global.borrow().value.clone());
+    stack.push(global.borrow().value.clone());
     Ok(())
 }
 
-pub fn popcnt(runtime: &mut Runtime) -> Result<()> {
-    let value = runtime
-        .stack
-        .pop1()
-        .context("not found value in the stack")?;
+pub fn popcnt(stack: &mut impl StackAccess) -> Result<()> {
+    let value = stack.pop1().context("not found value in the stack")?;
 
     match value {
         Value::I32(v) => {
-            runtime.stack.push((v.count_ones() as i32).into());
+            stack.push(v.count_ones() as i32);
         }
         Value::I64(v) => {
-            runtime.stack.push((v.count_ones() as i64).into());
+            stack.push(v.count_ones() as i64);
         }
         _ => bail!("unexpected value"),
     }
     Ok(())
 }
 
-pub fn push<T: Into<Value>>(runtime: &mut Runtime, value: T) -> Result<()> {
-    runtime.stack.push(value.into());
-    Ok(())
-}
-
-pub fn i64extend_32s(runtime: &mut Runtime) -> Result<()> {
-    let value = runtime.stack.pop1()?;
+pub fn i64extend_32s(stack: &mut impl StackAccess) -> Result<()> {
+    let value = stack.pop1()?;
     match value {
         Value::I64(v) => {
             let result = v << 32 >> 32;
             let value: Value = result.into();
-            runtime.stack.push(value);
+            stack.push(value);
         }
         _ => bail!("unexpected value type"),
     }
     Ok(())
 }
 
-pub fn br_table(runtime: &mut Runtime, label_idxs: &Vec<u32>, default_idx: &u32) -> Result<State> {
-    let value: i32 = runtime.stack.pop1::<Value>()?.into();
-    let idx = value as usize;
+pub fn get_end_address(insts: &[Instruction], pc: usize) -> Result<usize> {
+    let mut pc = pc;
+    let mut depth = 0;
+    loop {
+        pc += 1;
+        let inst = insts.get(pc).expect("invalid end instruction");
+        match inst {
+            Instruction::If(_) | Instruction::Block(_) | Instruction::Loop(_) => depth += 1,
+            Instruction::End => {
+                if depth == 0 {
+                    return Ok(pc);
+                } else {
+                    depth -= 1;
+                }
+            }
+            _ => {
+                // do nothing
+            }
+        }
+    }
+}
 
-    let state = if idx < label_idxs.len() {
-        let idx = label_idxs[idx];
-        State::Break(idx as usize)
+pub fn get_else_or_end_address(insts: &[Instruction], pc: usize) -> Result<usize> {
+    let mut pc = pc;
+    let mut depth = 0;
+    loop {
+        pc += 1;
+        let inst = insts.get(pc).expect("invalid end instruction");
+        match inst {
+            Instruction::If(_) => {
+                depth += 1;
+            }
+            Instruction::Else => {
+                if depth == 0 {
+                    return Ok(pc);
+                }
+            }
+            Instruction::End => {
+                if depth == 0 {
+                    return Ok(pc);
+                } else {
+                    depth -= 1;
+                }
+            }
+            _ => {
+                // do nothing
+            }
+        }
+    }
+}
+
+pub fn stack_unwind(stack: &mut Vec<Value>, sp: usize, arity: usize) {
+    if arity > 0 {
+        let value = stack.pop().expect("not found result value");
+        stack.drain(sp..);
+        stack.push(value);
     } else {
-        State::Break((*default_idx) as usize)
-    };
+        stack.drain(sp..);
+    }
+}
 
-    Ok(state)
+pub fn br(labels: &mut Vec<Label>, stack: &mut Vec<Value>, level: &u32) -> Result<isize> {
+    let label_index = labels.len() - 1 - (*level as usize);
+    let Label {
+        pc,
+        start,
+        sp,
+        arity,
+        kind,
+    } = labels
+        .get(label_index)
+        .cloned()
+        .expect("not found label when br");
+
+    let pc = if kind == LabelKind::Loop {
+        stack_unwind(stack, sp, arity);
+        start.expect("not found start cp when loop")
+    } else {
+        labels.drain(label_index..);
+        stack_unwind(stack, sp, arity);
+        pc as isize
+    };
+    Ok(pc)
 }
 
 impl_unary_operation!(

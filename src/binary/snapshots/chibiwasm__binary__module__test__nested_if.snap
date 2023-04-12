@@ -76,156 +76,140 @@ Module {
                                     I32,
                                 ],
                             ),
-                            then_body: [
-                                LocalGet(
-                                    1,
-                                ),
-                                If(
-                                    Block {
-                                        block_type: Empty,
-                                        then_body: [
-                                            Call(
-                                                0,
-                                            ),
-                                            Block(
-                                                Block {
-                                                    block_type: Empty,
-                                                    then_body: [],
-                                                    else_body: [],
-                                                },
-                                            ),
-                                            Nop,
-                                        ],
-                                        else_body: [],
-                                    },
-                                ),
-                                LocalGet(
-                                    1,
-                                ),
-                                If(
-                                    Block {
-                                        block_type: Empty,
-                                        then_body: [],
-                                        else_body: [
-                                            Call(
-                                                0,
-                                            ),
-                                            Block(
-                                                Block {
-                                                    block_type: Empty,
-                                                    then_body: [],
-                                                    else_body: [],
-                                                },
-                                            ),
-                                            Nop,
-                                        ],
-                                    },
-                                ),
-                                LocalGet(
-                                    1,
-                                ),
-                                If(
-                                    Block {
-                                        block_type: Value(
-                                            [
-                                                I32,
-                                            ],
-                                        ),
-                                        then_body: [
-                                            Call(
-                                                0,
-                                            ),
-                                            I32Const(
-                                                9,
-                                            ),
-                                        ],
-                                        else_body: [
-                                            Call(
-                                                0,
-                                            ),
-                                            I32Const(
-                                                10,
-                                            ),
-                                        ],
-                                    },
-                                ),
-                            ],
-                            else_body: [
-                                LocalGet(
-                                    1,
-                                ),
-                                If(
-                                    Block {
-                                        block_type: Empty,
-                                        then_body: [
-                                            Call(
-                                                0,
-                                            ),
-                                            Block(
-                                                Block {
-                                                    block_type: Empty,
-                                                    then_body: [],
-                                                    else_body: [],
-                                                },
-                                            ),
-                                            Nop,
-                                        ],
-                                        else_body: [],
-                                    },
-                                ),
-                                LocalGet(
-                                    1,
-                                ),
-                                If(
-                                    Block {
-                                        block_type: Empty,
-                                        then_body: [],
-                                        else_body: [
-                                            Call(
-                                                0,
-                                            ),
-                                            Block(
-                                                Block {
-                                                    block_type: Empty,
-                                                    then_body: [],
-                                                    else_body: [],
-                                                },
-                                            ),
-                                            Nop,
-                                        ],
-                                    },
-                                ),
-                                LocalGet(
-                                    1,
-                                ),
-                                If(
-                                    Block {
-                                        block_type: Value(
-                                            [
-                                                I32,
-                                            ],
-                                        ),
-                                        then_body: [
-                                            Call(
-                                                0,
-                                            ),
-                                            I32Const(
-                                                10,
-                                            ),
-                                        ],
-                                        else_body: [
-                                            Call(
-                                                0,
-                                            ),
-                                            I32Const(
-                                                11,
-                                            ),
-                                        ],
-                                    },
-                                ),
-                            ],
                         },
                     ),
+                    LocalGet(
+                        1,
+                    ),
+                    If(
+                        Block {
+                            block_type: Empty,
+                        },
+                    ),
+                    Call(
+                        0,
+                    ),
+                    Block(
+                        Block {
+                            block_type: Empty,
+                        },
+                    ),
+                    End,
+                    Nop,
+                    End,
+                    LocalGet(
+                        1,
+                    ),
+                    If(
+                        Block {
+                            block_type: Empty,
+                        },
+                    ),
+                    Else,
+                    Call(
+                        0,
+                    ),
+                    Block(
+                        Block {
+                            block_type: Empty,
+                        },
+                    ),
+                    End,
+                    Nop,
+                    End,
+                    LocalGet(
+                        1,
+                    ),
+                    If(
+                        Block {
+                            block_type: Value(
+                                [
+                                    I32,
+                                ],
+                            ),
+                        },
+                    ),
+                    Call(
+                        0,
+                    ),
+                    I32Const(
+                        9,
+                    ),
+                    Else,
+                    Call(
+                        0,
+                    ),
+                    I32Const(
+                        10,
+                    ),
+                    End,
+                    Else,
+                    LocalGet(
+                        1,
+                    ),
+                    If(
+                        Block {
+                            block_type: Empty,
+                        },
+                    ),
+                    Call(
+                        0,
+                    ),
+                    Block(
+                        Block {
+                            block_type: Empty,
+                        },
+                    ),
+                    End,
+                    Nop,
+                    End,
+                    LocalGet(
+                        1,
+                    ),
+                    If(
+                        Block {
+                            block_type: Empty,
+                        },
+                    ),
+                    Else,
+                    Call(
+                        0,
+                    ),
+                    Block(
+                        Block {
+                            block_type: Empty,
+                        },
+                    ),
+                    End,
+                    Nop,
+                    End,
+                    LocalGet(
+                        1,
+                    ),
+                    If(
+                        Block {
+                            block_type: Value(
+                                [
+                                    I32,
+                                ],
+                            ),
+                        },
+                    ),
+                    Call(
+                        0,
+                    ),
+                    I32Const(
+                        10,
+                    ),
+                    Else,
+                    Call(
+                        0,
+                    ),
+                    I32Const(
+                        11,
+                    ),
+                    End,
+                    End,
                     End,
                 ],
             },
