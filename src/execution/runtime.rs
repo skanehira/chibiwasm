@@ -694,38 +694,38 @@ mod test {
             }
         }
 
-        //// none return value
-        //{
-        //    let result = runtime.call("if_else_empty".into(), vec![])?;
-        //    assert_eq!(result, None);
-        //}
+        // none return value
+        {
+            let result = runtime.call("if_else_empty".into(), vec![])?;
+            assert_eq!(result, None);
+        }
 
-        //// test memory load
-        //{
-        //    macro_rules! test_memory_load {
-        //        ($(($ty: ty, $expected: expr)),*) => {
-        //            $({
-        //                let name = stringify!($ty).to_string() + ".load";
-        //                let result = runtime.call(name.clone(), vec![])?;
-        //                print!("testing ... {} ", name);
-        //                assert_eq!(
-        //                    result.context("no return value")?,
-        //                    $expected.into(),
-        //                    "func {} fail",
-        //                    name,
-        //                );
-        //                println!("ok");
-        //            })*
-        //        };
-        //    }
+        // test memory load
+        {
+            macro_rules! test_memory_load {
+                ($(($ty: ty, $expected: expr)),*) => {
+                    $({
+                        let name = stringify!($ty).to_string() + ".load";
+                        let result = runtime.call(name.clone(), vec![])?;
+                        print!("testing ... {} ", name);
+                        assert_eq!(
+                            result.context("no return value")?,
+                            $expected.into(),
+                            "func {} fail",
+                            name,
+                        );
+                        println!("ok");
+                    })*
+                };
+            }
 
-        //    test_memory_load!(
-        //        (i32, 1701077858),
-        //        (i64, 0x6867666564636261_i64),
-        //        (f32, 1.6777999e22_f32),
-        //        (f64, 8.540883223036124e194_f64)
-        //    );
-        //}
+            test_memory_load!(
+                (i32, 1701077858),
+                (i64, 0x6867666564636261_i64),
+                (f32, 1.6777999e22_f32),
+                (f64, 8.540883223036124e194_f64)
+            );
+        }
 
         Ok(())
     }
