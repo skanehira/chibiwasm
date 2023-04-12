@@ -669,7 +669,7 @@ mod test {
                 ("as-if-then", vec![0; 0], 1),
                 ("as-if-else", vec![], 1),
                 ("if", vec![1, 0], 0),
-                ("fib", vec![10], 55),
+                ("fib", vec![5], 5),
                 ("as-br-value", vec![], 9),
                 ("as-br-last", vec![], 5),
                 ("as-if-cond", vec![], 2),

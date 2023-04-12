@@ -153,7 +153,7 @@ pub fn br(labels: &mut Vec<Label>, stack: &mut Vec<Value>, level: &u32) -> Resul
         .expect("not found label when br");
 
     let pc = if kind == LabelKind::Loop {
-        stack_unwind(stack, sp, arity);
+        stack_unwind(stack, sp, 0);
         start.expect("not found start cp when loop")
     } else {
         labels.drain(label_index..);
