@@ -1,9 +1,7 @@
-use std::rc::Rc;
-
 use super::{
-    module::ExternalFuncInst,
+    module::{ExternalFuncInst, InternalFuncInst},
     store::{Imports, Store},
-    value::{Label, LabelKind, StackAccess, Value},
+    value::{Frame, Label, LabelKind, StackAccess, Value},
 };
 use crate::{
     binary::instruction::Instruction, execution::runtime::Runtime, impl_binary_operation,
@@ -11,6 +9,7 @@ use crate::{
 };
 use anyhow::{bail, Context as _, Result};
 use log::trace;
+use std::rc::Rc;
 
 pub fn local_get(locals: &mut [Value], stack: &mut impl StackAccess, idx: usize) -> Result<()> {
     let value = locals.get(idx).context("not found local variable")?;
@@ -82,8 +81,8 @@ pub fn i64extend_32s(stack: &mut impl StackAccess) -> Result<()> {
     Ok(())
 }
 
-pub fn get_end_address(insts: &[Instruction], pc: usize) -> Result<usize> {
-    let mut pc = pc;
+pub fn get_end_address(insts: &[Instruction], pc: isize) -> Result<usize> {
+    let mut pc = pc as usize;
     let mut depth = 0;
     loop {
         pc += 1;
@@ -104,8 +103,8 @@ pub fn get_end_address(insts: &[Instruction], pc: usize) -> Result<usize> {
     }
 }
 
-pub fn get_else_or_end_address(insts: &[Instruction], pc: usize) -> Result<usize> {
-    let mut pc = pc;
+pub fn get_else_or_end_address(insts: &[Instruction], pc: isize) -> Result<usize> {
+    let mut pc = pc as usize;
     let mut depth = 0;
     loop {
         pc += 1;
@@ -131,6 +130,23 @@ pub fn get_else_or_end_address(insts: &[Instruction], pc: usize) -> Result<usize
             }
         }
     }
+}
+
+pub fn push_frame(stack: &mut Vec<Value>, call_stack: &mut Vec<Frame>, func: &InternalFuncInst) {
+    let arity = func.func_type.results.len();
+    let len = stack.len();
+    let locals = stack.split_off(len - func.func_type.params.len());
+    let sp = stack.len();
+    let frame = Frame {
+        pc: -1,
+        sp,
+        insts: func.code.body.clone(),
+        arity,
+        locals,
+        labels: vec![],
+    };
+    trace!("call internal function: {:?}", &frame);
+    call_stack.push(frame);
 }
 
 pub fn stack_unwind(stack: &mut Vec<Value>, sp: usize, arity: usize) {
@@ -182,9 +198,7 @@ pub fn invoke_external(
         .expect("not found import module");
 
     let mut runtime = Runtime::instantiate(Rc::clone(store))?;
-    let result = runtime.call(func.field.clone(), args);
-    trace!("execut exteranal function, result is {:?}", &result);
-    result
+    runtime.call(func.field.clone(), args)
 }
 
 impl_unary_operation!(

@@ -161,13 +161,6 @@ impl From<ExportDesc> for ExternalVal {
     }
 }
 
-#[derive(Debug)]
-pub enum State {
-    Continue,     // continue to next instruction
-    Return,       // return from current frame
-    Break(usize), // jump to the label
-}
-
 macro_rules! binop {
     ($($op: ident),*) => {
         $(

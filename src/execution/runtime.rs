@@ -1,7 +1,7 @@
-use super::module::{FuncInst, InternalFuncInst, MemoryInst};
+use super::module::{FuncInst, InternalFuncInst};
 use super::op::*;
 use super::store::{Exports, Imports, Store};
-use super::value::{ExternalVal, Frame, Label, StackAccess, State, Value};
+use super::value::{ExternalVal, Frame, Label, StackAccess, Value};
 use crate::binary::instruction::*;
 use crate::binary::types::ValueType;
 use crate::execution::value::LabelKind;
@@ -17,7 +17,6 @@ pub struct Runtime {
     pub store: Rc<RefCell<Store>>,
     pub stack: Vec<Value>,
     pub call_stack: Vec<Frame>,
-    pub start: Option<usize>,
 }
 
 impl Runtime {
@@ -55,28 +54,7 @@ impl Runtime {
         Ok(runtime)
     }
 
-    pub fn current_frame(&self) -> Result<&Frame> {
-        let frame = self
-            .call_stack
-            .last()
-            .with_context(|| "call stack is empty")?;
-        Ok(frame)
-    }
-
-    pub fn current_frame_mut(&mut self) -> Result<&mut Frame> {
-        let frame = self
-            .call_stack
-            .last_mut()
-            .with_context(|| "call stack is emtpy")?;
-        Ok(frame)
-    }
-
-    fn resolve_memory(&self) -> Result<MemoryInst> {
-        let store = self.store.borrow();
-        let memory = store.memory.get(0).with_context(|| "not found memory")?;
-        Ok(Rc::clone(memory))
-    }
-
+    // execute function by name
     pub fn call(&mut self, name: String, args: Vec<Value>) -> Result<Option<Value>> {
         trace!("call function: {}", name);
         for arg in args {
@@ -98,34 +76,15 @@ impl Runtime {
 
             *idx as usize
         };
-
-        // start call function
-        let result = match self.invoke_by_idx(idx) {
-            Ok(value) => Ok(value),
-            Err(e) => {
-                self.stack = vec![]; // when traped, need to cleanup stack
-                self.call_stack = vec![];
-                Err(e)
-            }
-        };
-        trace!("stack when after call function: {:#?}", &self.stack);
-        result
+        self.invoke(idx)
     }
 
+    // execute function when module has start section
     pub fn call_start(&mut self, idx: usize, args: Vec<Value>) -> Result<Option<Value>> {
         for arg in args {
             self.stack.push(arg);
         }
-        let result = match self.invoke_by_idx(idx) {
-            Ok(value) => Ok(value),
-            Err(e) => {
-                self.stack = vec![]; // when traped, need to cleanup stack
-                self.call_stack = vec![];
-                Err(e)
-            }
-        };
-        trace!("stack when after call function: {:#?}", &self.stack);
-        result
+        self.invoke(idx)
     }
 
     // get exported instances by name, like table, memory, global
@@ -143,8 +102,8 @@ impl Runtime {
                 Exports::Table(Rc::clone(table))
             }
             ExternalVal::Memory(_) => {
-                let memory = self.resolve_memory()?;
-                Exports::Memory(memory)
+                let memory = store.memory.get(0).with_context(|| "not found memory")?;
+                Exports::Memory(Rc::clone(memory))
             }
             ExternalVal::Global(idx) => {
                 let global = store.globals.get(idx as usize).expect("not found global");
@@ -161,12 +120,7 @@ impl Runtime {
 
     fn invoke_internal(&mut self, func: InternalFuncInst) -> Result<Option<Value>> {
         let bottom = self.stack.len() - func.func_type.params.len();
-        let mut locals: Vec<_> = self
-            .stack
-            .split_off(bottom)
-            .into_iter()
-            .map(Into::into)
-            .collect();
+        let mut locals: Vec<_> = self.stack.split_off(bottom).into_iter().collect();
 
         for local in func.code.locals.iter() {
             match local {
@@ -177,7 +131,6 @@ impl Runtime {
             }
         }
 
-        // 3. push a frame
         let arity = func.func_type.results.len();
 
         let frame = Frame {
@@ -191,9 +144,8 @@ impl Runtime {
         self.call_stack.push(frame);
 
         trace!("call stack: {:?}", &self.call_stack.last());
-        let _ = self.execute()?;
+        self.execute()?;
 
-        // 5. if the function has return value, pop it from stack
         let result = if arity > 0 {
             // NOTE: only returns one value now
             let value: Value = self.stack.pop1()?;
@@ -206,20 +158,28 @@ impl Runtime {
     }
 
     // https://www.w3.org/TR/wasm-core-1/#exec-invoke
-    fn invoke_by_idx(&mut self, idx: usize) -> Result<Option<Value>> {
-        let func = self.resolve_by_idx(idx)?;
-        match func {
+    fn invoke(&mut self, idx: usize) -> Result<Option<Value>> {
+        let func = self.get_func_by_idx(idx)?;
+        let result = match func {
             FuncInst::Internal(func) => self.invoke_internal(func),
             FuncInst::External(func) => {
-                let store = self.store.as_ref().borrow();
-                let stack = &mut self.stack;
+                let store = self.store.borrow();
                 let imports = store.imports.as_ref().expect("not found any imports");
+                let stack = &mut self.stack;
                 invoke_external(imports, stack, func)
+            }
+        };
+        match result {
+            Ok(value) => Ok(value),
+            Err(e) => {
+                self.stack = vec![]; // when traped, need to cleanup stack
+                self.call_stack = vec![];
+                Err(e)
             }
         }
     }
 
-    fn resolve_by_idx(&mut self, idx: usize) -> Result<FuncInst> {
+    fn get_func_by_idx(&mut self, idx: usize) -> Result<FuncInst> {
         let store = self.store.borrow();
         let func = store
             .funcs
@@ -228,7 +188,7 @@ impl Runtime {
         Ok(func.clone())
     }
 
-    fn execute(&mut self) -> Result<State> {
+    fn execute(&mut self) -> Result<()> {
         let mut store = self.store.borrow_mut();
         let stack = &mut self.stack;
 
@@ -381,7 +341,7 @@ impl Runtime {
                 Instruction::Loop(block) => {
                     let arity = block.block_type.result_count();
                     let start_pc = frame.pc;
-                    let pc = get_end_address(insts, frame.pc as usize)?;
+                    let pc = get_end_address(insts, frame.pc)?;
 
                     let label = Label {
                         start: Some(start_pc),
@@ -396,19 +356,12 @@ impl Runtime {
                 Instruction::If(block) => {
                     let cond: Value = stack.pop1()?;
 
-                    // ラベルのpcはblock処理が終わった後にジャンプする先のpc
-                    // つまり if が true/false
-                    // 関係なく、ブロックの処理が終わったらジャンプする先ということ
-                    // else の命令まで来たとき、labelをpopしてendまでジャンプする
+                    // cal pc when the if block is end
+                    let next_pc = get_end_address(insts, frame.pc)?;
 
-                    // if が true の場合は、pcをすすめるだけ
-                    // if が false の場合は以下の2パターがある
-                    //   1. elseがある場合は、elseまでジャンプする
-                    //   2. elseがない場合は、endまでジャンプする
-                    let next_pc = get_end_address(insts, frame.pc as usize)?; // endのpc
-                                                                              //
                     if !cond.is_true() {
-                        frame.pc = get_else_or_end_address(insts, frame.pc as usize)? as isize;
+                        // if the condition is false, skip the if block
+                        frame.pc = get_else_or_end_address(insts, frame.pc)? as isize;
                     }
 
                     let label = Label {
@@ -429,7 +382,7 @@ impl Runtime {
                 }
                 Instruction::Block(block) => {
                     let arity = block.block_type.result_count();
-                    let pc = get_end_address(insts, frame.pc as usize)?;
+                    let pc = get_end_address(insts, frame.pc)?;
 
                     let label = Label {
                         start: None,
@@ -445,20 +398,7 @@ impl Runtime {
                     let func = store.funcs.get(*idx as usize).expect("not found function");
                     match func {
                         FuncInst::Internal(func) => {
-                            let arity = func.func_type.results.len();
-                            let len = stack.len();
-                            let locals = stack.split_off(len - func.func_type.params.len());
-                            let sp = stack.len();
-                            let frame = Frame {
-                                pc: -1,
-                                sp,
-                                insts: func.code.body.clone(),
-                                arity,
-                                locals,
-                                labels: vec![],
-                            };
-                            trace!("call internal function: {:?}", &frame);
-                            self.call_stack.push(frame);
+                            push_frame(stack, &mut self.call_stack, func);
                         }
                         FuncInst::External(func) => {
                             let imports = store.imports.as_ref().expect("not found any imports");
@@ -529,21 +469,8 @@ impl Runtime {
                     }
 
                     match func {
-                        FuncInst::Internal(func) => {
-                            let arity = func.func_type.results.len();
-                            let len = stack.len();
-                            let locals = stack.split_off(len - func.func_type.params.len());
-                            let sp = stack.len();
-                            let frame = Frame {
-                                pc: -1,
-                                sp,
-                                insts: func.code.body.clone(),
-                                arity,
-                                locals,
-                                labels: vec![],
-                            };
-                            trace!("call internal function: {:?}", &frame);
-                            self.call_stack.push(frame);
+                        FuncInst::Internal(ref func) => {
+                            push_frame(stack, &mut self.call_stack, func);
                         }
                         FuncInst::External(func) => {
                             let imports = store.imports.as_ref().expect("not found any imports");
@@ -632,7 +559,7 @@ impl Runtime {
                 Instruction::F64ReinterpretI64 => f64_reinterpret_i64(stack)?,
             };
         }
-        Ok(State::Continue)
+        Ok(())
     }
 }
 
