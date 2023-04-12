@@ -1,12 +1,16 @@
+use std::rc::Rc;
+
 use super::{
-    store::Store,
+    module::ExternalFuncInst,
+    store::{Imports, Store},
     value::{Label, LabelKind, StackAccess, Value},
 };
 use crate::{
-    binary::instruction::Instruction, impl_binary_operation, impl_cvtop_operation,
-    impl_unary_operation,
+    binary::instruction::Instruction, execution::runtime::Runtime, impl_binary_operation,
+    impl_cvtop_operation, impl_unary_operation,
 };
 use anyhow::{bail, Context as _, Result};
+use log::trace;
 
 pub fn local_get(locals: &mut [Value], stack: &mut impl StackAccess, idx: usize) -> Result<()> {
     let value = locals.get(idx).context("not found local variable")?;
@@ -161,6 +165,26 @@ pub fn br(labels: &mut Vec<Label>, stack: &mut Vec<Value>, level: &u32) -> Resul
         pc as isize
     };
     Ok(pc)
+}
+
+pub fn invoke_external(
+    imports: &Imports,
+    stack: &mut impl StackAccess,
+    func: ExternalFuncInst,
+) -> Result<Option<Value>> {
+    let mut args = Vec::with_capacity(func.func_type.params.len());
+    for _ in 0..func.func_type.params.len() {
+        args.push(stack.pop1()?);
+    }
+    let store = imports
+        .0
+        .get(&func.module)
+        .expect("not found import module");
+
+    let mut runtime = Runtime::instantiate(Rc::clone(store))?;
+    let result = runtime.call(func.field.clone(), args);
+    trace!("execut exteranal function, result is {:?}", &result);
+    result
 }
 
 impl_unary_operation!(

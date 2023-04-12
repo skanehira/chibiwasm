@@ -1,7 +1,7 @@
-use super::module::{ExternalFuncInst, FuncInst, InternalFuncInst, MemoryInst};
+use super::module::{FuncInst, InternalFuncInst, MemoryInst};
 use super::op::*;
 use super::store::{Exports, Imports, Store};
-use super::value::{ExternalVal, Frame, Label, StackAccess as _, State, Value};
+use super::value::{ExternalVal, Frame, Label, StackAccess, State, Value};
 use crate::binary::instruction::*;
 use crate::binary::types::ValueType;
 use crate::execution::value::LabelKind;
@@ -205,32 +205,17 @@ impl Runtime {
         Ok(result)
     }
 
-    fn invoke_external(&mut self, func: ExternalFuncInst) -> Result<Option<Value>> {
-        let mut args = Vec::with_capacity(func.func_type.params.len());
-        for _ in 0..func.func_type.params.len() {
-            args.push(self.stack.pop1()?);
-        }
-        let store = self.store.borrow();
-        let store = store
-            .imports
-            .as_ref()
-            .expect("not found import store")
-            .0
-            .get(&func.module)
-            .expect("not found import module");
-
-        let mut runtime = Runtime::instantiate(Rc::clone(store))?;
-        let result = runtime.call(func.field.clone(), args);
-        trace!("execut exteranal function, result is {:?}", &result);
-        result
-    }
-
     // https://www.w3.org/TR/wasm-core-1/#exec-invoke
     fn invoke_by_idx(&mut self, idx: usize) -> Result<Option<Value>> {
         let func = self.resolve_by_idx(idx)?;
         match func {
             FuncInst::Internal(func) => self.invoke_internal(func),
-            FuncInst::External(func) => self.invoke_external(func),
+            FuncInst::External(func) => {
+                let store = self.store.as_ref().borrow();
+                let stack = &mut self.stack;
+                let imports = store.imports.as_ref().expect("not found any imports");
+                invoke_external(imports, stack, func)
+            }
         }
     }
 
@@ -475,7 +460,13 @@ impl Runtime {
                             trace!("call internal function: {:?}", &frame);
                             self.call_stack.push(frame);
                         }
-                        _ => todo!(),
+                        FuncInst::External(func) => {
+                            let imports = store.imports.as_ref().expect("not found any imports");
+                            let result = invoke_external(imports, stack, func.clone())?;
+                            if let Some(value) = result {
+                                stack.push(value);
+                            }
+                        }
                     }
                 }
                 Instruction::CallIndirect((signature_idx, table_idx)) => {
@@ -554,12 +545,14 @@ impl Runtime {
                             trace!("call internal function: {:?}", &frame);
                             self.call_stack.push(frame);
                         }
-                        _ => todo!(),
-                        //FuncInst::External(func) => self.invoke_external(func),
+                        FuncInst::External(func) => {
+                            let imports = store.imports.as_ref().expect("not found any imports");
+                            let result = invoke_external(imports, stack, func);
+                            if let Some(value) = result? {
+                                stack.push(value);
+                            }
+                        }
                     };
-                    //if let Some(value) = result? {
-                    //    stack.push(value);
-                    //}
                 }
                 // NOTE: only support 1 memory now
                 Instruction::MemoryGrow(_) => {
