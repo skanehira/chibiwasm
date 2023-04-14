@@ -1,5 +1,5 @@
 use super::indices::TypeIdx;
-use super::value::{ExternalVal, Numberic, Value};
+use super::value::{ExternalVal, Numeric, Value};
 use crate::binary::instruction::{Instruction, MemoryArg};
 use crate::binary::module::Module;
 use crate::binary::types::{FuncType, ValueType};
@@ -73,16 +73,16 @@ impl InternalMemoryInst {
         Ok(())
     }
 
-    pub fn load<T: Numberic>(&self, addr: usize, arg: &MemoryArg) -> Result<T> {
+    pub fn load<T: Numeric>(&self, addr: usize, arg: &MemoryArg) -> Result<T> {
         // TODO: check align and memory size
         let at = addr + arg.offset as usize;
-        Numberic::read(&self.data, at)
+        Numeric::read(&self.data, at)
     }
 
-    pub fn write<T: Numberic>(&mut self, addr: usize, arg: &MemoryArg, value: T) -> Result<()> {
+    pub fn write<T: Numeric>(&mut self, addr: usize, arg: &MemoryArg, value: T) -> Result<()> {
         // TODO: check align and memory size
         let at = addr + arg.offset as usize;
-        Numberic::write(&mut self.data, at, value)
+        Numeric::write(&mut self.data, at, value)
     }
 }
 

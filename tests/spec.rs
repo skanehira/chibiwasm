@@ -141,7 +141,7 @@ mod tests {
                     _ => e,
                 })
                 .collect();
-            assert_eq!(want, got, "unexpect result, want={want:?}, got={got:?}");
+            assert_eq!(want, got, "unexpected result, want={want:?}, got={got:?}");
             Ok(())
         }
 
@@ -235,7 +235,7 @@ mod tests {
                                 assert_eq!(
                                     want,
                                     got,
-                                    "unexpect result, want={want}, got={got}, test: {field}, args: {args:?}",
+                                    "unexpected result, want={want}, got={got}, test: {field}, args: {args:?}",
                                 );
                             }
                             _ => {
