@@ -524,13 +524,13 @@ fn decode_instruction(reader: &mut SectionReader) -> Result<Instruction> {
         Opcode::BrIf => Instruction::BrIf(reader.u32()?),
         Opcode::BrTable => {
             let count = reader.u32()? as usize;
-            let mut indexs = vec![0; count];
+            let mut indexes = vec![0; count];
             for i in 0..count {
                 let index = reader.u32()?;
-                indexs[i] = index;
+                indexes[i] = index;
             }
             let default = reader.u32()?;
-            Instruction::BrTable(indexs, default)
+            Instruction::BrTable(indexes, default)
         }
         Opcode::Call => {
             let local_idx = reader.u32()?;

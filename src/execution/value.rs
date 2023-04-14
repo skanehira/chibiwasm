@@ -527,17 +527,17 @@ impl Value {
     }
 }
 
-pub trait Numberic {
+pub trait Numeric {
     fn read(buf: &[u8], addr: usize) -> Result<Self>
     where
         Self: Sized;
     fn write(buf: &mut [u8], addr: usize, value: Self) -> Result<()>;
 }
 
-macro_rules! impl_numberic {
+macro_rules! impl_numeric {
     ($($ty: ty),*) => {
         $(
-            impl Numberic for $ty {
+            impl Numeric for $ty {
                 fn read(buf: &[u8], addr: usize) -> Result<$ty> {
                     if addr + size_of::<$ty>() > buf.len() {
                         bail!("out of bounds memory access");
@@ -563,4 +563,4 @@ macro_rules! impl_numberic {
     }
 }
 
-impl_numberic!(i8, i16, i32, i64, f32, f64, u8, u16, u32);
+impl_numeric!(i8, i16, i32, i64, f32, f64, u8, u16, u32);
