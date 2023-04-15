@@ -15,6 +15,6 @@ pub enum Error {
     InvalidInitExprEndOpcode(u8),
     #[error("invalid import kind at import section, got {0}")]
     InvalidImportKind(u8),
-    #[error("invalid opecode: {0}")]
+    #[error("invalid opecode: {0:x}")]
     InvalidOpcode(u8),
 }

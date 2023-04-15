@@ -1,16 +1,14 @@
-use super::{
-    error::Error,
-    module::*,
-    value::{ExternalVal, Value},
-};
-use crate::binary::{
-    module::{Decoder, Module},
-    types::{Expr, ExprValue, FuncType, Mutability},
+use super::{error::Error, module::*, value::Value};
+use crate::{
+    binary::{
+        module::{Decoder, Module},
+        types::{Expr, ExprValue, FuncType, Mutability},
+    },
+    Importer,
 };
 use anyhow::{bail, Context, Result};
 use std::{
     cell::RefCell,
-    collections::HashMap,
     fs,
     io::{Cursor, Read},
     rc::Rc,
@@ -24,180 +22,39 @@ pub enum Exports {
     Global(GlobalInst),
 }
 
-#[derive(Default, Debug, Clone)]
-pub struct Imports(pub HashMap<String, Rc<RefCell<Store>>>);
-
-impl Imports {
-    pub fn add(&mut self, name: &str, module: Rc<RefCell<Store>>) {
-        self.0.insert(name.into(), module);
-    }
-
-    pub fn resolve_table(&self, name: &str, field: &str) -> Result<Rc<RefCell<InternalTableInst>>> {
-        let store = self.0.get(name);
-        match store {
-            Some(store) => {
-                let store = store.borrow();
-
-                let export_inst = store
-                    .module
-                    .exports
-                    .get(field)
-                    .context(format!("not found exported table '{field}' from {name}"))?;
-
-                let external_val = &export_inst.desc;
-                let ExternalVal::Table(idx) = external_val else {
-                    bail!("invalid export desc: {:?}", external_val);
-                };
-
-                let table = store
-                    .tables
-                    .get(*idx as usize)
-                    .with_context(|| format!("not found table {idx} in module: {name}"))?;
-
-                Ok(Rc::clone(table))
-            }
-            None => {
-                bail!(
-                    "cannot resolve function. not found module: {name} in imports: {:?}",
-                    self.0
-                );
-            }
-        }
-    }
-
-    pub fn resolve_global(&self, name: &str, field: &str) -> Result<GlobalInst> {
-        let store = self.0.get(name);
-        match store {
-            Some(store) => {
-                let store = store.borrow();
-                let export_inst = store
-                    .module
-                    .exports
-                    .get(field)
-                    .context(format!("not found exported global '{field}' from {name}"))?;
-                let external_val = &export_inst.desc;
-
-                let ExternalVal::Global(idx) = external_val else {
-                    bail!("invalid export desc: {:?}", external_val);
-                };
-                let global = store
-                    .globals
-                    .get(*idx as usize)
-                    .with_context(|| format!("not found global index '{idx}' from {name}"))?;
-
-                Ok(Rc::clone(global))
-            }
-            None => {
-                bail!(
-                    "cannot resolve global. not found module: {name} in imports: {:?}",
-                    self.0
-                );
-            }
-        }
-    }
-
-    pub fn resolve_func(&self, name: &str, field: &str) -> Result<FuncInst> {
-        let store = self.0.get(name);
-        match store {
-            Some(store) => {
-                let store = store.borrow();
-
-                let export_inst = store
-                    .module
-                    .exports
-                    .get(field)
-                    .context(format!("not found exported function '{field}' from {name}"))?;
-                let external_val = &export_inst.desc;
-
-                let ExternalVal::Func(idx) = external_val else {
-                    bail!("invalid export desc: {:?}", external_val);
-                };
-                let func = store
-                    .funcs
-                    .get(*idx as usize)
-                    .with_context(|| format!("not found function by {name}"))?;
-
-                Ok(func.clone())
-            }
-            None => {
-                bail!(
-                    "cannot resolve function. not found module: {name} in imports: {:?}",
-                    self.0
-                );
-            }
-        }
-    }
-
-    pub fn resolve_memory(
-        &self,
-        name: &str,
-        field: &str,
-    ) -> Result<Rc<RefCell<InternalMemoryInst>>> {
-        let store = self.0.get(name);
-        match store {
-            Some(store) => {
-                let store = store.borrow();
-
-                let export_inst = store
-                    .module
-                    .exports
-                    .get(field)
-                    .context(format!("not found exported memory '{field}' from {name}"))?;
-                let external_val = &export_inst.desc;
-
-                let ExternalVal::Memory(idx) = external_val else {
-                    bail!("invalid export desc: {:?}", external_val);
-                };
-                let memory = store
-                    .memory
-                    .get(*idx as usize)
-                    .with_context(|| format!("not found memory from {name}"))?;
-
-                Ok(Rc::clone(memory))
-            }
-            None => {
-                bail!(
-                    "cannot resolve memory. not found module: {name} in imports: {:?}",
-                    self.0
-                );
-            }
-        }
-    }
-}
-
-#[derive(Debug, Default, Clone)]
+#[derive(Default)]
 pub struct Store {
     pub funcs: Vec<FuncInst>,
     pub tables: Vec<TableInst>,
     pub memory: Vec<MemoryInst>,
     pub globals: Vec<GlobalInst>,
-    pub imports: Option<Imports>,
+    pub imports: Option<Box<dyn Importer>>,
     pub module: ModuleInst,
     pub start: Option<u32>,
 }
 
 impl Store {
-    pub fn from_file(file: &str, import: Option<Imports>) -> Result<Self> {
+    pub fn from_file(file: &str, import: Option<Box<dyn Importer>>) -> Result<Self> {
         let file = fs::File::open(file)?;
         let mut decoder = Decoder::new(file);
         let module = decoder.decode()?;
         Self::new(&module, import)
     }
 
-    pub fn from_reader(reader: &mut impl Read, imports: Option<Imports>) -> Result<Self> {
+    pub fn from_reader(reader: &mut impl Read, imports: Option<Box<dyn Importer>>) -> Result<Self> {
         let mut decoder = Decoder::new(reader);
         let module = decoder.decode()?;
         Self::new(&module, imports)
     }
 
-    pub fn from_bytes<T: AsRef<[u8]>>(b: T, imports: Option<Imports>) -> Result<Self> {
+    pub fn from_bytes<T: AsRef<[u8]>>(b: T, imports: Option<Box<dyn Importer>>) -> Result<Self> {
         let buf = Cursor::new(b);
         let mut decoder = Decoder::new(buf);
         let module = decoder.decode()?;
         Self::new(&module, imports)
     }
 
-    pub fn new(module: &Module, imports: Option<Imports>) -> Result<Self> {
+    pub fn new(module: &Module, imports: Option<Box<dyn Importer>>) -> Result<Self> {
         let func_type_idxs = match module.function_section {
             Some(ref functions) => functions.clone(),
             _ => vec![],
@@ -239,15 +96,21 @@ impl Store {
                         funcs.push(func);
                     }
                     crate::binary::types::ImportKind::Table(_) => {
-                        let table = imports.resolve_table(module_name, field)?;
+                        let table = imports
+                            .resolve_table(module_name, field)?
+                            .with_context(|| Error::NoImports)?; // TODO: define error enum
                         tables.push(table);
                     }
                     crate::binary::types::ImportKind::Global(_) => {
-                        let global = imports.resolve_global(module_name, field)?;
+                        let global = imports
+                            .resolve_global(module_name, field)?
+                            .with_context(|| Error::NoImports)?;
                         globals.push(global);
                     }
                     crate::binary::types::ImportKind::Memory(_) => {
-                        let memory = imports.resolve_memory(module_name, field)?;
+                        let memory = imports
+                            .resolve_memory(module_name, field)?
+                            .with_context(|| Error::NoImports)?;
                         memories.push(memory);
                     }
                 }
