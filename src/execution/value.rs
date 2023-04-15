@@ -542,9 +542,8 @@ macro_rules! impl_numeric {
                     if addr + size_of::<$ty>() > buf.len() {
                         bail!("out of bounds memory access");
                     }
-                    let size = size_of::<$ty>();
-                    let addr_end = size + addr;
-                    Ok(<$ty>::from_le_bytes(buf[addr..addr_end].try_into()?))
+                    let end = addr + size_of::<$ty>();
+                    Ok(<$ty>::from_le_bytes(buf[addr..end].try_into()?))
                 }
 
                 fn write(buf: &mut [u8], addr: usize, value: Self) -> Result<()> {
