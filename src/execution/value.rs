@@ -542,12 +542,8 @@ macro_rules! impl_numeric {
                     if addr + size_of::<$ty>() > buf.len() {
                         bail!("out of bounds memory access");
                     }
-                    // TODO: Change to a non-copying approach.
-                    let mut bytes = [0u8; size_of::<$ty>()];
-                    for i in 0..bytes.len() {
-                        bytes[i] = buf[addr + i];
-                    }
-                    Ok(<$ty>::from_le_bytes(bytes))
+                    let end = addr + size_of::<$ty>();
+                    Ok(<$ty>::from_le_bytes(buf[addr..end].try_into()?))
                 }
 
                 fn write(buf: &mut [u8], addr: usize, value: Self) -> Result<()> {
