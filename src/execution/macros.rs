@@ -132,6 +132,8 @@ macro_rules! funop {
     };
 }
 
+/// This macro is easier to implement `Fbinop` trait.
+/// If you use this macro for `Type`, write `fbinop!(Type)`.
 #[macro_export]
 macro_rules! fbinop {
     ($($ty: ty),+) => {
@@ -163,6 +165,8 @@ macro_rules! fbinop {
     };
 }
 
+/// This macro is easier to implement `Frelop` trait.
+/// If you use this macro for `Type`, write `frelop!(Type)`.
 #[macro_export]
 macro_rules! frelop {
     ($($ty: ty),+) => {
@@ -191,6 +195,7 @@ macro_rules! frelop {
     };
 }
 
+/// This macro is easier to implement `Iunop` trait.
 #[macro_export]
 macro_rules! iunop {
     () => {
@@ -225,6 +230,7 @@ macro_rules! iunop {
     };
 }
 
+/// This macro is easier to implement `Ibinop` trait.
 #[macro_export]
 macro_rules! ibinop {
     () => {
@@ -316,6 +322,7 @@ macro_rules! ibinop {
     };
 }
 
+/// This macro is easier to implement `Irelop` trait.
 #[macro_export]
 macro_rules! irelop {
     () => {
