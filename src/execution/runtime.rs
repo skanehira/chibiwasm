@@ -586,13 +586,12 @@ impl Runtime {
 mod test {
     use super::{Runtime, Value};
     use anyhow::{Context, Result};
-    use wasmer::wat2wasm;
 
     #[test]
     fn invoke() -> Result<()> {
         pretty_env_logger::init();
         let wat_code = include_bytes!("./fixtures/invoke.wat");
-        let wasm = &mut wat2wasm(wat_code)?;
+        let wasm = wat::parse_bytes(wat_code)?;
         let mut runtime = Runtime::from_bytes(wasm, None)?;
 
         // expect some return value

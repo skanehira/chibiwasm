@@ -44,7 +44,7 @@ mod tests {
         // add module for testing module importing
         let mut imports = Imports::default();
         let testspec = {
-            let wat = r#"
+            let code = r#"
 (module
   (table (export "table") 10 funcref)
   (global (export "global_i32") i32 (i32.const 42))
@@ -73,7 +73,7 @@ mod tests {
   )
 )
                 "#;
-            let wasm = wasmer::wat2wasm(wat.as_bytes()).unwrap();
+            let wasm = wat::parse_str(code).unwrap();
             let store = Store::from_bytes(&wasm, None).unwrap();
             Rc::new(RefCell::new(store))
         };
