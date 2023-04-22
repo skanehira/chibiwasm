@@ -9,7 +9,9 @@ pub trait Importer {
     fn get(&self, _name: &str) -> Result<Option<Rc<RefCell<Store>>>> {
         Ok(None)
     }
-    fn add(&mut self, name: &str, module: Rc<RefCell<Store>>);
+    fn add(&mut self, _name: &str, _module: Rc<RefCell<Store>>) {
+        // do nothing
+    }
     fn invoke(
         &self,
         store: Rc<RefCell<Store>>,

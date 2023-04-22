@@ -1,8 +1,24 @@
 (module
-  (import "wasi_snapshot_preview1" "fd_write" (func $fd_write (param i32 i32 i32 i32) (result i32)))
-  (memory 1)
-  (data (i32.const 0) "Hello, world!\n")
-  (func $main (export "main") (param i32 i32 i32 i32) (result i32)
-    (call $fd_write (local.get 0) (local.get 1) (local.get 2) (local.get 3))
+  (import "wasi_snapshot_preview1" "fd_write"
+    (func $fd_write (param i32 i32 i32 i32) (result i32))
   )
+  (memory (export "memory") 1)
+  (data (i32.const 0) "Hello, World!\n")
+
+  (func $write_hello_world (result i32)
+    (local $iovec i32)
+
+    (i32.store (i32.const 16) (i32.const 0))
+    (i32.store (i32.const 20) (i32.const 14))
+
+    (local.set $iovec (i32.const 16))
+
+    (call $fd_write
+      (i32.const 1)
+      (local.get $iovec)
+      (i32.const 1)
+      (i32.const 24)
+    )
+  )
+  (export "_start" (func $write_hello_world))
 )
