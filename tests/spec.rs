@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use chibiwasm::execution::{Exports, Imports, Runtime, Store, Value};
+    use chibiwasm::execution::{Exports, Importer as _, Imports, Runtime, Store, Value};
     use log::debug;
     use paste::paste;
     use std::cell::RefCell;
@@ -14,7 +14,7 @@ mod tests {
 
     static INIT: Once = Once::new();
 
-    #[derive(Debug, Default)]
+    #[derive(Default)]
     struct Spec {
         modules: HashMap<Option<String>, Rc<RefCell<Runtime>>>,
         imports: Imports,
@@ -267,7 +267,8 @@ mod tests {
                 }
                 CommandKind::Module { module, name } => {
                     let mut reader = Cursor::new(module.into_vec());
-                    let runtime = Runtime::from_reader(&mut reader, Some(spec.imports.clone()))?;
+                    let runtime =
+                        Runtime::from_reader(&mut reader, Some(Box::new(spec.imports.clone())))?;
                     let runtime = Rc::new(RefCell::new(runtime));
                     spec.modules.insert(name, runtime.clone());
                     spec.modules.insert(None, runtime);

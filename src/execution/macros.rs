@@ -1,7 +1,8 @@
 #[macro_export]
 macro_rules! load {
     ($stack: expr, $store: expr, $ty: ty, $arg: expr) => {{
-        let memory = $store
+        let store = $store.borrow();
+        let memory = store
             .memory
             .get(0)
             .with_context(|| Error::NotFoundMemory(0))?;
@@ -12,7 +13,8 @@ macro_rules! load {
     }};
     ($stack: expr, $store: expr, $ty: ty, $arg: expr, $tz: ty) => {{
         let addr = $stack.pop1::<i32>()? as usize;
-        let memory = $store
+        let store = $store.borrow();
+        let memory = store
             .memory
             .get(0)
             .with_context(|| Error::NotFoundMemory(0))?;
@@ -25,7 +27,8 @@ macro_rules! load {
 #[macro_export]
 macro_rules! store {
     ($stack: expr, $store: expr, $ty: ty, $arg: expr) => {{
-        let memory = $store
+        let store = $store.borrow();
+        let memory = store
             .memory
             .get(0)
             .with_context(|| Error::NotFoundMemory(0))?;
@@ -35,7 +38,8 @@ macro_rules! store {
         memory.write(addr, $arg, value)?;
     }};
     ($stack: expr, $store: expr, $ty: ty, $arg: expr, $tz: ty) => {{
-        let memory = $store
+        let store = $store.borrow();
+        let memory = store
             .memory
             .get(0)
             .with_context(|| Error::NotFoundMemory(0))?;

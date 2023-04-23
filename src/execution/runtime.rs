@@ -1,19 +1,19 @@
 use super::module::{FuncInst, InternalFuncInst};
 use super::op::*;
-use super::store::{Exports, Imports, Store};
+use super::store::{Exports, Store};
 use super::value::{ExternalVal, Frame, Label, StackAccess, Value};
 use crate::binary::instruction::*;
 use crate::binary::types::ValueType;
 use crate::execution::error::Error;
 use crate::execution::value::LabelKind;
-use crate::{load, store};
+use crate::{load, store, Importer};
 use anyhow::{bail, Context as _, Result};
 use log::{error, trace};
 use std::cell::RefCell;
 use std::io::Read;
 use std::rc::Rc;
 
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct Runtime {
     pub store: Rc<RefCell<Store>>,
     pub stack: Vec<Value>,
@@ -21,17 +21,17 @@ pub struct Runtime {
 }
 
 impl Runtime {
-    pub fn from_file(file: &str, imports: Option<Imports>) -> Result<Self> {
+    pub fn from_file(file: &str, imports: Option<Box<dyn Importer>>) -> Result<Self> {
         let store = Store::from_file(file, imports)?;
         Self::instantiate(Rc::new(RefCell::new(store)))
     }
 
-    pub fn from_reader(reader: &mut impl Read, imports: Option<Imports>) -> Result<Self> {
+    pub fn from_reader(reader: &mut impl Read, imports: Option<Box<dyn Importer>>) -> Result<Self> {
         let store = Store::from_reader(reader, imports)?;
         Self::instantiate(Rc::new(RefCell::new(store)))
     }
 
-    pub fn from_bytes<T: AsRef<[u8]>>(b: T, imports: Option<Imports>) -> Result<Self> {
+    pub fn from_bytes<T: AsRef<[u8]>>(b: T, imports: Option<Box<dyn Importer>>) -> Result<Self> {
         let store = Store::from_bytes(b, imports)?;
         Self::instantiate(Rc::new(RefCell::new(store)))
     }
@@ -176,10 +176,8 @@ impl Runtime {
         let result = match func {
             FuncInst::Internal(func) => self.invoke_internal(func),
             FuncInst::External(func) => {
-                let store = self.store.borrow();
-                let imports = store.imports.as_ref().with_context(|| Error::NoImports)?;
                 let stack = &mut self.stack;
-                invoke_external(imports, stack, func)
+                invoke_external(Rc::clone(&self.store), stack, func)
             }
         };
         match result {
@@ -202,7 +200,6 @@ impl Runtime {
     }
 
     fn execute(&mut self) -> Result<()> {
-        let mut store = self.store.borrow_mut();
         let stack = &mut self.stack;
 
         loop {
@@ -229,8 +226,12 @@ impl Runtime {
                 Instruction::LocalTee(idx) => {
                     local_tee(&mut frame.locals, stack, *idx as usize)?;
                 }
-                Instruction::GlobalGet(idx) => global_get(&mut store, stack, *idx as usize)?,
-                Instruction::GlobalSet(idx) => global_set(&mut store, stack, *idx as usize)?,
+                Instruction::GlobalGet(idx) => {
+                    global_get(&mut self.store.borrow_mut(), stack, *idx as usize)?
+                }
+                Instruction::GlobalSet(idx) => {
+                    global_set(&mut self.store.borrow_mut(), stack, *idx as usize)?
+                }
                 Instruction::I32Add | Instruction::I64Add => add(stack)?,
                 Instruction::I32Sub | Instruction::I64Sub => sub(stack)?,
                 Instruction::I32Mul | Instruction::I64Mul => mul(stack)?,
@@ -296,7 +297,7 @@ impl Runtime {
                         .call_stack
                         .pop()
                         .with_context(|| Error::CallStackPopError("return".into()))?;
-                    trace!("frame in the return instruction: {:?}", &frame);
+                    trace!("frame in the return instruction");
                     let Frame { sp, arity, .. } = frame;
                     stack_unwind(stack, sp, arity)?;
                 }
@@ -313,12 +314,10 @@ impl Runtime {
                         // it label is not exists, this means the end of
                         // function
                         None => {
-                            trace!("frame: {:?}, stack: {:#?}", &frame, &stack);
                             let frame = self
                                 .call_stack
                                 .pop()
                                 .with_context(|| Error::CallStackPopError("end".into()))?;
-                            trace!("end instruction, frame: {:?}", &frame);
                             let Frame { sp, arity, .. } = frame;
                             stack_unwind(stack, sp, arity)?;
                         }
@@ -414,6 +413,7 @@ impl Runtime {
                 }
                 Instruction::Call(idx) => {
                     let idx = *idx as usize;
+                    let store = self.store.borrow();
                     let func = store
                         .funcs
                         .get(idx)
@@ -423,9 +423,8 @@ impl Runtime {
                             push_frame(stack, &mut self.call_stack, func);
                         }
                         FuncInst::External(func) => {
-                            let imports =
-                                store.imports.as_ref().with_context(|| Error::NoImports)?;
-                            let result = invoke_external(imports, stack, func.clone())?;
+                            let result =
+                                invoke_external(Rc::clone(&self.store), stack, func.clone())?;
                             if let Some(value) = result {
                                 stack.push(value);
                             }
@@ -437,7 +436,7 @@ impl Runtime {
 
                     let func = {
                         let idx = *table_idx as usize;
-                        let tables = &store.tables;
+                        let tables = &self.store.borrow().tables;
                         let table = tables
                             .get(idx) // NOTE: table_idx is always 0 now
                             .with_context(|| Error::NotFoundTable(idx))?;
@@ -456,6 +455,7 @@ impl Runtime {
 
                     // validate expect func signature and actual func signature
                     let idx = *signature_idx as usize;
+                    let store = self.store.borrow();
                     let expect_func_type = store
                         .module
                         .func_types
@@ -482,11 +482,10 @@ impl Runtime {
                         FuncInst::Internal(ref func) => {
                             push_frame(stack, &mut self.call_stack, func);
                         }
-                        FuncInst::External(func) => {
-                            let imports =
-                                store.imports.as_ref().with_context(|| Error::NoImports)?;
-                            let result = invoke_external(imports, stack, func);
-                            if let Some(value) = result? {
+                        FuncInst::External(ref func) => {
+                            let result =
+                                invoke_external(Rc::clone(&self.store), stack, func.clone())?;
+                            if let Some(value) = result {
                                 stack.push(value);
                             }
                         }
@@ -495,6 +494,7 @@ impl Runtime {
                 // NOTE: only support 1 memory now
                 Instruction::MemoryGrow(idx) => {
                     let idx = *idx as usize;
+                    let store = self.store.borrow();
                     let memory = store
                         .memory
                         .get(idx)
@@ -515,6 +515,7 @@ impl Runtime {
                 }
                 Instruction::MemorySize => {
                     let idx = 0;
+                    let store = self.store.borrow();
                     let memory = store
                         .memory
                         .get(idx)
@@ -523,29 +524,58 @@ impl Runtime {
                     let size = memory.size() as i32;
                     stack.push(size.into());
                 }
-                Instruction::I32Load(arg) => load!(stack, store, i32, arg),
-                Instruction::I64Load(arg) => load!(stack, store, i64, arg),
-                Instruction::F32Load(arg) => load!(stack, store, f32, arg),
-                Instruction::F64Load(arg) => load!(stack, store, f64, arg),
-                Instruction::I32Load8S(arg) => load!(stack, store, i8, arg, i32),
-                Instruction::I32Load8U(arg) => load!(stack, store, u8, arg, i32),
-                Instruction::I32Load16S(arg) => load!(stack, store, i16, arg, i32),
-                Instruction::I32Load16U(arg) => load!(stack, store, u16, arg, i32),
-                Instruction::I64Load8S(arg) => load!(stack, store, i8, arg, i64),
-                Instruction::I64Load8U(arg) => load!(stack, store, u8, arg, i64),
-                Instruction::I64Load16S(arg) => load!(stack, store, i16, arg, i64),
-                Instruction::I64Load16U(arg) => load!(stack, store, u16, arg, i64),
-                Instruction::I64Load32S(arg) => load!(stack, store, i32, arg, i64),
-                Instruction::I64Load32U(arg) => load!(stack, store, u32, arg, i64),
-                Instruction::I32Store(arg) => store!(stack, store, i32, arg),
-                Instruction::I64Store(arg) => store!(stack, store, i64, arg),
-                Instruction::F32Store(arg) => store!(stack, store, f32, arg),
-                Instruction::F64Store(arg) => store!(stack, store, f64, arg),
-                Instruction::I32Store8(arg) => store!(stack, store, i32, arg, i8),
-                Instruction::I32Store16(arg) => store!(stack, store, i32, arg, i16),
-                Instruction::I64Store16(arg) => store!(stack, store, i64, arg, i16),
-                Instruction::I64Store8(arg) => store!(stack, store, i64, arg, i8),
-                Instruction::I64Store32(arg) => store!(stack, store, i64, arg, i32),
+                Instruction::MemoryCopy(_, _) => {
+                    let len = stack.pop1::<i32>()? as usize;
+                    let src = stack.pop1::<i32>()? as usize;
+                    let dst = stack.pop1::<i32>()? as usize;
+
+                    let store = self.store.borrow();
+                    let memory = store
+                        .memory
+                        .get(0)
+                        .with_context(|| Error::NotFoundMemory(dst))?;
+                    let mut memory = memory.borrow_mut();
+                    memory.data.copy_within(src..src + len, dst);
+                }
+                Instruction::MemoryFill(_) => {
+                    let len = stack.pop1::<i32>()? as usize;
+                    let val = stack.pop1::<i32>()? as u8;
+                    let dst = stack.pop1::<i32>()? as usize;
+
+                    let store = self.store.borrow();
+                    let memory = store
+                        .memory
+                        .get(0)
+                        .with_context(|| Error::NotFoundMemory(dst))?;
+                    let mut memory = memory.borrow_mut();
+
+                    let data: Vec<_> = vec![val; len];
+                    let dst = memory.data[dst..dst + len].as_mut();
+                    dst.copy_from_slice(data.as_slice());
+                }
+                Instruction::I32Load(arg) => load!(stack, self.store, i32, arg),
+                Instruction::I64Load(arg) => load!(stack, self.store, i64, arg),
+                Instruction::F32Load(arg) => load!(stack, self.store, f32, arg),
+                Instruction::F64Load(arg) => load!(stack, self.store, f64, arg),
+                Instruction::I32Load8S(arg) => load!(stack, self.store, i8, arg, i32),
+                Instruction::I32Load8U(arg) => load!(stack, self.store, u8, arg, i32),
+                Instruction::I32Load16S(arg) => load!(stack, self.store, i16, arg, i32),
+                Instruction::I32Load16U(arg) => load!(stack, self.store, u16, arg, i32),
+                Instruction::I64Load8S(arg) => load!(stack, self.store, i8, arg, i64),
+                Instruction::I64Load8U(arg) => load!(stack, self.store, u8, arg, i64),
+                Instruction::I64Load16S(arg) => load!(stack, self.store, i16, arg, i64),
+                Instruction::I64Load16U(arg) => load!(stack, self.store, u16, arg, i64),
+                Instruction::I64Load32S(arg) => load!(stack, self.store, i32, arg, i64),
+                Instruction::I64Load32U(arg) => load!(stack, self.store, u32, arg, i64),
+                Instruction::I32Store(arg) => store!(stack, self.store, i32, arg),
+                Instruction::I64Store(arg) => store!(stack, self.store, i64, arg),
+                Instruction::F32Store(arg) => store!(stack, self.store, f32, arg),
+                Instruction::F64Store(arg) => store!(stack, self.store, f64, arg),
+                Instruction::I32Store8(arg) => store!(stack, self.store, i32, arg, i8),
+                Instruction::I32Store16(arg) => store!(stack, self.store, i32, arg, i16),
+                Instruction::I64Store16(arg) => store!(stack, self.store, i64, arg, i16),
+                Instruction::I64Store8(arg) => store!(stack, self.store, i64, arg, i8),
+                Instruction::I64Store32(arg) => store!(stack, self.store, i64, arg, i32),
                 Instruction::Select => {
                     let cond = stack.pop1::<i32>()?;
                     let val2 = stack.pop1::<Value>()?;

@@ -1,16 +1,15 @@
 use super::{
     module::{ExternalFuncInst, InternalFuncInst},
-    store::{Imports, Store},
+    store::Store,
     value::{Frame, Label, LabelKind, StackAccess, Value},
 };
 use crate::{
-    binary::instruction::Instruction,
-    execution::{error::Error, runtime::Runtime},
-    impl_binary_operation, impl_cvtop_operation, impl_unary_operation,
+    binary::instruction::Instruction, execution::error::Error, impl_binary_operation,
+    impl_cvtop_operation, impl_unary_operation,
 };
 use anyhow::{bail, Context as _, Result};
 use log::trace;
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 pub fn local_get(locals: &[Value], stack: &mut impl StackAccess, idx: usize) -> Result<()> {
     let value = locals
@@ -20,13 +19,18 @@ pub fn local_get(locals: &[Value], stack: &mut impl StackAccess, idx: usize) -> 
     Ok(())
 }
 
-pub fn local_set(locals: &mut [Value], stack: &mut impl StackAccess, idx: usize) -> Result<()> {
+pub fn local_set(locals: &mut Vec<Value>, stack: &mut impl StackAccess, idx: usize) -> Result<()> {
     let value: Value = stack.pop1()?;
+    if locals.len() <= idx {
+        for _ in 0..(idx + 1) - locals.len() {
+            locals.push(0.into());
+        }
+    }
     locals[idx] = value;
     Ok(())
 }
 
-pub fn local_tee(locals: &mut [Value], stack: &mut impl StackAccess, idx: usize) -> Result<()> {
+pub fn local_tee(locals: &mut Vec<Value>, stack: &mut impl StackAccess, idx: usize) -> Result<()> {
     let value: Value = stack.pop1()?;
     stack.push(value.clone());
     stack.push(value);
@@ -140,7 +144,14 @@ pub fn get_else_or_end_address(insts: &[Instruction], pc: isize) -> Result<usize
 pub fn push_frame(stack: &mut Vec<Value>, call_stack: &mut Vec<Frame>, func: &InternalFuncInst) {
     let arity = func.func_type.results.len();
     let len = stack.len();
-    let locals = stack.split_off(len - func.func_type.params.len());
+    let mut locals = stack.split_off(len - func.func_type.params.len());
+
+    let local_len = func.code.locals.len();
+    if local_len > locals.len() {
+        for _ in 0..local_len - locals.len() {
+            locals.push(Value::I32(0));
+        }
+    }
     let sp = stack.len();
     let frame = Frame {
         pc: -1,
@@ -192,21 +203,38 @@ pub fn br(labels: &mut Vec<Label>, stack: &mut Vec<Value>, level: &u32) -> Resul
 }
 
 pub fn invoke_external(
-    imports: &Imports,
+    store: Rc<RefCell<Store>>,
     stack: &mut impl StackAccess,
     func: ExternalFuncInst,
 ) -> Result<Option<Value>> {
+    trace!("invoke external function: {:?}", &func);
     let mut args = Vec::with_capacity(func.func_type.params.len());
     for _ in 0..func.func_type.params.len() {
         args.push(stack.pop1()?);
     }
-    let store = imports
-        .0
-        .get(&func.module)
-        .with_context(|| Error::NotFoundImportModule(func.module))?;
+    args.reverse();
 
-    let mut runtime = Runtime::instantiate(Rc::clone(store))?;
-    runtime.call(func.field.clone(), args)
+    let main_store = store.borrow();
+    let import_store = main_store
+        .imports
+        .as_ref()
+        .with_context(|| Error::NoImports)?
+        .get(&func.module)
+        .with_context(|| Error::NotFoundImportModule(func.module.clone()))?;
+
+    // FIXME: if store not found from importer, it's mean we should execute function from wasi_snapshot_preview1
+    // this is a temporary solution, and we should review new struct design.
+    let store_for_invoke = match import_store {
+        Some(store) => store,
+        None => Rc::clone(&store),
+    };
+
+    let imports = main_store
+        .imports
+        .as_ref()
+        .with_context(|| Error::NoImports)?;
+
+    imports.invoke(store_for_invoke, func, args)
 }
 
 impl_unary_operation!(
