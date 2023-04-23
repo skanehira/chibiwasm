@@ -85,9 +85,9 @@ impl<R: io::Read> Decoder<R> {
         Ok(num)
     }
 
-    pub fn decode_section_header(&mut self) -> Result<(SectionID, u32)> {
+    pub fn decode_section_header(&mut self) -> Result<(SectionID, usize)> {
         let id: SectionID = FromPrimitive::from_u8(self.byte()?).unwrap();
-        let size: u32 = self.u32()?;
+        let size = self.u32()? as usize;
         Ok((id, size))
     }
 
@@ -113,7 +113,7 @@ impl<R: io::Read> Decoder<R> {
         };
         while self.is_end()? {
             let (id, size) = self.decode_section_header()?;
-            let bytes = self.bytes(size as usize)?;
+            let bytes = self.bytes(size)?;
             let section = decode(id, &bytes)?;
             module.add_section(section);
         }
