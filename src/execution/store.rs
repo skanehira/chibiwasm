@@ -240,18 +240,18 @@ impl Store {
         }
 
         // copy data to memory
-        if let Some(ref data) = module.data {
-            for d in data {
-                let offset = eval(&globals, d.offset.clone())?;
-                let data = &d.init;
+        if let Some(ref data_list) = module.data {
+            for data in data_list {
+                let offset = eval(&globals, data.offset.clone())?;
+                let init_data = &data.init;
                 let mut memory = memories
-                    .get(d.memory_index as usize)
+                    .get(data.memory_index as usize)
                     .with_context(|| "not found memory")?
                     .borrow_mut();
-                if offset + data.len() > memory.data.len() {
+                if offset + init_data.len() > memory.data.len() {
                     bail!("data is too large to fit in memory");
                 }
-                memory.data[offset..offset + data.len()].copy_from_slice(data);
+                memory.data[offset..offset + init_data.len()].copy_from_slice(init_data);
             }
         }
 
