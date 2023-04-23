@@ -1,9 +1,9 @@
 use crate::{
     error::Error,
-    module::{ExternalFuncInst, InternalTableInst, GlobalInst, FuncInst, InternalMemoryInst},
+    module::{ExternalFuncInst, FuncInst, GlobalInst, InternalMemoryInst, InternalTableInst},
     ExternalVal, Importer, Runtime, Store, Value,
 };
-use anyhow::{Context as _, Result, bail};
+use anyhow::{bail, Context as _, Result};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 #[derive(Default, Clone)]

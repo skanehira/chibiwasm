@@ -297,7 +297,7 @@ impl Runtime {
                         .call_stack
                         .pop()
                         .with_context(|| Error::CallStackPopError("return".into()))?;
-                    trace!("frame in the return instruction: {:?}", &frame);
+                    trace!("frame in the return instruction");
                     let Frame { sp, arity, .. } = frame;
                     stack_unwind(stack, sp, arity)?;
                 }
@@ -314,12 +314,10 @@ impl Runtime {
                         // it label is not exists, this means the end of
                         // function
                         None => {
-                            trace!("frame: {:?}, stack: {:#?}", &frame, &stack);
                             let frame = self
                                 .call_stack
                                 .pop()
                                 .with_context(|| Error::CallStackPopError("end".into()))?;
-                            trace!("end instruction, frame: {:?}", &frame);
                             let Frame { sp, arity, .. } = frame;
                             stack_unwind(stack, sp, arity)?;
                         }
@@ -526,6 +524,35 @@ impl Runtime {
                     let size = memory.size() as i32;
                     stack.push(size.into());
                 }
+                Instruction::MemoryCopy(_, _) => {
+                    let len = stack.pop1::<i32>()? as usize;
+                    let src = stack.pop1::<i32>()? as usize;
+                    let dst = stack.pop1::<i32>()? as usize;
+
+                    let store = self.store.borrow();
+                    let memory = store
+                        .memory
+                        .get(0)
+                        .with_context(|| Error::NotFoundMemory(dst))?;
+                    let mut memory = memory.borrow_mut();
+                    memory.data.copy_within(src..src + len, dst);
+                }
+                Instruction::MemoryFill(_) => {
+                    let len = stack.pop1::<i32>()? as usize;
+                    let val = stack.pop1::<i32>()? as u8;
+                    let dst = stack.pop1::<i32>()? as usize;
+
+                    let store = self.store.borrow();
+                    let memory = store
+                        .memory
+                        .get(0)
+                        .with_context(|| Error::NotFoundMemory(dst))?;
+                    let mut memory = memory.borrow_mut();
+
+                    let data: Vec<_> = vec![val; len];
+                    let dst = memory.data[dst..dst + len].as_mut();
+                    dst.copy_from_slice(data.as_slice());
+                }
                 Instruction::I32Load(arg) => load!(stack, self.store, i32, arg),
                 Instruction::I64Load(arg) => load!(stack, self.store, i64, arg),
                 Instruction::F32Load(arg) => load!(stack, self.store, f32, arg),
@@ -673,24 +700,4 @@ mod test {
 
         Ok(())
     }
-
-// TODO: test wasi
-//    #[test]
-//    fn test_wasi() -> Result<()> {
-//        let wat_code = r#"
-//(module
-//  (import "wasi_snapshot_preview1" "fd_write" (func $fd_write (param i32 i32 i32 i32) (result i32)))
-//  (memory 1)
-//  (data (i32.const 0) "Hello, world!")
-//  (func $main (export "main") (result i32)
-//    (call $fd_write (i32.const 0) (i32.const 1) (i32.const 1) (i32.const 1))
-//  )
-//)
-//        "#;
-//        let wasm = &mut wat::parse_str(wat_code)?;
-//        let wasi = crate::wasi::wasi_snapshot_preview1::Wasi {};
-//        let mut runtime = Runtime::from_bytes(wasm, Some(Box::new(wasi)))?;
-//        runtime.call("main".into(), vec![Value::I32(0), Value::I32(13)])?;
-//        Ok(())
-//    }
 }

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chibiwasm::execution::Runtime;
+use chibiwasm::{execution::Runtime, wasi::WasiSnapshotPreview1};
 use clap::Parser;
 
 #[derive(Debug, Parser)]
@@ -26,8 +26,8 @@ fn main() -> Result<()> {
         }
     };
 
-    let mut runtime = Runtime::from_file(&file, None)?;
-    let result = runtime.call(func, args)?;
+    let mut runtime = Runtime::from_file(&file, Some(Box::<WasiSnapshotPreview1>::default()))?;
+    let result = runtime.call(func, args).expect("failed to call function");
 
     if let Some(output) = result {
         println!("{}", output);

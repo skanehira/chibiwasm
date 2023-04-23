@@ -84,6 +84,12 @@ impl InternalMemoryInst {
         let at = addr + arg.offset as usize;
         Numeric::write(&mut self.data, at, value)
     }
+
+    pub fn write_bytes(&mut self, addr: usize, bytes: &[u8]) -> Result<()> {
+        let slice = &mut self.data[addr..addr + bytes.len()];
+        slice.copy_from_slice(bytes);
+        Ok(())
+    }
 }
 
 pub type GlobalInst = Rc<RefCell<InternalGlobalInst>>;

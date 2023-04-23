@@ -19,13 +19,18 @@ pub fn local_get(locals: &[Value], stack: &mut impl StackAccess, idx: usize) -> 
     Ok(())
 }
 
-pub fn local_set(locals: &mut [Value], stack: &mut impl StackAccess, idx: usize) -> Result<()> {
+pub fn local_set(locals: &mut Vec<Value>, stack: &mut impl StackAccess, idx: usize) -> Result<()> {
     let value: Value = stack.pop1()?;
+    if locals.len() <= idx {
+        for _ in 0..(idx + 1) - locals.len() {
+            locals.push(0.into());
+        }
+    }
     locals[idx] = value;
     Ok(())
 }
 
-pub fn local_tee(locals: &mut [Value], stack: &mut impl StackAccess, idx: usize) -> Result<()> {
+pub fn local_tee(locals: &mut Vec<Value>, stack: &mut impl StackAccess, idx: usize) -> Result<()> {
     let value: Value = stack.pop1()?;
     stack.push(value.clone());
     stack.push(value);
@@ -139,7 +144,14 @@ pub fn get_else_or_end_address(insts: &[Instruction], pc: isize) -> Result<usize
 pub fn push_frame(stack: &mut Vec<Value>, call_stack: &mut Vec<Frame>, func: &InternalFuncInst) {
     let arity = func.func_type.results.len();
     let len = stack.len();
-    let locals = stack.split_off(len - func.func_type.params.len());
+    let mut locals = stack.split_off(len - func.func_type.params.len());
+
+    let local_len = func.code.locals.len();
+    if local_len > locals.len() {
+        for _ in 0..local_len - locals.len() {
+            locals.push(Value::I32(0));
+        }
+    }
     let sp = stack.len();
     let frame = Frame {
         pc: -1,
@@ -195,6 +207,7 @@ pub fn invoke_external(
     stack: &mut impl StackAccess,
     func: ExternalFuncInst,
 ) -> Result<Option<Value>> {
+    trace!("invoke external function: {:?}", &func);
     let mut args = Vec::with_capacity(func.func_type.params.len());
     for _ in 0..func.func_type.params.len() {
         args.push(stack.pop1()?);

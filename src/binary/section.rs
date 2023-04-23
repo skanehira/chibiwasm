@@ -697,6 +697,23 @@ fn decode_instruction(reader: &mut SectionReader) -> Result<Instruction> {
             let _ = reader.byte();
             Instruction::MemorySize
         }
+        // TODO: improve instruction decoding because opecode maybe tow bytes in the version 2
+        // this instruction is defined in the version2 of the spec
+        Opcode::MmeoryCopyOrFill => {
+            let kind = reader.byte()?;
+            match kind {
+                0x0A => {
+                    let src_memidx = reader.u32()?;
+                    let dest_memidx = reader.u32()?;
+                    Instruction::MemoryCopy(src_memidx, dest_memidx)
+                }
+                0x0B => {
+                    let memidx = reader.u32()?;
+                    Instruction::MemoryFill(memidx)
+                }
+                _ => unreachable!(),
+            }
+        }
         Opcode::Select => Instruction::Select,
         Opcode::I32TruncF32S => Instruction::I32TruncF32S,
         Opcode::I32TruncF32U => Instruction::I32TruncF32U,

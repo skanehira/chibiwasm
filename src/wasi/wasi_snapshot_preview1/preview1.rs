@@ -21,6 +21,11 @@ impl Importer for WasiSnapshotPreview1 {
     ) -> Result<Option<Value>> {
         match func.field.as_str() {
             "fd_write" => self.fd_write(store, args),
+            "proc_exit" => {
+                self.proc_exit(args);
+            }
+            "environ_get" => self.environ_get(store, args),
+            "environ_sizes_get" => self.environ_sizes_get(store, args),
             _ => todo!(),
         }
     }
@@ -30,6 +35,88 @@ impl WasiSnapshotPreview1 {
     pub fn with_io(files: Vec<Arc<Mutex<File>>>) -> Self {
         let file_table = FileTable::with_io(files);
         Self { file_table }
+    }
+
+    fn proc_exit(&self, args: Vec<Value>) -> ! {
+        let exit_code: i32 = args
+            .get(0)
+            .expect("no any argument in proc_exit")
+            .clone()
+            .into();
+        std::process::exit(exit_code);
+    }
+
+    fn environ_get(&self, store: Rc<RefCell<Store>>, args: Vec<Value>) -> Result<Option<Value>> {
+        let args: Vec<i32> = args.into_iter().map(Into::into).collect();
+        let (mut offset, mut buf_offset) = (args[0] as usize, args[1] as usize);
+
+        let store = store.borrow();
+        let memory = store.memory.get(0).with_context(|| "not found memory")?;
+        let mut memory = memory.borrow_mut();
+
+        let env = std::env::vars();
+        for (key, val) in env {
+            memory.write(
+                0,
+                &MemoryArg {
+                    align: 4,
+                    offset: offset as u32,
+                },
+                buf_offset as i32,
+            )?;
+            offset += 4;
+
+            let data = format!("{}={}\0", key, val);
+            let data = data.as_bytes();
+
+            // write bytes to memory
+            memory.write_bytes(buf_offset, data)?;
+            buf_offset += data.len();
+        }
+
+        Ok(Some(0.into()))
+    }
+
+    fn environ_sizes_get(
+        &self,
+        store: Rc<RefCell<Store>>,
+        args: Vec<Value>,
+    ) -> Result<Option<Value>> {
+        let args: Vec<i32> = args.into_iter().map(Into::into).collect();
+        let (offset, buf_offset) = (args[0] as usize, args[1] as usize);
+
+        let store = store.borrow();
+        let memory = store.memory.get(0).with_context(|| "not found memory")?;
+        let mut memory = memory.borrow_mut();
+
+        let env = std::env::vars();
+
+        let (size, _) = env.size_hint();
+        memory.write(
+            0,
+            &MemoryArg {
+                align: 4,
+                offset: offset as u32,
+            },
+            size as i32,
+        )?;
+
+        let size = env.fold(0, |acc, (key, val)| {
+            let data = format!("{}={}\0", key, val);
+            let data = data.as_bytes();
+            acc + data.len()
+        });
+
+        memory.write(
+            0,
+            &MemoryArg {
+                align: 4,
+                offset: buf_offset as u32,
+            },
+            size as i32,
+        )?;
+
+        Ok(Some(0.into()))
     }
 
     fn fd_write(&self, store: Rc<RefCell<Store>>, args: Vec<Value>) -> Result<Option<Value>> {
@@ -85,7 +172,7 @@ impl WasiSnapshotPreview1 {
             written as i32,
         )?;
 
-        Ok(Some((written as i32).into()))
+        Ok(Some(0.into()))
     }
 }
 
@@ -134,7 +221,7 @@ mod tests {
             .call("_start".into(), vec![])?
             .expect("not found result")
             .into();
-        assert_eq!(result, 14);
+        assert_eq!(result, 0);
 
         let mut stdout = stdout.lock().expect("cannot lock stdout");
         stdout.seek(0)?; // NOTE: need to reset cursor for reading
