@@ -393,9 +393,8 @@ impl Runtime {
                         .labels
                         .pop()
                         .with_context(|| Error::LabelPopError("else".into()))?;
-                    let Label { pc, sp, arity, .. } = label;
+                    let Label { pc, .. } = label;
                     frame.pc = pc as isize;
-                    stack_unwind(stack, sp, arity)?;
                 }
                 Instruction::Block(block) => {
                     let arity = block.block_type.result_count();
