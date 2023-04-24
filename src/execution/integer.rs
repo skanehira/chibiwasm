@@ -1,6 +1,12 @@
 use super::error::Error;
 use crate::{ibinop, irelop, itestop, iunop};
 use anyhow::{bail, Result};
+use num::traits::int::PrimInt;
+
+
+pub fn clz<T: PrimInt + From<u32>>(a: &T) -> Result<T> {
+    Ok(From::from(a.leading_zeros()))
+}
 
 pub trait Iunop {
     fn clz(&self) -> Result<Self>
