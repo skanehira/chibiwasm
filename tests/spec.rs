@@ -4,11 +4,9 @@ mod tests {
     use chibiwasm::execution::{Exports, Importer as _, Imports, Runtime, Store, Value};
     use log::debug;
     use paste::paste;
-    use std::cell::RefCell;
     use std::collections::HashMap;
     use std::io::{Cursor, Read};
-    use std::rc::Rc;
-    use std::sync::Once;
+    use std::sync::{ Once, Arc, Mutex };
     use std::{fs, path::Path};
     use wabt::{script::*, Features};
 
@@ -16,7 +14,7 @@ mod tests {
 
     #[derive(Default)]
     struct Spec {
-        modules: HashMap<Option<String>, Rc<RefCell<Runtime>>>,
+        modules: HashMap<Option<String>, Arc<Mutex<Runtime>>>,
         imports: Imports,
     }
 
@@ -75,7 +73,7 @@ mod tests {
                 "#;
             let wasm = wat::parse_str(code).unwrap();
             let store = Store::from_bytes(&wasm, None).unwrap();
-            Rc::new(RefCell::new(store))
+            Arc::new(Mutex::new(store))
         };
 
         imports.add("spectest", testspec);
@@ -172,17 +170,17 @@ mod tests {
                             &module, &field, &args
                         );
                         let runtime = spec.modules.get(&module).expect("not found mdoule").clone();
-                        let runtime = &mut *runtime.borrow_mut();
+                        let runtime = &mut *runtime.lock().expect("thread lock failed for runtime");
                         invoke(runtime, field, args, expected)?;
                     }
                     Action::Get { module, field } => {
                         debug!("get module: {:?}, field: {}", &module, &field);
                         let runtime = spec.modules.get(&module).expect("not found mdoule").clone();
-                        let runtime = &mut *runtime.borrow_mut();
+                        let runtime = &mut *runtime.lock().expect("thread lock failed for runtime");
                         let exports = runtime.exports(field.clone())?;
 
                         let results = match exports {
-                            Exports::Global(global) => vec![global.borrow().value.clone()],
+                            Exports::Global(global) => vec![global.lock().expect("can not lock global").value.clone()],
                             _ => {
                                 todo!();
                             }
@@ -202,7 +200,7 @@ mod tests {
                             &module, &field, &args
                         );
                         let runtime = spec.modules.get(&module).expect("not found mdoule").clone();
-                        let runtime = &mut *runtime.borrow_mut();
+                        let runtime = &mut *runtime.lock().expect("thread lock failed for runtime");
                         invoke(runtime, field, args, vec![])?;
                     }
                     Action::Get { .. } => todo!(),
@@ -224,7 +222,7 @@ mod tests {
                             &module, &field, &args
                         );
                         let runtime = spec.modules.get(&module).expect("not found mdoule").clone();
-                        let runtime = &mut *runtime.borrow_mut();
+                        let runtime = &mut *runtime.lock().expect("thread lock failed for runtime");
                         let args = into_wasm_value(args);
                         let result = runtime.call(field.clone(), args.clone());
 
@@ -262,14 +260,14 @@ mod tests {
                 }
                 CommandKind::Register { name, as_name } => {
                     let runtime = spec.modules.get(&name).expect("not found mdoule").clone();
-                    let store = &runtime.borrow().store;
-                    spec.imports.add(&as_name, Rc::clone(store));
+                    let store = &runtime.lock().expect("thread lock failed for runtime").store;
+                    spec.imports.add(&as_name, Arc::clone(store));
                 }
                 CommandKind::Module { module, name } => {
                     let mut reader = Cursor::new(module.into_vec());
                     let runtime =
                         Runtime::from_reader(&mut reader, Some(Box::new(spec.imports.clone())))?;
-                    let runtime = Rc::new(RefCell::new(runtime));
+                    let runtime = Arc::new(Mutex::new(runtime));
                     spec.modules.insert(name, runtime.clone());
                     spec.modules.insert(None, runtime);
                 }

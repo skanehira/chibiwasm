@@ -1,4 +1,4 @@
-use super::{error::Error, module::*, value::Value};
+use super::{error::{ Error, Resource }, module::*, value::Value};
 use crate::{
     binary::{
         module::{Decoder, Module},
@@ -8,10 +8,9 @@ use crate::{
 };
 use anyhow::{bail, Context, Result};
 use std::{
-    cell::RefCell,
     fs,
     io::{Cursor, Read},
-    rc::Rc,
+    sync::{ Arc, Mutex }
 };
 
 #[derive(Debug)]
@@ -28,33 +27,33 @@ pub struct Store {
     pub tables: Vec<TableInst>,
     pub memory: Vec<MemoryInst>,
     pub globals: Vec<GlobalInst>,
-    pub imports: Option<Box<dyn Importer>>,
+    pub imports: Option<Box<dyn Importer + Send + Sync>>,
     pub module: ModuleInst,
     pub start: Option<u32>,
 }
 
 impl Store {
-    pub fn from_file(file: &str, import: Option<Box<dyn Importer>>) -> Result<Self> {
+    pub fn from_file(file: &str, import: Option<Box<dyn Importer + Send + Sync>>) -> Result<Self> {
         let file = fs::File::open(file)?;
         let mut decoder = Decoder::new(file);
         let module = decoder.decode()?;
         Self::new(&module, import)
     }
 
-    pub fn from_reader(reader: &mut impl Read, imports: Option<Box<dyn Importer>>) -> Result<Self> {
+    pub fn from_reader(reader: &mut impl Read, imports: Option<Box<dyn Importer + Send + Sync>>) -> Result<Self> {
         let mut decoder = Decoder::new(reader);
         let module = decoder.decode()?;
         Self::new(&module, imports)
     }
 
-    pub fn from_bytes<T: AsRef<[u8]>>(b: T, imports: Option<Box<dyn Importer>>) -> Result<Self> {
+    pub fn from_bytes<T: AsRef<[u8]>>(b: T, imports: Option<Box<dyn Importer + Send + Sync>>) -> Result<Self> {
         let buf = Cursor::new(b);
         let mut decoder = Decoder::new(buf);
         let module = decoder.decode()?;
         Self::new(&module, imports)
     }
 
-    pub fn new(module: &Module, imports: Option<Box<dyn Importer>>) -> Result<Self> {
+    pub fn new(module: &Module, imports: Option<Box<dyn Importer + Send + Sync>>) -> Result<Self> {
         let func_type_idxs = match module.function_section {
             Some(ref functions) => functions.clone(),
             _ => vec![],
@@ -129,7 +128,7 @@ impl Store {
                     value,
                     mutability: global.global_type.mutability == Mutability::Var,
                 };
-                globals.push(Rc::new(RefCell::new(global)));
+                globals.push(Arc::new(Mutex::new(global)));
             }
         }
 
@@ -174,7 +173,7 @@ impl Store {
                     data: vec![0; min as usize],
                     max: memory.limits.max,
                 };
-                memories.push(Rc::new(RefCell::new(memory)));
+                memories.push(Arc::new(Mutex::new(memory)));
             }
         }
 
@@ -186,7 +185,9 @@ impl Store {
                     let global = globals
                         .get(idx)
                         .with_context(|| "not found offset from globals")?
-                        .borrow();
+                        .lock()
+                        .ok()
+                        .with_context(|| Error::CanNotLockForThread(Resource::Global))?;
                     Ok(i32::from(global.value.clone()) as usize)
                 }
             }
@@ -226,14 +227,16 @@ impl Store {
                 funcs: entries,
                 max: table.limits.max,
             };
-            tables.push(Rc::new(RefCell::new(table_inst)));
+            tables.push(Arc::new(Mutex::new(table_inst)));
         } else {
             // update table if element section exists
             if !tables.is_empty() {
                 let entries = &mut tables
                     .first()
                     .with_context(|| "not found table")?
-                    .borrow_mut()
+                    .lock()
+                    .ok()
+                    .with_context(|| Error::CanNotLockForThread(Resource::Table))?
                     .funcs;
                 update_funcs_in_table(entries)?;
             }
@@ -247,7 +250,9 @@ impl Store {
                 let mut memory = memories
                     .get(data.memory_index as usize)
                     .with_context(|| "not found memory")?
-                    .borrow_mut();
+                    .lock()
+                    .ok()
+                    .with_context(|| Error::CanNotLockForThread(Resource::Memory))?;
                 if offset + init_data.len() > memory.data.len() {
                     bail!("data is too large to fit in memory");
                 }

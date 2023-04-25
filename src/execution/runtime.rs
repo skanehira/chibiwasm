@@ -4,41 +4,44 @@ use super::store::{Exports, Store};
 use super::value::{ExternalVal, Frame, Label, StackAccess, Value};
 use crate::binary::instruction::*;
 use crate::binary::types::ValueType;
-use crate::execution::error::Error;
+use crate::execution::error::{ Error, Resource };
 use crate::execution::value::LabelKind;
 use crate::{load, store, Importer};
 use anyhow::{bail, Context as _, Result};
 use log::{error, trace};
-use std::cell::RefCell;
 use std::io::Read;
-use std::rc::Rc;
+use std::sync::{ Arc, Mutex };
 
 #[derive(Default)]
 pub struct Runtime {
-    pub store: Rc<RefCell<Store>>,
+    pub store: Arc<Mutex<Store>>,
     pub stack: Vec<Value>,
     pub call_stack: Vec<Frame>,
 }
 
 impl Runtime {
-    pub fn from_file(file: &str, imports: Option<Box<dyn Importer>>) -> Result<Self> {
+    pub fn from_file(file: &str, imports: Option<Box<dyn Importer + Sync + Send>>) -> Result<Self> {
         let store = Store::from_file(file, imports)?;
-        Self::instantiate(Rc::new(RefCell::new(store)))
+        Self::instantiate(Arc::new(Mutex::new(store)))
     }
 
-    pub fn from_reader(reader: &mut impl Read, imports: Option<Box<dyn Importer>>) -> Result<Self> {
+    pub fn from_reader(reader: &mut impl Read, imports: Option<Box<dyn Importer + Sync + Send>>) -> Result<Self> {
         let store = Store::from_reader(reader, imports)?;
-        Self::instantiate(Rc::new(RefCell::new(store)))
+        Self::instantiate(Arc::new(Mutex::new(store)))
     }
 
-    pub fn from_bytes<T: AsRef<[u8]>>(b: T, imports: Option<Box<dyn Importer>>) -> Result<Self> {
+    pub fn from_bytes<T: AsRef<[u8]>>(b: T, imports: Option<Box<dyn Importer + Sync + Send>>) -> Result<Self> {
         let store = Store::from_bytes(b, imports)?;
-        Self::instantiate(Rc::new(RefCell::new(store)))
+        Self::instantiate(Arc::new(Mutex::new(store)))
     }
 
     // https://www.w3.org/TR/wasm-core-1/#instantiation%E2%91%A1
-    pub fn instantiate(store: Rc<RefCell<Store>>) -> Result<Self> {
-        let start = store.borrow().start;
+    pub fn instantiate(store: Arc<Mutex<Store>>) -> Result<Self> {
+        let start = store
+            .lock()
+            .ok()
+            .with_context(|| Error::CanNotLockForThread(Resource::Store))?
+            .start;
         let mut runtime = Self {
             store,
             ..Default::default()
@@ -63,12 +66,17 @@ impl Runtime {
         }
 
         let idx = {
-            let store = self.store.borrow();
+            let store = self.store
+                .lock()
+                .ok()
+                .with_context(|| Error::CanNotLockForThread(Resource::Store))?;
+
             let export_inst = store
                 .module
                 .exports
                 .get(&name)
                 .with_context(|| Error::NotFoundExportInstance(name))?;
+
             let external_val = &export_inst.desc;
 
             let ExternalVal::Func(idx) = external_val else {
@@ -90,7 +98,10 @@ impl Runtime {
 
     // get exported instances by name, like table, memory, global
     pub fn exports(&mut self, name: String) -> Result<Exports> {
-        let store = self.store.borrow();
+        let store = self.store
+            .lock()
+            .ok()
+            .with_context(|| Error::CanNotLockForThread(Resource::Store))?;
         let export_inst = store
             .module
             .exports
@@ -103,21 +114,21 @@ impl Runtime {
                     .tables
                     .get(idx as usize)
                     .with_context(|| Error::NotFoundExportedTable(idx))?;
-                Exports::Table(Rc::clone(table))
+                Exports::Table(Arc::clone(table))
             }
             ExternalVal::Memory(idx) => {
                 let memory = store
                     .memory
                     .get(idx as usize)
                     .with_context(|| Error::NotFoundExportedMemory(idx))?;
-                Exports::Memory(Rc::clone(memory))
+                Exports::Memory(Arc::clone(memory))
             }
             ExternalVal::Global(idx) => {
                 let global = store
                     .globals
                     .get(idx as usize)
                     .with_context(|| Error::NotFoundExportedGlobal(idx))?;
-                Exports::Global(Rc::clone(global))
+                Exports::Global(Arc::clone(global))
             }
             ExternalVal::Func(idx) => {
                 let func = store
@@ -177,7 +188,7 @@ impl Runtime {
             FuncInst::Internal(func) => self.invoke_internal(func),
             FuncInst::External(func) => {
                 let stack = &mut self.stack;
-                invoke_external(Rc::clone(&self.store), stack, func)
+                invoke_external(Arc::clone(&self.store), stack, func)
             }
         };
         match result {
@@ -191,11 +202,16 @@ impl Runtime {
     }
 
     fn get_func_by_idx(&mut self, idx: usize) -> Result<FuncInst> {
-        let store = self.store.borrow();
+        let store = self.store
+            .lock()
+            .ok()
+            .with_context(|| Error::CanNotLockForThread(Resource::Store))?;
+
         let func = store
             .funcs
             .get(idx)
             .with_context(|| Error::NotFoundFunction(idx))?;
+
         Ok(func.clone())
     }
 
@@ -227,10 +243,18 @@ impl Runtime {
                     local_tee(&mut frame.locals, stack, *idx as usize)?;
                 }
                 Instruction::GlobalGet(idx) => {
-                    global_get(&mut self.store.borrow_mut(), stack, *idx as usize)?
+                    let mut store = self.store
+                        .lock()
+                        .ok()
+                        .with_context(|| Error::CanNotLockForThread(Resource::Store))?;
+                    global_get(&mut store, stack, *idx as usize)?
                 }
                 Instruction::GlobalSet(idx) => {
-                    global_set(&mut self.store.borrow_mut(), stack, *idx as usize)?
+                    let mut store = self.store
+                        .lock()
+                        .ok()
+                        .with_context(|| Error::CanNotLockForThread(Resource::Store))?;
+                    global_set(&mut store, stack, *idx as usize)?
                 }
                 Instruction::I32Add | Instruction::I64Add => add(stack)?,
                 Instruction::I32Sub | Instruction::I64Sub => sub(stack)?,
@@ -412,7 +436,10 @@ impl Runtime {
                 }
                 Instruction::Call(idx) => {
                     let idx = *idx as usize;
-                    let store = self.store.borrow();
+                    let store = self.store
+                        .lock()
+                        .ok()
+                        .with_context(|| Error::CanNotLockForThread(Resource::Store))?;
                     let func = store
                         .funcs
                         .get(idx)
@@ -423,7 +450,7 @@ impl Runtime {
                         }
                         FuncInst::External(func) => {
                             let result =
-                                invoke_external(Rc::clone(&self.store), stack, func.clone())?;
+                                invoke_external(Arc::clone(&self.store), stack, func.clone())?;
                             if let Some(value) = result {
                                 stack.push(value);
                             }
@@ -435,13 +462,22 @@ impl Runtime {
 
                     let func = {
                         let idx = *table_idx as usize;
-                        let tables = &self.store.borrow().tables;
+                        let tables = &self.store
+                            .lock()
+                            .ok()
+                            .with_context(|| Error::CanNotLockForThread(Resource::Store))?
+                            .tables;
+
                         let table = tables
                             .get(idx) // NOTE: table_idx is always 0 now
                             .with_context(|| Error::NotFoundTable(idx))?;
 
-                        let table = Rc::clone(table);
-                        let table = table.borrow();
+                        let table = Arc::clone(table);
+                        let table = table
+                            .lock()
+                            .ok()
+                            .with_context(|| Error::CanNotLockForThread(Resource::Table))?;
+
                         let func = table
                             .funcs
                             .get(elem_idx)
@@ -454,7 +490,11 @@ impl Runtime {
 
                     // validate expect func signature and actual func signature
                     let idx = *signature_idx as usize;
-                    let store = self.store.borrow();
+                    let store = self.store
+                        .lock()
+                        .ok()
+                        .with_context(|| Error::CanNotLockForThread(Resource::Store))?;
+
                     let expect_func_type = store
                         .module
                         .func_types
@@ -483,7 +523,7 @@ impl Runtime {
                         }
                         FuncInst::External(ref func) => {
                             let result =
-                                invoke_external(Rc::clone(&self.store), stack, func.clone())?;
+                                invoke_external(Arc::clone(&self.store), stack, func.clone())?;
                             if let Some(value) = result {
                                 stack.push(value);
                             }
@@ -493,14 +533,22 @@ impl Runtime {
                 // NOTE: only support 1 memory now
                 Instruction::MemoryGrow(idx) => {
                     let idx = *idx as usize;
-                    let store = self.store.borrow();
+                    let store = self.store
+                        .lock()
+                        .ok()
+                        .with_context(|| Error::CanNotLockForThread(Resource::Store))?;
+
                     let memory = store
                         .memory
                         .get(idx)
                         .with_context(|| Error::NotFoundMemory(idx))?;
-                    let memory = Rc::clone(memory);
+                    let memory = Arc::clone(memory);
                     let n = stack.pop1::<i32>()?;
-                    let mut memory = memory.borrow_mut();
+                    let mut memory = memory
+                        .lock()
+                        .ok()
+                        .with_context(|| Error::CanNotLockForThread(Resource::Memory))?;
+
                     let size = memory.size();
                     match memory.grow(n as u32) {
                         Ok(_) => {
@@ -514,12 +562,19 @@ impl Runtime {
                 }
                 Instruction::MemorySize => {
                     let idx = 0;
-                    let store = self.store.borrow();
+                    let store = self.store
+                        .lock()
+                        .ok()
+                        .with_context(|| Error::CanNotLockForThread(Resource::Store))?;
+
                     let memory = store
                         .memory
                         .get(idx)
-                        .with_context(|| Error::NotFoundMemory(idx))?;
-                    let memory = memory.borrow();
+                        .with_context(|| Error::NotFoundMemory(idx))?
+                        .lock()
+                        .ok()
+                        .with_context(|| Error::CanNotLockForThread(Resource::Memory))?;
+
                     let size = memory.size() as i32;
                     stack.push(size.into());
                 }
@@ -528,12 +583,19 @@ impl Runtime {
                     let src = stack.pop1::<i32>()? as usize;
                     let dst = stack.pop1::<i32>()? as usize;
 
-                    let store = self.store.borrow();
-                    let memory = store
+                    let store = self.store
+                        .lock()
+                        .ok()
+                        .with_context(|| Error::CanNotLockForThread(Resource::Store))?;
+
+                    let mut memory = store
                         .memory
                         .get(0)
-                        .with_context(|| Error::NotFoundMemory(dst))?;
-                    let mut memory = memory.borrow_mut();
+                        .with_context(|| Error::NotFoundMemory(dst))?
+                        .lock()
+                        .ok()
+                        .with_context(|| Error::CanNotLockForThread(Resource::Memory))?;
+
                     memory.data.copy_within(src..src + len, dst);
                 }
                 Instruction::MemoryFill(_) => {
@@ -541,12 +603,18 @@ impl Runtime {
                     let val = stack.pop1::<i32>()? as u8;
                     let dst = stack.pop1::<i32>()? as usize;
 
-                    let store = self.store.borrow();
-                    let memory = store
+                    let store = self.store
+                        .lock()
+                        .ok()
+                        .with_context(|| Error::CanNotLockForThread(Resource::Store))?;
+
+                    let mut memory = store
                         .memory
                         .get(0)
-                        .with_context(|| Error::NotFoundMemory(dst))?;
-                    let mut memory = memory.borrow_mut();
+                        .with_context(|| Error::NotFoundMemory(dst))?
+                        .lock()
+                        .ok()
+                        .with_context(|| Error::CanNotLockForThread(Resource::Memory))?;
 
                     let data: Vec<_> = vec![val; len];
                     let dst = memory.data[dst..dst + len].as_mut();

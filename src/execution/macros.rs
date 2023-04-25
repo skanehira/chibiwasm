@@ -1,24 +1,37 @@
+
 #[macro_export]
 macro_rules! load {
     ($stack: expr, $store: expr, $ty: ty, $arg: expr) => {{
-        let store = $store.borrow();
+        let store = $store
+            .lock()
+            .ok()
+            .with_context(|| Error::CanNotLockForThread(Resource::Store))?;
         let memory = store
             .memory
             .get(0)
             .with_context(|| Error::NotFoundMemory(0))?;
-        let memory = memory.borrow();
+        let memory = memory
+            .lock()
+            .ok()
+            .with_context(|| Error::CanNotLockForThread(Resource::Memory))?;
         let addr = $stack.pop1::<i32>()? as usize;
         let value = memory.load::<$ty>(addr, $arg)?;
         $stack.push(value.into());
     }};
     ($stack: expr, $store: expr, $ty: ty, $arg: expr, $tz: ty) => {{
         let addr = $stack.pop1::<i32>()? as usize;
-        let store = $store.borrow();
+        let store = $store
+            .lock()
+            .ok()
+            .with_context(|| Error::CanNotLockForThread(Resource::Store))?;
         let memory = store
             .memory
             .get(0)
             .with_context(|| Error::NotFoundMemory(0))?;
-        let memory = memory.borrow();
+        let memory = memory
+            .lock()
+            .ok()
+            .with_context(|| Error::CanNotLockForThread(Resource::Memory))?;
         let value = memory.load::<$ty>(addr, $arg)? as $tz;
         $stack.push(value.into());
     }};
@@ -27,23 +40,35 @@ macro_rules! load {
 #[macro_export]
 macro_rules! store {
     ($stack: expr, $store: expr, $ty: ty, $arg: expr) => {{
-        let store = $store.borrow();
+        let store = $store
+            .lock()
+            .ok()
+            .with_context(|| Error::CanNotLockForThread(Resource::Store))?;
         let memory = store
             .memory
             .get(0)
             .with_context(|| Error::NotFoundMemory(0))?;
-        let mut memory = memory.borrow_mut();
+        let mut memory = memory
+            .lock()
+            .ok()
+            .with_context(|| Error::CanNotLockForThread(Resource::Memory))?;
         let value = $stack.pop1::<$ty>()?;
         let addr = $stack.pop1::<i32>()? as usize;
         memory.write(addr, $arg, value)?;
     }};
     ($stack: expr, $store: expr, $ty: ty, $arg: expr, $tz: ty) => {{
-        let store = $store.borrow();
+        let store = $store
+            .lock()
+            .ok()
+            .with_context(|| Error::CanNotLockForThread(Resource::Store))?;
         let memory = store
             .memory
             .get(0)
             .with_context(|| Error::NotFoundMemory(0))?;
-        let mut memory = memory.borrow_mut();
+        let mut memory = memory
+            .lock()
+            .ok()
+            .with_context(|| Error::CanNotLockForThread(Resource::Memory))?;
         let value = $stack.pop1::<$ty>()? as $tz;
         let addr = $stack.pop1::<i32>()? as usize;
         memory.write(addr, $arg, value)?;

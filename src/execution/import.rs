@@ -1,40 +1,43 @@
 use crate::{
-    error::Error,
+    error::{ Error, Resource },
     module::{ExternalFuncInst, FuncInst, GlobalInst, InternalMemoryInst, InternalTableInst},
     ExternalVal, Importer, Runtime, Store, Value,
 };
 use anyhow::{bail, Context as _, Result};
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{collections::HashMap, sync::{ Arc, Mutex } };
 
 #[derive(Default, Clone)]
-pub struct Imports(pub HashMap<String, Rc<RefCell<Store>>>);
+pub struct Imports(pub HashMap<String, Arc<Mutex<Store>>>);
 
 impl Importer for Imports {
-    fn get(&self, name: &str) -> Result<Option<Rc<RefCell<Store>>>> {
+    fn get(&self, name: &str) -> Result<Option<Arc<Mutex<Store>>>> {
         let store = self.0.get(name).with_context(|| Error::NoImports)?;
-        Ok(Some(Rc::clone(store)))
+        Ok(Some(Arc::clone(store)))
     }
-    fn add(&mut self, name: &str, module: Rc<RefCell<Store>>) {
+    fn add(&mut self, name: &str, module: Arc<Mutex<Store>>) {
         self.0.insert(name.into(), module);
     }
     fn invoke(
         &self,
-        store: Rc<RefCell<Store>>,
+        store: Arc<Mutex<Store>>,
         func: ExternalFuncInst,
         args: Vec<Value>,
     ) -> Result<Option<Value>> {
-        let mut runtime = Runtime::instantiate(Rc::clone(&store))?;
+        let mut runtime = Runtime::instantiate(Arc::clone(&store))?;
         runtime.call(func.field, args)
     }
     fn resolve_table(
         &self,
         name: &str,
         field: &str,
-    ) -> Result<Option<Rc<RefCell<InternalTableInst>>>> {
+    ) -> Result<Option<Arc<Mutex<InternalTableInst>>>> {
         let store = self.0.get(name);
         match store {
             Some(store) => {
-                let store = store.borrow();
+                let store: std::sync::MutexGuard<Store> = store
+                    .lock()
+                    .ok()
+                    .with_context(|| Error::CanNotLockForThread(Resource::Memory))?;
 
                 let export_inst = store
                     .module
@@ -52,7 +55,7 @@ impl Importer for Imports {
                     .get(*idx as usize)
                     .with_context(|| format!("not found table {idx} in module: {name}"))?;
 
-                Ok(Some(Rc::clone(table)))
+                Ok(Some(Arc::clone(table)))
             }
             None => {
                 bail!("cannot resolve function. not found module: {name} in imports",);
@@ -64,7 +67,10 @@ impl Importer for Imports {
         let store = self.0.get(name);
         match store {
             Some(store) => {
-                let store = store.borrow();
+                let store = store
+                    .lock()
+                    .ok()
+                    .with_context(|| Error::CanNotLockForThread(Resource::Store))?;
                 let export_inst = store
                     .module
                     .exports
@@ -80,7 +86,7 @@ impl Importer for Imports {
                     .get(*idx as usize)
                     .with_context(|| format!("not found global index '{idx}' from {name}"))?;
 
-                Ok(Some(Rc::clone(global)))
+                Ok(Some(Arc::clone(global)))
             }
             None => {
                 bail!("cannot resolve global. not found module: {name} in imports",);
@@ -92,7 +98,10 @@ impl Importer for Imports {
         let store = self.0.get(name);
         match store {
             Some(store) => {
-                let store = store.borrow();
+                let store = store
+                    .lock()
+                    .ok()
+                    .with_context(|| Error::CanNotLockForThread(Resource::Store))?;
 
                 let export_inst = store
                     .module
@@ -121,11 +130,14 @@ impl Importer for Imports {
         &self,
         name: &str,
         field: &str,
-    ) -> Result<Option<Rc<RefCell<InternalMemoryInst>>>> {
+    ) -> Result<Option<Arc<Mutex<InternalMemoryInst>>>> {
         let store = self.0.get(name);
         match store {
             Some(store) => {
-                let store = store.borrow();
+                let store = store
+                    .lock()
+                    .ok()
+                    .with_context(|| Error::CanNotLockForThread(Resource::Store))?;
 
                 let export_inst = store
                     .module
@@ -142,7 +154,7 @@ impl Importer for Imports {
                     .get(*idx as usize)
                     .with_context(|| format!("not found memory from {name}"))?;
 
-                Ok(Some(Rc::clone(memory)))
+                Ok(Some(Arc::clone(memory)))
             }
             None => {
                 bail!("cannot resolve memory. not found module: {name} in imports",);

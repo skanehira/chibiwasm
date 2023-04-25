@@ -1,5 +1,6 @@
 use super::value::Value;
 use thiserror::Error;
+use std::fmt::{Display, Formatter};
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -63,4 +64,33 @@ pub enum Error {
     TypeMismatchIndirectCall,
     #[error("not found type section")]
     NotFoundTypeSection,
+    #[error("can not lock {0} for thread")]
+    CanNotLockForThread(Resource),
+}
+
+#[derive(Debug)]
+pub enum Resource {
+    Global,
+    Memory,
+    Store,
+    Table,
+}
+
+impl Display for Resource {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Resource::Global => {
+                write!(f, "global")
+            },
+            Resource::Memory => {
+                write!(f, "memory")
+            },
+            Resource::Store => {
+                write!(f, "store")
+            }
+            Resource::Table => {
+                write!(f, "table")
+            },
+        }
+    }
 }

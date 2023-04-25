@@ -5,11 +5,11 @@ use super::{
 };
 use crate::{
     binary::instruction::Instruction, execution::error::Error, impl_binary_operation,
-    impl_cvtop_operation, impl_unary_operation,
+    impl_cvtop_operation, impl_unary_operation, error::Resource,
 };
 use anyhow::{bail, Context as _, Result};
 use log::trace;
-use std::{cell::RefCell, rc::Rc};
+use std::sync::{Arc, Mutex };
 
 pub fn local_get(locals: &[Value], stack: &mut impl StackAccess, idx: usize) -> Result<()> {
     let value = locals
@@ -44,7 +44,9 @@ pub fn global_set(store: &mut Store, stack: &mut impl StackAccess, idx: usize) -
         .globals
         .get(idx)
         .with_context(|| Error::NotFoundGlobalVariable(idx))?
-        .borrow_mut();
+        .lock()
+        .ok()
+        .with_context(|| Error::CanNotLockForThread(Resource::Global))?;
     global.value = value;
     Ok(())
 }
@@ -54,7 +56,14 @@ pub fn global_get(store: &mut Store, stack: &mut impl StackAccess, idx: usize) -
         .globals
         .get(idx)
         .with_context(|| Error::NotFoundGlobalVariable(idx))?;
-    stack.push(global.borrow().value.clone());
+    stack.push(
+        global
+            .lock()
+            .ok()
+            .with_context(|| Error::CanNotLockForThread(Resource::Global))?
+            .value
+            .clone()
+    );
     Ok(())
 }
 
@@ -203,7 +212,7 @@ pub fn br(labels: &mut Vec<Label>, stack: &mut Vec<Value>, level: &u32) -> Resul
 }
 
 pub fn invoke_external(
-    store: Rc<RefCell<Store>>,
+    store: Arc<Mutex<Store>>,
     stack: &mut impl StackAccess,
     func: ExternalFuncInst,
 ) -> Result<Option<Value>> {
@@ -214,7 +223,11 @@ pub fn invoke_external(
     }
     args.reverse();
 
-    let main_store = store.borrow();
+    let main_store = store
+        .lock()
+        .ok()
+        .with_context(|| Error::CanNotLockForThread(Resource::Store))?;
+
     let import_store = main_store
         .imports
         .as_ref()
@@ -226,7 +239,7 @@ pub fn invoke_external(
     // this is a temporary solution, and we should review new struct design.
     let store_for_invoke = match import_store {
         Some(store) => store,
-        None => Rc::clone(&store),
+        None => Arc::clone(&store),
     };
 
     let imports = main_store

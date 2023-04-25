@@ -3,18 +3,18 @@ use crate::{
     Store, Value,
 };
 use anyhow::Result;
-use std::{cell::RefCell, rc::Rc};
+use std::sync::{ Arc, Mutex };
 
 pub trait Importer {
-    fn get(&self, _name: &str) -> Result<Option<Rc<RefCell<Store>>>> {
+    fn get(&self, _name: &str) -> Result<Option<Arc<Mutex<Store>>>> {
         Ok(None)
     }
-    fn add(&mut self, _name: &str, _module: Rc<RefCell<Store>>) {
+    fn add(&mut self, _name: &str, _module: Arc<Mutex<Store>>) {
         // do nothing
     }
     fn invoke(
         &self,
-        store: Rc<RefCell<Store>>,
+        store: Arc<Mutex<Store>>,
         func: ExternalFuncInst,
         args: Vec<Value>,
     ) -> Result<Option<Value>>;
@@ -22,7 +22,7 @@ pub trait Importer {
         &self,
         _module: &str,
         _field: &str,
-    ) -> Result<Option<Rc<RefCell<InternalTableInst>>>> {
+    ) -> Result<Option<Arc<Mutex<InternalTableInst>>>> {
         Ok(None)
     }
     fn resolve_global(&self, _module: &str, _field: &str) -> Result<Option<GlobalInst>> {
@@ -35,7 +35,7 @@ pub trait Importer {
         &self,
         _name: &str,
         _field: &str,
-    ) -> Result<Option<Rc<RefCell<InternalMemoryInst>>>> {
+    ) -> Result<Option<Arc<Mutex<InternalMemoryInst>>>> {
         Ok(None)
     }
 }

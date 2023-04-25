@@ -5,9 +5,8 @@ use crate::binary::module::Module;
 use crate::binary::types::{FuncType, ValueType};
 use crate::execution::error::Error;
 use anyhow::{bail, Result};
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::sync::{ Arc, Mutex };
 
 // https://www.w3.org/TR/wasm-core-1/#memory-instances%E2%91%A0
 pub const PAGE_SIZE: u32 = 65536; // 64Ki
@@ -43,14 +42,14 @@ pub struct InternalTableInst {
     pub funcs: Vec<Option<FuncInst>>,
     pub max: Option<u32>,
 }
-pub type TableInst = Rc<RefCell<InternalTableInst>>;
+pub type TableInst = Arc<Mutex<InternalTableInst>>;
 
 #[derive(Default, Debug, Clone)]
 pub struct InternalMemoryInst {
     pub data: Vec<u8>,
     pub max: Option<u32>,
 }
-pub type MemoryInst = Rc<RefCell<InternalMemoryInst>>;
+pub type MemoryInst = Arc<Mutex<InternalMemoryInst>>;
 
 impl InternalMemoryInst {
     pub fn size(&self) -> usize {
@@ -92,7 +91,7 @@ impl InternalMemoryInst {
     }
 }
 
-pub type GlobalInst = Rc<RefCell<InternalGlobalInst>>;
+pub type GlobalInst = Arc<Mutex<InternalGlobalInst>>;
 
 #[derive(Debug, Clone)]
 pub struct InternalGlobalInst {
