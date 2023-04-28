@@ -13,7 +13,7 @@ jobs:
         working-directory: server
 
   clippy:
-    runs-on: ubuntu-latest
+    runs_on: ubuntu-latest
     env:
       RUSTC_FORCE_INCREMENTAL: 1
     needs: build_cache
@@ -26,7 +26,7 @@ jobs:
         working-directory: server 
 
   test:
-    runs-on: ubuntu-latest
+    runs_on: ubuntu-latest
     env:
       RUSTC_FORCE_INCREMENTAL: 1
     needs: build_cache
