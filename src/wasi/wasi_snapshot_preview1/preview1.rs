@@ -179,7 +179,6 @@ mod tests {
 
     #[test]
     fn test_fd_write() -> Result<()> {
-        return Ok(());
         let code = r#"
 (module
   (import "wasi_snapshot_preview1" "fd_write"

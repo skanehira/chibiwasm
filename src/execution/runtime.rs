@@ -435,18 +435,21 @@ impl Runtime {
                     frame.labels.push(label);
                 }
                 Instruction::Call(idx) => {
+                    let func = {
                     let idx = *idx as usize;
                     let store = self.store
                         .lock()
                         .ok()
                         .with_context(|| Error::CanNotLockForThread(Resource::Store))?;
-                    let func = store
+                    store
                         .funcs
                         .get(idx)
-                        .with_context(|| Error::NotFoundFunction(idx))?;
+                        .with_context(|| Error::NotFoundFunction(idx))?
+                        .clone()
+                    };
                     match func {
                         FuncInst::Internal(func) => {
-                            push_frame(stack, &mut self.call_stack, func);
+                            push_frame(stack, &mut self.call_stack, &func);
                         }
                         FuncInst::External(func) => {
                             let result =
