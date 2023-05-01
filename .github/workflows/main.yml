@@ -7,7 +7,7 @@ jobs:
     steps:
       - name: Clippy action step
         id: clippy
-        uses: actions/docker@v2
+        uses: ./.github/actions/docker
       - name: Get clippy result
         run: cargo clippy --all-targets --all-features -- -D warnings
   test:
@@ -16,6 +16,6 @@ jobs:
     steps:
       - name: Test action step
         id: test
-        uses: actions/docker@v2
+        uses: ./.github/actions/docker
       - name: Get test result
         run: cargo make test
