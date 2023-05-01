@@ -22,4 +22,4 @@ jobs:
         id: test
         uses: ./.github/actions/docker
       - name: Get test result
-        run: cargo make test
+        run: cargo test
