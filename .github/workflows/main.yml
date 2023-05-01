@@ -19,7 +19,7 @@ jobs:
       - name: test checkout
         uses: actions/checkout@main
         with:
-          submodules: recurvive
+          submodules: recursive
       - name: Test action step
         id: test
         uses: ./.github/actions/docker
