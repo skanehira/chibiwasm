@@ -5,6 +5,8 @@ jobs:
     runs-on: ubuntu-latest
     name: Run clippy
     steps:
+      - name: clippy checkout
+        uses: actions/checkout
       - name: Clippy action step
         id: clippy
         uses: ./.github/actions/docker
@@ -14,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     name: Run test
     steps:
+      - name: test checkout
+        uses: actions/checkout
       - name: Test action step
         id: test
         uses: ./.github/actions/docker
