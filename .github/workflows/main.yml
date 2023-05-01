@@ -18,6 +18,9 @@ jobs:
     steps:
       - name: test checkout
         uses: actions/checkout@main
+      - name: submodule pull
+        with:
+          submodules: recurvive
       - name: Test action step
         id: test
         uses: ./.github/actions/docker
