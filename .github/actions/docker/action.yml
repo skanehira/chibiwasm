@@ -1,4 +1,4 @@
-name: 'hello world'
+name: 'docker'
 description: 'Greet someone and record the time'
 runs:
   using: 'docker'
