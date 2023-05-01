@@ -24,4 +24,4 @@ jobs:
         id: test
         uses: ./.github/actions/docker
       - name: Get test result
-        run: cargo test
+        run: cargo test --all -- --nocapture
