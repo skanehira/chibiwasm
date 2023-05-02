@@ -6,10 +6,10 @@ jobs:
     name: Run clippy
     steps:
       - name: clippy checkout
-        uses: actions/checkout@main
+        uses: actions/checkout@v1
       - name: Clippy action step
         id: clippy
-        uses: ./.github/actions/docker
+        uses: dtolnay/rust-toolchain@stable
       - name: Get clippy result
         run: cargo clippy --all-targets --all-features -- -D warnings
   test:
@@ -17,11 +17,11 @@ jobs:
     name: Run test
     steps:
       - name: test checkout
-        uses: actions/checkout@main
+        uses: actions/checkout@v1
         with:
           submodules: recursive
       - name: Test action step
         id: test
-        uses: ./.github/actions/docker
+        uses: dtolnay/rust-toolchain@stable
       - name: Get test result
         run: cargo test --all -- --nocapture
