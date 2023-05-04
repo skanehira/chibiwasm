@@ -1,27 +1,25 @@
 on: [push]
 
 jobs:
-  clippy:
+  lint:
     runs-on: ubuntu-latest
     name: Run clippy
     steps:
-      - name: clippy checkout
-        uses: actions/checkout@v1
-      - name: Clippy action step
-        id: clippy
+      - name: checkout
+        uses: actions/checkout@v3
+      - name: Setup rust toolchain
         uses: dtolnay/rust-toolchain@stable
-      - name: Get clippy result
+      - name: Run clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
   test:
     runs-on: ubuntu-latest
     name: Run test
     steps:
-      - name: test checkout
-        uses: actions/checkout@v1
+      - name: checkout
+        uses: actions/checkout@v3
         with:
           submodules: recursive
-      - name: Test action step
-        id: test
+      - name: Setup rust toolchain
         uses: dtolnay/rust-toolchain@stable
-      - name: Get test result
+      - name: Run test
         run: cargo test --all -- --nocapture
