@@ -337,7 +337,6 @@ mod tests {
     test!(int_exprs);
     test!(memory_grow);
     test!(memory_redundancy);
-    // NOTE: this will overflow in the test thread, so we need use RUST_MIN_STACK=104857600 to run this test
     test!(call);
     test!(call_indirect);
     test!(float_memory);
