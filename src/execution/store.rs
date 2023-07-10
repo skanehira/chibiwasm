@@ -195,7 +195,7 @@ impl Store {
         // table will be shared by all module instance
         // so if element is exists in the same index, overwrite the table
         let update_funcs_in_table = |entries: &mut Vec<Option<FuncInst>>| -> Result<()> {
-            if let Some(ref elems) = module.element_section {
+            if let Some(elems) = module.element_section.as_ref() {
                 for elem in elems {
                     let offset = eval(&globals, elem.offset.clone())?;
                     if entries.len() <= offset {
