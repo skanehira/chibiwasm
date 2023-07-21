@@ -191,7 +191,7 @@ pub enum Opcode {
     F64ReinterpretI64 = 0xBF,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum Instruction {
     Unreachable,
     Nop,

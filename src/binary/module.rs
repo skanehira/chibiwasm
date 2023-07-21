@@ -7,7 +7,7 @@ use std::{
     u8,
 };
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Debug, Default)]
 pub struct Module {
     pub magic: String,
     pub version: u32,
