@@ -121,7 +121,7 @@ impl WasiSnapshotPreview1 {
 
     fn fd_write(&self, store: Rc<RefCell<Store>>, args: Vec<Value>) -> Result<Option<Value>> {
         let args: Vec<i32> = args.into_iter().map(Into::into).collect();
-        let (fd, iovs, iovs_len, rp) = (
+        let (fd, mut iovs, iovs_len, rp) = (
             args[0] as usize,
             args[1] as usize,
             args[2] as usize,
@@ -147,14 +147,16 @@ impl WasiSnapshotPreview1 {
                     offset: iovs as u32,
                 },
             )?;
+            iovs += 4;
 
             let len: i32 = memory.load(
                 0,
                 &MemoryArg {
                     align: 4,
-                    offset: iovs as u32 + 4,
+                    offset: iovs as u32,
                 },
             )?;
+            iovs += 4;
 
             let offset = offset as usize;
             let end = offset + len as usize;
