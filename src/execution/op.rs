@@ -190,7 +190,9 @@ pub fn br(labels: &mut Vec<Label>, stack: &mut Vec<Value>, level: &u32) -> Resul
         .with_context(|| Error::NotFoundLabel(label_index))?;
 
     let pc = if kind == LabelKind::Loop {
-        // since it jumps to the beginning of the loop,
+        // NOTE: we still need loop label to jump to the beginning of the loop.
+        labels.drain(label_index + 1..);
+        // NOTE: since it jumps to the beginning of the loop,
         // the stack is unwound without considering the return value.
         stack_unwind(stack, sp, 0)?;
         start.with_context(|| Error::NotFoundStartPc)?

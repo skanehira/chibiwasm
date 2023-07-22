@@ -370,12 +370,17 @@ impl Runtime {
                 Instruction::If(block) => {
                     let cond: Value = stack.pop1()?;
 
-                    // cal pc when the if block is end
+                    // calc pc when the end of block
                     let next_pc = get_end_address(insts, frame.pc)?;
 
                     if !cond.is_true() {
                         // if the condition is false, skip the if block
                         frame.pc = get_else_or_end_address(insts, frame.pc)? as isize;
+                    }
+
+                    // NOTE: if block has no any instruction, just continue
+                    if next_pc == frame.pc as usize {
+                        continue;
                     }
 
                     let label = Label {
