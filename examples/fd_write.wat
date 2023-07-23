@@ -9,15 +9,17 @@
     (local $iovec i32)
 
     (i32.store (i32.const 16) (i32.const 0))
-    (i32.store (i32.const 20) (i32.const 14))
+    (i32.store (i32.const 20) (i32.const 7))
+    (i32.store (i32.const 24) (i32.const 7))
+    (i32.store (i32.const 28) (i32.const 7))
 
     (local.set $iovec (i32.const 16))
 
     (call $fd_write
       (i32.const 1)
       (local.get $iovec)
-      (i32.const 1)
-      (i32.const 24)
+      (i32.const 2)
+      (i32.const 28)
     )
   )
   (export "_start" (func $write_hello_world))
