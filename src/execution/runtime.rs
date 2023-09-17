@@ -13,7 +13,7 @@ use std::cell::RefCell;
 use std::io::Read;
 use std::rc::Rc;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Runtime {
     pub store: Rc<RefCell<Store>>,
     pub stack: Vec<Value>,
