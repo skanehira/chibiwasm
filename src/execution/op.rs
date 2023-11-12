@@ -4,8 +4,9 @@ use super::{
     value::{Frame, Label, LabelKind, StackAccess, Value},
 };
 use crate::{
-    binary::instruction::Instruction, execution::error::Error, impl_binary_operation,
-    impl_cvtop_operation, impl_unary_operation,
+    binary::{instruction::Instruction, types::ValueType},
+    execution::error::Error,
+    impl_binary_operation, impl_cvtop_operation, impl_unary_operation,
 };
 use anyhow::{bail, Context as _, Result};
 use log::trace;
@@ -146,12 +147,15 @@ pub fn push_frame(stack: &mut Vec<Value>, call_stack: &mut Vec<Frame>, func: &In
     let len = stack.len();
     let mut locals = stack.split_off(len - func.func_type.params.len());
 
-    let local_len = func.code.locals.len();
-    if local_len > locals.len() {
-        for _ in 0..local_len - locals.len() {
-            locals.push(Value::I32(0));
+    for local in func.code.locals.iter() {
+        match local {
+            ValueType::I32 => locals.push(Value::I32(0)),
+            ValueType::I64 => locals.push(Value::I64(0)),
+            ValueType::F32 => locals.push(Value::F32(0.0)),
+            ValueType::F64 => locals.push(Value::F64(0.0)),
         }
     }
+
     let sp = stack.len();
     let frame = Frame {
         pc: -1,
