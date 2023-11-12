@@ -144,8 +144,8 @@ pub fn get_else_or_end_address(insts: &[Instruction], pc: isize) -> Result<usize
 
 pub fn push_frame(stack: &mut Vec<Value>, call_stack: &mut Vec<Frame>, func: &InternalFuncInst) {
     let arity = func.func_type.results.len();
-    let len = stack.len();
-    let mut locals = stack.split_off(len - func.func_type.params.len());
+    let bottom = stack.len() - func.func_type.params.len();
+    let mut locals = stack.split_off(bottom);
 
     for local in func.code.locals.iter() {
         match local {

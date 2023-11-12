@@ -3,7 +3,6 @@ use super::op::*;
 use super::store::{Exports, Store};
 use super::value::{ExternalVal, Frame, Label, StackAccess, Value};
 use crate::binary::instruction::*;
-use crate::binary::types::ValueType;
 use crate::execution::error::Error;
 use crate::execution::value::LabelKind;
 use crate::{load, store, Importer};
@@ -132,31 +131,10 @@ impl Runtime {
     }
 
     fn invoke_internal(&mut self, func: InternalFuncInst) -> Result<Option<Value>> {
-        let bottom = self.stack.len() - func.func_type.params.len();
-        let mut locals: Vec<_> = self.stack.split_off(bottom).into_iter().collect();
-
-        for local in func.code.locals.iter() {
-            match local {
-                ValueType::I32 => locals.push(Value::I32(0)),
-                ValueType::I64 => locals.push(Value::I64(0)),
-                ValueType::F32 => locals.push(Value::F32(0.0)),
-                ValueType::F64 => locals.push(Value::F64(0.0)),
-            }
-        }
-
         let arity = func.func_type.results.len();
 
-        let frame = Frame {
-            pc: -1,
-            sp: self.stack.len(),
-            insts: func.code.body,
-            arity,
-            locals,
-            labels: vec![],
-        };
-        self.call_stack.push(frame);
+        push_frame(&mut self.stack, &mut self.call_stack, &func);
 
-        trace!("call stack: {:?}", &self.call_stack.last());
         self.execute()?;
 
         let result = if arity > 0 {
