@@ -4,9 +4,9 @@ use std::io::{Cursor, Read, Seek, Write};
 use std::os::unix::io::FromRawFd;
 use std::sync::{Arc, Mutex};
 
-pub trait ReadWrite: Read + Write + Seek + Send + Sync {}
+pub trait ReadWrite: Read + Write + Seek {}
 
-impl<IO: Read + Write + Send + Sync + Seek> ReadWrite for IO {}
+impl<IO: Read + Write + Send + Seek> ReadWrite for IO {}
 
 pub struct File(Box<dyn ReadWrite>);
 
