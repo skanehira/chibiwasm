@@ -22,15 +22,18 @@ impl Importer for WasiSnapshotPreview1 {
         func: ExternalFuncInst,
         args: Vec<Value>,
     ) -> Result<Option<Value>> {
-        match func.field.as_str() {
+        let value = match func.field.as_str() {
             "fd_write" => self.fd_write(store, args),
             "proc_exit" => {
                 self.proc_exit(args);
             }
             "environ_get" => self.environ_get(store, args),
             "environ_sizes_get" => self.environ_sizes_get(store, args),
+            "args_get" => self.args_get(store, args),
+            "args_sizes_get" => self.args_sizes_get(store, args),
             _ => todo!(),
-        }
+        }?;
+        Ok(Some(value))
     }
 }
 
@@ -49,7 +52,7 @@ impl WasiSnapshotPreview1 {
         std::process::exit(exit_code);
     }
 
-    fn environ_get(&self, store: Rc<RefCell<Store>>, args: Vec<Value>) -> Result<Option<Value>> {
+    fn environ_get(&self, store: Rc<RefCell<Store>>, args: Vec<Value>) -> Result<Value> {
         let args: Vec<i32> = args.into_iter().map(Into::into).collect();
         let (mut offset, mut buf_offset) = (args[0] as usize, args[1] as usize);
 
@@ -70,14 +73,10 @@ impl WasiSnapshotPreview1 {
             buf_offset += data.len();
         }
 
-        Ok(Some(0.into()))
+        Ok(0.into())
     }
 
-    fn environ_sizes_get(
-        &self,
-        store: Rc<RefCell<Store>>,
-        args: Vec<Value>,
-    ) -> Result<Option<Value>> {
+    fn environ_sizes_get(&self, store: Rc<RefCell<Store>>, args: Vec<Value>) -> Result<Value> {
         let args: Vec<i32> = args.into_iter().map(Into::into).collect();
         let (offset, buf_offset) = (args[0] as usize, args[1] as usize);
 
@@ -98,10 +97,10 @@ impl WasiSnapshotPreview1 {
 
         memory_write!(memory, 0, 4, buf_offset, size);
 
-        Ok(Some(0.into()))
+        Ok(0.into())
     }
 
-    fn fd_write(&self, store: Rc<RefCell<Store>>, args: Vec<Value>) -> Result<Option<Value>> {
+    fn fd_write(&self, store: Rc<RefCell<Store>>, args: Vec<Value>) -> Result<Value> {
         let args: Vec<i32> = args.into_iter().map(Into::into).collect();
         let (fd, mut iovs, iovs_len, rp) = (
             args[0] as usize,
@@ -137,7 +136,55 @@ impl WasiSnapshotPreview1 {
 
         memory_write!(memory, 0, 4, rp, written);
 
-        Ok(Some(0.into()))
+        Ok(0.into())
+    }
+
+    fn args_get(&self, store: Rc<RefCell<Store>>, args: Vec<Value>) -> Result<Value> {
+        let args: Vec<i32> = args.into_iter().map(Into::into).collect();
+        let (mut offset, mut buf_offset) = (args[0] as usize, args[1] as usize);
+
+        let store = store.borrow();
+        let memory = store.memory.get(0).with_context(|| "not found memory")?;
+        let mut memory = memory.borrow_mut();
+
+        let args = std::env::args();
+        for arg in args {
+            memory_write!(memory, 0, 4, offset, buf_offset);
+            offset += 4;
+
+            let data = format!("{}\0", arg);
+            let data = data.as_bytes();
+
+            // write bytes to memory
+            memory.write_bytes(buf_offset, data)?;
+            buf_offset += data.len();
+        }
+
+        Ok(0.into())
+    }
+
+    fn args_sizes_get(&self, store: Rc<RefCell<Store>>, args: Vec<Value>) -> Result<Value> {
+        let args: Vec<i32> = args.into_iter().map(Into::into).collect();
+        let (offset, buf_offset) = (args[0] as usize, args[1] as usize);
+
+        let store = store.borrow();
+        let memory = store.memory.get(0).with_context(|| "not found memory")?;
+        let mut memory = memory.borrow_mut();
+
+        let args = std::env::args();
+
+        let (size, _) = args.size_hint();
+        memory_write!(memory, 0, 4, offset, size);
+
+        let size = args.fold(0, |acc, arg| {
+            let data = format!("{}\0", arg);
+            let data = data.as_bytes();
+            acc + data.len()
+        });
+
+        memory_write!(memory, 0, 4, buf_offset, size);
+
+        Ok(0.into())
     }
 }
 
@@ -145,6 +192,7 @@ impl WasiSnapshotPreview1 {
 mod tests {
     use super::*;
     use crate::Runtime;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn test_fd_write() -> Result<()> {
@@ -191,6 +239,26 @@ mod tests {
         let mut stdout = stdout.lock().expect("cannot lock stdout");
         stdout.seek(0)?; // NOTE: need to reset cursor for reading
         assert_eq!(stdout.read_string()?, "Hello, World!\n");
+        Ok(())
+    }
+
+    #[test]
+    fn test_args_get() -> Result<()> {
+        let wasm = wat::parse_file("examples/args_get.wasm")?;
+
+        let stdin = Arc::new(Mutex::new(File::from_buffer(vec![])));
+        let stdout = Arc::new(Mutex::new(File::from_buffer(vec![])));
+
+        let wasi = WasiSnapshotPreview1::with_io(vec![stdin, Arc::clone(&stdout)]);
+        let mut runtime = Runtime::from_bytes(wasm.as_slice(), Some(Box::new(wasi)))?;
+
+        runtime.call("_start".into(), vec![])?;
+
+        let mut stdout = stdout.lock().expect("cannot lock stdout");
+        stdout.seek(0)?;
+        let result: Vec<String> = serde_json::from_str(&stdout.read_string()?)?;
+        let arg = std::env::args().take(1).next().unwrap();
+        assert_eq!(result[0], arg);
         Ok(())
     }
 }

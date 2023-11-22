@@ -66,6 +66,7 @@ dependencies = [
  "paste",
  "pretty_assertions",
  "pretty_env_logger",
+ "serde_json",
  "thiserror",
  "wabt",
  "wat",
