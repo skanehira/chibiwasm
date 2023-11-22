@@ -4,6 +4,7 @@ use crate::{
     Store, Value,
 };
 use anyhow::{Context as _, Result};
+use rand::prelude::*;
 use std::{
     cell::RefCell,
     rc::Rc,
@@ -32,6 +33,7 @@ impl Importer for WasiSnapshotPreview1 {
             "environ_sizes_get" => self.environ_sizes_get(store, args),
             "args_get" => self.args_get(store, args),
             "args_sizes_get" => self.args_sizes_get(store, args),
+            "random_get" => self.random_get(store, args),
             _ => todo!(),
         }?;
         Ok(Some(value))
@@ -225,6 +227,28 @@ impl WasiSnapshotPreview1 {
         });
 
         memory_write!(memory, 0, 4, buf_offset, size);
+
+        Ok(0.into())
+    }
+
+    fn random_get(&self, store: Rc<RefCell<Store>>, args: Vec<Value>) -> Result<Value> {
+        let args: Vec<i32> = args.into_iter().map(Into::into).collect();
+        let (mut offset, buf_len) = (args[0] as usize, args[1] as usize);
+
+        let store = store.borrow();
+        let memory = store.memory.get(0).with_context(|| "not found memory")?;
+        let mut memory = memory.borrow_mut();
+
+        let mut rng = thread_rng();
+
+        let distr = rand::distributions::Uniform::new_inclusive(1u32, 100);
+        for _ in 0..buf_len {
+            let x = rng.sample(distr);
+            let mut buf = std::io::Cursor::new(Vec::new());
+            leb128::write::unsigned(&mut buf, x as u64)?;
+            memory.write_bytes(offset, buf.into_inner().as_slice())?;
+            offset += 1;
+        }
 
         Ok(0.into())
     }
