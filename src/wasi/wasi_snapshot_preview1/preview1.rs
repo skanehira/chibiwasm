@@ -1,5 +1,8 @@
 use super::file::{File, FileTable};
-use crate::{binary::instruction::MemoryArg, module::ExternalFuncInst, Importer, Store, Value};
+use crate::{
+    binary::instruction::MemoryArg, memory_load, memory_write, module::ExternalFuncInst, Importer,
+    Store, Value,
+};
 use anyhow::{Context as _, Result};
 use std::{
     cell::RefCell,
@@ -56,14 +59,7 @@ impl WasiSnapshotPreview1 {
 
         let env = std::env::vars();
         for (key, val) in env {
-            memory.write(
-                0,
-                &MemoryArg {
-                    align: 4,
-                    offset: offset as u32,
-                },
-                buf_offset as i32,
-            )?;
+            memory_write!(memory, 0, 4, offset, buf_offset);
             offset += 4;
 
             let data = format!("{}={}\0", key, val);
@@ -92,14 +88,7 @@ impl WasiSnapshotPreview1 {
         let env = std::env::vars();
 
         let (size, _) = env.size_hint();
-        memory.write(
-            0,
-            &MemoryArg {
-                align: 4,
-                offset: offset as u32,
-            },
-            size as i32,
-        )?;
+        memory_write!(memory, 0, 4, offset, size);
 
         let size = env.fold(0, |acc, (key, val)| {
             let data = format!("{}={}\0", key, val);
@@ -107,14 +96,7 @@ impl WasiSnapshotPreview1 {
             acc + data.len()
         });
 
-        memory.write(
-            0,
-            &MemoryArg {
-                align: 4,
-                offset: buf_offset as u32,
-            },
-            size as i32,
-        )?;
+        memory_write!(memory, 0, 4, buf_offset, size);
 
         Ok(Some(0.into()))
     }
@@ -140,22 +122,10 @@ impl WasiSnapshotPreview1 {
         let mut written = 0;
 
         for _ in 0..iovs_len {
-            let offset: i32 = memory.load(
-                0,
-                &MemoryArg {
-                    align: 4,
-                    offset: iovs as u32,
-                },
-            )?;
+            let offset: i32 = memory_load!(memory, 0, 4, iovs);
             iovs += 4;
 
-            let len: i32 = memory.load(
-                0,
-                &MemoryArg {
-                    align: 4,
-                    offset: iovs as u32,
-                },
-            )?;
+            let len: i32 = memory_load!(memory, 0, 4, iovs);
             iovs += 4;
 
             let offset = offset as usize;
@@ -165,14 +135,7 @@ impl WasiSnapshotPreview1 {
             written += file.lock().expect("cannot get file lock").write(buf)?;
         }
 
-        memory.write(
-            0,
-            &MemoryArg {
-                align: 4,
-                offset: rp as u32,
-            },
-            written as i32,
-        )?;
+        memory_write!(memory, 0, 4, rp, written);
 
         Ok(Some(0.into()))
     }
