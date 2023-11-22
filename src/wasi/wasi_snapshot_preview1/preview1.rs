@@ -23,6 +23,7 @@ impl Importer for WasiSnapshotPreview1 {
         args: Vec<Value>,
     ) -> Result<Option<Value>> {
         let value = match func.field.as_str() {
+            "fd_read" => self.fd_read(store, args),
             "fd_write" => self.fd_write(store, args),
             "proc_exit" => {
                 self.proc_exit(args);
@@ -96,6 +97,47 @@ impl WasiSnapshotPreview1 {
         });
 
         memory_write!(memory, 0, 4, buf_offset, size);
+
+        Ok(0.into())
+    }
+
+    fn fd_read(&self, store: Rc<RefCell<Store>>, args: Vec<Value>) -> Result<Value> {
+        let args: Vec<i32> = args.into_iter().map(Into::into).collect();
+        let (fd, mut iovs, iovs_len, nread_offset) = (
+            args[0] as usize,
+            args[1] as usize,
+            args[2] as usize,
+            args[3] as usize,
+        );
+
+        let store = store.borrow();
+        let memory = store.memory.get(0).with_context(|| "not found memory")?;
+        let mut memory = memory.borrow_mut();
+
+        let file = self
+            .file_table
+            .get(fd)
+            .with_context(|| format!("cannot get file with fd: {}", fd))?;
+        let file = Arc::clone(file);
+
+        let mut nread = 0;
+        for _ in 0..iovs_len {
+            let offset: i32 = memory_load!(memory, 0, 4, iovs);
+            iovs += 4;
+
+            let len: i32 = memory_load!(memory, 0, 4, iovs);
+            iovs += 4;
+
+            let offset = offset as usize;
+            let end = offset + len as usize;
+
+            nread += file
+                .lock()
+                .expect("cannot get file lock")
+                .read(&mut memory.data[offset..end])?;
+        }
+
+        memory_write!(memory, 0, 4, nread_offset, nread);
 
         Ok(0.into())
     }
@@ -259,6 +301,26 @@ mod tests {
         let result: Vec<String> = serde_json::from_str(&stdout.read_string()?)?;
         let arg = std::env::args().take(1).next().unwrap();
         assert_eq!(result[0], arg);
+        Ok(())
+    }
+
+    #[test]
+    fn test_fd_read() -> Result<()> {
+        let wasm = wat::parse_file("examples/fd_read.wasm")?;
+
+        let stdin = Arc::new(Mutex::new(File::from_buffer(
+            "hello world".as_bytes().to_vec(),
+        )));
+        let stdout = Arc::new(Mutex::new(File::from_buffer(vec![])));
+
+        let wasi = WasiSnapshotPreview1::with_io(vec![Arc::clone(&stdin), Arc::clone(&stdout)]);
+        let mut runtime = Runtime::from_bytes(wasm.as_slice(), Some(Box::new(wasi)))?;
+
+        runtime.call("_start".into(), vec![])?;
+
+        let mut stdout = stdout.lock().expect("cannot lock stdout");
+        stdout.seek(0)?;
+        assert_eq!(stdout.read_string()?, "input: got: hello world\n");
         Ok(())
     }
 }
