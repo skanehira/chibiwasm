@@ -1,7 +1,7 @@
 use anyhow::Result;
 use std::fs;
 use std::io::{Cursor, Read, Seek, Write};
-use std::os::unix::io::FromRawFd;
+use std::os::fd::FromRawFd;
 use std::sync::{Arc, Mutex};
 
 pub trait ReadWrite: Read + Write + Seek {}
