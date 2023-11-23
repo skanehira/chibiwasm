@@ -8,6 +8,53 @@ pub trait ReadWrite: Read + Write + Seek {}
 
 impl<IO: Read + Write + Send + Seek> ReadWrite for IO {}
 
+pub struct FileType(u8);
+
+// ref: https://github.com/bytecodealliance/wasi/blob/9ec04a7d8ebb1bbb9e3291503425cee1ec38a560/src/lib_generated.rs#L660-L672
+type FileFlags = u16;
+
+pub const FDFLAGS_APPEND: Fdflags = 1 << 0;
+pub const FDFLAGS_DSYNC: Fdflags = 1 << 1;
+pub const FDFLAGS_NONBLOCK: Fdflags = 1 << 2;
+pub const FDFLAGS_RSYNC: Fdflags = 1 << 3;
+pub const FDFLAGS_SYNC: Fdflags = 1 << 4;
+
+type Rights = u64;
+
+pub struct FileDescriptor {
+    rid: u32,
+    file_type: FileType,
+    flags: u32,
+    path: Option<String>,
+    inner: Box<dyn ReadWrite>,
+    // TODO
+    // vpath: Option<String>,
+    // entries: Vec<DirEntry>,
+}
+
+impl Write for FileDescriptor {
+    fn write(&mut self, data: &[u8]) -> Result<usize> {
+        let written = self.inner.write(data)?;
+        Ok(written)
+    }
+}
+
+impl Read for FileDescriptor {
+    fn read(&mut self, data: &mut [u8]) -> Result<usize> {
+        Ok(self.inner.read(data)?)
+    }
+}
+
+impl Seek for FileDescriptor {
+    fn seek(&mut self, pos: std::io::SeekFrom) -> Result<u64> {
+        Ok(self.inner.seek(pos)?)
+    }
+
+    fn rewind(&mut self) -> Result<()> {
+        Ok(self.inner.rewind()?)
+    }
+}
+
 pub struct File(Box<dyn ReadWrite>);
 
 impl File {
