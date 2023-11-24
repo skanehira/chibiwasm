@@ -8,10 +8,14 @@ pub trait ReadWrite: Read + Write + Seek {}
 
 impl<IO: Read + Write + Send + Seek> ReadWrite for IO {}
 
-pub struct FileType(u8);
+// ref: https://github.com/bytecodealliance/wasi/blob/9ec04a7d8ebb1bbb9e3291503425cee1ec38a560/src/lib_generated.rs#L554-L570
+pub struct Filetype(u8);
+
+pub const FILETYPE_CHARACTER_DEVICE: Filetype = Filetype(2);
+// TODO: impl for other file types
 
 // ref: https://github.com/bytecodealliance/wasi/blob/9ec04a7d8ebb1bbb9e3291503425cee1ec38a560/src/lib_generated.rs#L660-L672
-type FileFlags = u16;
+pub type Fdflags = u16;
 
 pub const FDFLAGS_APPEND: Fdflags = 1 << 0;
 pub const FDFLAGS_DSYNC: Fdflags = 1 << 1;
@@ -19,39 +23,56 @@ pub const FDFLAGS_NONBLOCK: Fdflags = 1 << 2;
 pub const FDFLAGS_RSYNC: Fdflags = 1 << 3;
 pub const FDFLAGS_SYNC: Fdflags = 1 << 4;
 
-type Rights = u64;
+// ref: https://github.com/bytecodealliance/wasi/blob/9ec04a7d8ebb1bbb9e3291503425cee1ec38a560/src/lib_generated.rs#L414-L486
+pub type Rights = u64;
+
+// TODO: impl for rights
 
 pub struct FileDescriptor {
-    rid: u32,
-    file_type: FileType,
+    file_type: Filetype,
     flags: u32,
-    path: Option<String>,
+    rights_base: Rights,
+    rights_inheriting: Rights,
     inner: Box<dyn ReadWrite>,
-    // TODO
-    // vpath: Option<String>,
-    // entries: Vec<DirEntry>,
+}
+
+impl FileDescriptor {
+    pub fn from_raw_fd(fd: u32) -> Result<Self> {
+        let file = unsafe { fs::File::from_raw_fd(fd as i32) };
+        Ok(Self {
+            file_type: todo!(),
+            flags: todo!(),
+            rights_base: 0,       // TODO
+            rights_inheriting: 0, // TODO
+            inner: Box::new(file),
+        })
+    }
 }
 
 impl Write for FileDescriptor {
-    fn write(&mut self, data: &[u8]) -> Result<usize> {
+    fn write(&mut self, data: &[u8]) -> std::io::Result<usize> {
         let written = self.inner.write(data)?;
         Ok(written)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.inner.flush()
     }
 }
 
 impl Read for FileDescriptor {
-    fn read(&mut self, data: &mut [u8]) -> Result<usize> {
-        Ok(self.inner.read(data)?)
+    fn read(&mut self, data: &mut [u8]) -> std::io::Result<usize> {
+        self.inner.read(data)
     }
 }
 
 impl Seek for FileDescriptor {
-    fn seek(&mut self, pos: std::io::SeekFrom) -> Result<u64> {
-        Ok(self.inner.seek(pos)?)
+    fn seek(&mut self, pos: std::io::SeekFrom) -> std::io::Result<u64> {
+        self.inner.seek(pos)
     }
 
-    fn rewind(&mut self) -> Result<()> {
-        Ok(self.inner.rewind()?)
+    fn rewind(&mut self) -> std::io::Result<()> {
+        self.inner.rewind()
     }
 }
 
