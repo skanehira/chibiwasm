@@ -1,7 +1,7 @@
-use super::file::{File, FileTable};
+use super::{file::FileEntry, file_table::FileTable};
 use crate::{
-    binary::instruction::MemoryArg, memory_load, memory_write, module::ExternalFuncInst, Importer,
-    Store, Value,
+    binary::instruction::MemoryArg, memory_load, memory_write, module::ExternalFuncInst,
+    wasi::file::FileCaps, Importer, Store, Value,
 };
 use anyhow::{Context as _, Result};
 use rand::prelude::*;
@@ -34,6 +34,7 @@ impl Importer for WasiSnapshotPreview1 {
             "args_get" => self.args_get(store, args),
             "args_sizes_get" => self.args_sizes_get(store, args),
             "random_get" => self.random_get(store, args),
+            "fd_fdstat_get" => self.fd_fdstat_get(store, args),
             _ => todo!(),
         }?;
         Ok(Some(value))
@@ -41,7 +42,7 @@ impl Importer for WasiSnapshotPreview1 {
 }
 
 impl WasiSnapshotPreview1 {
-    pub fn with_io(files: Vec<Arc<Mutex<File>>>) -> Self {
+    pub fn with_io(files: Vec<Arc<Mutex<FileEntry>>>) -> Self {
         let file_table = FileTable::with_io(files);
         Self { file_table }
     }
@@ -120,7 +121,10 @@ impl WasiSnapshotPreview1 {
             .file_table
             .get(fd)
             .with_context(|| format!("cannot get file with fd: {}", fd))?;
+
         let file = Arc::clone(file);
+        let mut file = file.lock().expect("cannot lock file");
+        let file = file.capbable(FileCaps::Read)?;
 
         let mut nread = 0;
         for _ in 0..iovs_len {
@@ -133,10 +137,7 @@ impl WasiSnapshotPreview1 {
             let offset = offset as usize;
             let end = offset + len as usize;
 
-            nread += file
-                .lock()
-                .expect("cannot get file lock")
-                .read(&mut memory.data[offset..end])?;
+            nread += file.read(&mut memory.data[offset..end])?;
         }
 
         memory_write!(memory, 0, 4, nread_offset, nread);
@@ -162,6 +163,10 @@ impl WasiSnapshotPreview1 {
             .get(fd)
             .with_context(|| format!("cannot get file with fd: {}", fd))?;
         let file = Arc::clone(file);
+
+        let mut file = file.lock().expect("cannot lock file");
+        let file = file.capbable(FileCaps::Write)?;
+
         let mut written = 0;
 
         for _ in 0..iovs_len {
@@ -175,7 +180,7 @@ impl WasiSnapshotPreview1 {
             let end = offset + len as usize;
             let buf = &memory.data[offset..end];
 
-            written += file.lock().expect("cannot get file lock").write(buf)?;
+            written += file.write(buf)?;
         }
 
         memory_write!(memory, 0, 4, rp, written);
@@ -252,12 +257,43 @@ impl WasiSnapshotPreview1 {
 
         Ok(0.into())
     }
+
+    fn fd_fdstat_get(&self, store: Rc<RefCell<Store>>, args: Vec<Value>) -> Result<Value> {
+        let args: Vec<i32> = args.into_iter().map(Into::into).collect();
+        let (fd, offset) = (args[0] as usize, args[1] as usize);
+
+        let store = store.borrow();
+        let memory = store.memory.get(0).with_context(|| "not found memory")?;
+        let mut memory = memory.borrow_mut();
+
+        let file = self
+            .file_table
+            .get(fd)
+            .with_context(|| format!("cannot get file with fd: {}", fd))?;
+        let file = file.lock().expect("cannot lock file");
+        let stat = file.get_fdstat()?;
+
+        // ref: https://deno.land/std@0.206.0/wasi/snapshot_preview1.ts?source=#L673
+        memory.write_bytes(offset, get_memory(&stat.filetype))?;
+        memory.write_bytes(offset + 2, get_memory(&stat.flags))?;
+
+        Ok(0.into())
+    }
+}
+
+fn get_memory<T>(input: &T) -> &[u8] {
+    unsafe { std::slice::from_raw_parts(input as *const _ as *const u8, std::mem::size_of::<T>()) }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Mutex;
+
     use super::*;
-    use crate::Runtime;
+    use crate::{
+        wasi::{file::FileEntry, wasi_snapshot_preview1::virtual_file::VirtualFile},
+        Runtime,
+    };
     use pretty_assertions::assert_eq;
 
     #[test]
@@ -290,10 +326,16 @@ mod tests {
             "#;
         let wasm = wat::parse_str(code)?;
 
-        let stdin = Arc::new(Mutex::new(File::from_buffer(vec![])));
-        let stdout = Arc::new(Mutex::new(File::from_buffer(vec![])));
+        let stdin = Arc::new(Mutex::new(FileEntry::new(
+            Box::<VirtualFile>::default(),
+            FileCaps::Sync,
+        )));
+        let stdout = Arc::new(Mutex::new(FileEntry::new(
+            Box::<VirtualFile>::default(),
+            FileCaps::Sync,
+        )));
 
-        let wasi = WasiSnapshotPreview1::with_io(vec![stdin, Arc::clone(&stdout)]);
+        let wasi = WasiSnapshotPreview1::with_io(vec![stdin, stdout.clone()]);
         let mut runtime = Runtime::from_bytes(wasm.as_slice(), Some(Box::new(wasi)))?;
 
         let result: i32 = runtime
@@ -303,6 +345,7 @@ mod tests {
         assert_eq!(result, 0);
 
         let mut stdout = stdout.lock().expect("cannot lock stdout");
+        let stdout = stdout.capbable(FileCaps::Seek)?;
         stdout.seek(0)?; // NOTE: need to reset cursor for reading
         assert_eq!(stdout.read_string()?, "Hello, World!\n");
         Ok(())
@@ -312,15 +355,22 @@ mod tests {
     fn test_args_get() -> Result<()> {
         let wasm = wat::parse_file("examples/args_get.wasm")?;
 
-        let stdin = Arc::new(Mutex::new(File::from_buffer(vec![])));
-        let stdout = Arc::new(Mutex::new(File::from_buffer(vec![])));
+        let stdin = Arc::new(Mutex::new(FileEntry::new(
+            Box::<VirtualFile>::default(),
+            FileCaps::Sync,
+        )));
+        let stdout = Arc::new(Mutex::new(FileEntry::new(
+            Box::<VirtualFile>::default(),
+            FileCaps::Sync,
+        )));
 
-        let wasi = WasiSnapshotPreview1::with_io(vec![stdin, Arc::clone(&stdout)]);
+        let wasi = WasiSnapshotPreview1::with_io(vec![stdin, stdout.clone()]);
         let mut runtime = Runtime::from_bytes(wasm.as_slice(), Some(Box::new(wasi)))?;
 
         runtime.call("_start".into(), vec![])?;
 
         let mut stdout = stdout.lock().expect("cannot lock stdout");
+        let stdout = stdout.capbable(FileCaps::Read)?;
         stdout.seek(0)?;
         let result: Vec<String> = serde_json::from_str(&stdout.read_string()?)?;
         let arg = std::env::args().take(1).next().unwrap();
@@ -332,17 +382,23 @@ mod tests {
     fn test_fd_read() -> Result<()> {
         let wasm = wat::parse_file("examples/fd_read.wasm")?;
 
-        let stdin = Arc::new(Mutex::new(File::from_buffer(
-            "hello world".as_bytes().to_vec(),
+        let stdin = Arc::new(Mutex::new(FileEntry::new(
+            Box::new(VirtualFile::new(b"hello world")),
+            FileCaps::Sync,
         )));
-        let stdout = Arc::new(Mutex::new(File::from_buffer(vec![])));
 
-        let wasi = WasiSnapshotPreview1::with_io(vec![Arc::clone(&stdin), Arc::clone(&stdout)]);
+        let stdout = Arc::new(Mutex::new(FileEntry::new(
+            Box::<VirtualFile>::default(),
+            FileCaps::Sync,
+        )));
+
+        let wasi = WasiSnapshotPreview1::with_io(vec![stdin.clone(), stdout.clone()]);
         let mut runtime = Runtime::from_bytes(wasm.as_slice(), Some(Box::new(wasi)))?;
 
         runtime.call("_start".into(), vec![])?;
 
         let mut stdout = stdout.lock().expect("cannot lock stdout");
+        let stdout = stdout.capbable(FileCaps::Read)?;
         stdout.seek(0)?;
         assert_eq!(stdout.read_string()?, "input: got: hello world\n");
         Ok(())
