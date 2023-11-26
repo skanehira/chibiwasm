@@ -5,7 +5,7 @@ pub mod importer;
 pub(crate) mod indices;
 pub(crate) mod integer;
 mod macros;
-pub(crate) mod module;
+pub mod module;
 pub(crate) mod op;
 pub mod runtime;
 pub mod store;

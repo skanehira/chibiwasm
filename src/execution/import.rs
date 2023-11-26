@@ -1,5 +1,4 @@
 use crate::{
-    error::Error,
     module::{ExternalFuncInst, FuncInst, GlobalInst, InternalMemoryInst, InternalTableInst},
     ExternalVal, Importer, Runtime, Store, Value,
 };
@@ -7,16 +6,31 @@ use anyhow::{bail, Context as _, Result};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 #[derive(Default, Clone)]
-pub struct Imports(pub HashMap<String, Rc<RefCell<Store>>>);
+pub struct Imports(pub HashMap<String, Import>);
 
-impl Importer for Imports {
+#[derive(Clone)]
+pub struct Import((String, Rc<RefCell<Store>>));
+
+impl Import {
+    pub fn new(name: String, store: Rc<RefCell<Store>>) -> Self {
+        Self((name, store))
+    }
+}
+
+impl Importer for Import {
+    fn name(&self) -> &str {
+        let (name, _) = &self.0;
+        name.as_str()
+    }
+
     fn get(&self, name: &str) -> Result<Option<Rc<RefCell<Store>>>> {
-        let store = self.0.get(name).with_context(|| Error::NoImports)?;
+        if self.name() != name {
+            return Ok(None);
+        }
+        let (_, store) = &self.0;
         Ok(Some(Rc::clone(store)))
     }
-    fn add(&mut self, name: &str, module: Rc<RefCell<Store>>) {
-        self.0.insert(name.into(), module);
-    }
+
     fn invoke(
         &self,
         store: Rc<RefCell<Store>>,
@@ -26,12 +40,13 @@ impl Importer for Imports {
         let mut runtime = Runtime::instantiate(Rc::clone(&store))?;
         runtime.call(func.field, args)
     }
+
     fn resolve_table(
         &self,
         name: &str,
         field: &str,
     ) -> Result<Option<Rc<RefCell<InternalTableInst>>>> {
-        let store = self.0.get(name);
+        let store = self.get(name)?;
         match store {
             Some(store) => {
                 let store = store.borrow();
@@ -55,13 +70,13 @@ impl Importer for Imports {
                 Ok(Some(Rc::clone(table)))
             }
             None => {
-                bail!("cannot resolve function. not found module: {name} in imports",);
+                bail!("cannot resolve table. not found module: {name} in imports",);
             }
         }
     }
 
     fn resolve_global(&self, name: &str, field: &str) -> Result<Option<GlobalInst>> {
-        let store = self.0.get(name);
+        let store = self.get(name)?;
         match store {
             Some(store) => {
                 let store = store.borrow();
@@ -89,7 +104,7 @@ impl Importer for Imports {
     }
 
     fn resolve_func(&self, name: &str, field: &str) -> Result<Option<FuncInst>> {
-        let store = self.0.get(name);
+        let store = self.get(name)?;
         match store {
             Some(store) => {
                 let store = store.borrow();
@@ -122,7 +137,7 @@ impl Importer for Imports {
         name: &str,
         field: &str,
     ) -> Result<Option<Rc<RefCell<InternalMemoryInst>>>> {
-        let store = self.0.get(name);
+        let store = self.get(name)?;
         match store {
             Some(store) => {
                 let store = store.borrow();

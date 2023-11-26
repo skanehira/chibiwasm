@@ -1,7 +1,8 @@
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use chibiwasm::execution::{Exports, Importer as _, Imports, Runtime, Store, Value};
+    use chibiwasm::execution::{Exports, Importer, Runtime, Store, Value};
+    use chibiwasm::Import;
     use log::debug;
     use paste::paste;
     use std::cell::RefCell;
@@ -11,13 +12,12 @@ mod tests {
     use std::sync::Once;
     use std::{fs, path::Path};
     use wabt::{script::*, Features};
-
     static INIT: Once = Once::new();
 
     #[derive(Default)]
     struct Spec {
         modules: HashMap<Option<String>, Rc<RefCell<Runtime>>>,
-        imports: Imports,
+        imports: HashMap<String, Import>,
     }
 
     fn into_wasm_value(values: Vec<wabt::script::Value>) -> Vec<Value> {
@@ -42,7 +42,6 @@ mod tests {
         });
 
         // add module for testing module importing
-        let mut imports = Imports::default();
         let testspec = {
             let code = r#"
 (module
@@ -78,7 +77,9 @@ mod tests {
             Rc::new(RefCell::new(store))
         };
 
-        imports.add("spectest", testspec);
+        let mut imports = HashMap::new();
+        let module_name = "spectest".to_string();
+        imports.insert(module_name.clone(), Import::new(module_name, testspec));
 
         let spec = &mut Spec {
             modules: HashMap::new(),
@@ -263,12 +264,18 @@ mod tests {
                 CommandKind::Register { name, as_name } => {
                     let runtime = spec.modules.get(&name).expect("not found mdoule").clone();
                     let store = &runtime.borrow().store;
-                    spec.imports.add(&as_name, Rc::clone(store));
+                    spec.imports
+                        .insert(as_name.clone(), Import::new(as_name, Rc::clone(store)));
                 }
                 CommandKind::Module { module, name } => {
                     let mut reader = Cursor::new(module.into_vec());
-                    let runtime =
-                        Runtime::from_reader(&mut reader, Some(Box::new(spec.imports.clone())))?;
+
+                    let mut imports: Vec<Box<dyn Importer>> = vec![];
+                    for (_, import) in spec.imports.iter() {
+                        imports.push(Box::new(import.clone()));
+                    }
+
+                    let runtime = Runtime::from_reader(&mut reader, Some(imports))?;
                     let runtime = Rc::new(RefCell::new(runtime));
                     spec.modules.insert(name, runtime.clone());
                     spec.modules.insert(None, runtime);

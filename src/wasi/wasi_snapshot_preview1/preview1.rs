@@ -17,6 +17,10 @@ pub struct WasiSnapshotPreview1 {
 }
 
 impl Importer for WasiSnapshotPreview1 {
+    fn name(&self) -> &str {
+        "wasi_snapshot_preview1"
+    }
+
     fn invoke(
         &self,
         store: Rc<RefCell<Store>>,
@@ -336,7 +340,7 @@ mod tests {
         )));
 
         let wasi = WasiSnapshotPreview1::with_io(vec![stdin, stdout.clone()]);
-        let mut runtime = Runtime::from_bytes(wasm.as_slice(), Some(Box::new(wasi)))?;
+        let mut runtime = Runtime::from_bytes(wasm.as_slice(), Some(vec![Box::new(wasi)]))?;
 
         let result: i32 = runtime
             .call("_start".into(), vec![])?
@@ -365,7 +369,7 @@ mod tests {
         )));
 
         let wasi = WasiSnapshotPreview1::with_io(vec![stdin, stdout.clone()]);
-        let mut runtime = Runtime::from_bytes(wasm.as_slice(), Some(Box::new(wasi)))?;
+        let mut runtime = Runtime::from_bytes(wasm.as_slice(), Some(vec![Box::new(wasi)]))?;
 
         runtime.call("_start".into(), vec![])?;
 
@@ -393,7 +397,7 @@ mod tests {
         )));
 
         let wasi = WasiSnapshotPreview1::with_io(vec![stdin.clone(), stdout.clone()]);
-        let mut runtime = Runtime::from_bytes(wasm.as_slice(), Some(Box::new(wasi)))?;
+        let mut runtime = Runtime::from_bytes(wasm.as_slice(), Some(vec![Box::new(wasi)]))?;
 
         runtime.call("_start".into(), vec![])?;
 

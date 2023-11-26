@@ -20,17 +20,23 @@ pub struct Runtime {
 }
 
 impl Runtime {
-    pub fn from_file(file: &str, imports: Option<Box<dyn Importer>>) -> Result<Self> {
+    pub fn from_file(file: &str, imports: Option<Vec<Box<dyn Importer>>>) -> Result<Self> {
         let store = Store::from_file(file, imports)?;
         Self::instantiate(Rc::new(RefCell::new(store)))
     }
 
-    pub fn from_reader(reader: &mut impl Read, imports: Option<Box<dyn Importer>>) -> Result<Self> {
+    pub fn from_reader(
+        reader: &mut impl Read,
+        imports: Option<Vec<Box<dyn Importer>>>,
+    ) -> Result<Self> {
         let store = Store::from_reader(reader, imports)?;
         Self::instantiate(Rc::new(RefCell::new(store)))
     }
 
-    pub fn from_bytes<T: AsRef<[u8]>>(b: T, imports: Option<Box<dyn Importer>>) -> Result<Self> {
+    pub fn from_bytes<T: AsRef<[u8]>>(
+        b: T,
+        imports: Option<Vec<Box<dyn Importer>>>,
+    ) -> Result<Self> {
         let store = Store::from_bytes(b, imports)?;
         Self::instantiate(Rc::new(RefCell::new(store)))
     }

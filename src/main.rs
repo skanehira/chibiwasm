@@ -26,7 +26,8 @@ fn main() -> Result<()> {
         }
     };
 
-    let mut runtime = Runtime::from_file(&file, Some(Box::<WasiSnapshotPreview1>::default()))?;
+    let mut runtime =
+        Runtime::from_file(&file, Some(vec![Box::<WasiSnapshotPreview1>::default()]))?;
     let result = runtime.call(func, args).expect("failed to call function");
 
     if let Some(output) = result {

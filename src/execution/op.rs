@@ -208,6 +208,10 @@ pub fn br(labels: &mut Vec<Label>, stack: &mut Vec<Value>, level: &u32) -> Resul
     Ok(pc)
 }
 
+fn is_wasi_modules(module: &str) -> bool {
+    module == "wasi_snapshot_preview1" || module == "wasi_ephemeral_nn"
+}
+
 pub fn invoke_external(
     store: Rc<RefCell<Store>>,
     stack: &mut impl StackAccess,
@@ -220,27 +224,37 @@ pub fn invoke_external(
     }
     args.reverse();
 
-    let main_store = store.borrow();
-    let import_store = main_store
+    // if module is a WASI module, it dosn't have store, so we suould use current store.
+    let module_store = if is_wasi_modules(&func.module) {
+        store.clone()
+    } else {
+        let brrowed = store.borrow();
+        let Some(imports) = brrowed.imports.as_ref() else {
+            bail!(Error::NoImports);
+        };
+
+        let import = imports
+            .get(&func.module)
+            .with_context(|| Error::NotFoundImportModule(func.module.clone()))?;
+
+        let Some(module_store) = import.get(&func.module)? else {
+            bail!(Error::NotFoundImportModule(func.module.clone()));
+        };
+
+        module_store.clone()
+    };
+
+    let store_for_invoke = module_store.clone();
+
+    let module_store = store.borrow();
+    let importer = module_store
         .imports
         .as_ref()
         .with_context(|| Error::NoImports)?
         .get(&func.module)
         .with_context(|| Error::NotFoundImportModule(func.module.clone()))?;
 
-    // FIXME: if store not found from importer, it's mean we should execute function from wasi_snapshot_preview1
-    // this is a temporary solution, and we should review new struct design.
-    let store_for_invoke = match import_store {
-        Some(store) => store,
-        None => Rc::clone(&store),
-    };
-
-    let imports = main_store
-        .imports
-        .as_ref()
-        .with_context(|| Error::NoImports)?;
-
-    imports.invoke(store_for_invoke, func, args)
+    importer.invoke(store_for_invoke, func, args)
 }
 
 impl_unary_operation!(
