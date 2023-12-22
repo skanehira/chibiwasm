@@ -209,7 +209,7 @@ pub fn br(labels: &mut Vec<Label>, stack: &mut Vec<Value>, level: &u32) -> Resul
 }
 
 fn is_wasi_modules(module: &str) -> bool {
-    module == "wasi_snapshot_preview1" || module == "wasi_ephemeral_nn"
+    ["wasi_snapshot_preview1", "wasi_ephemeral_nn"].contains(&module)
 }
 
 pub fn invoke_external(

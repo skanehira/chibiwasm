@@ -15,6 +15,8 @@ thiserror = "1.0.39"
 log = "0.4.17"
 pretty_env_logger = "0.4.0"
 rand = "0.8.5"
+serde_json = "1.0"
+serde = { version = "1.0.193", features = ["derive"] }
 
 [dev-dependencies]
 wat = "1.0.62"
@@ -22,4 +24,3 @@ paste = "1.0.12"
 wabt = { git = "https://github.com/skanehira/wabt-rs" }
 insta = "1.29.0"
 pretty_assertions = "1.3.0"
-serde_json = "1.0"
