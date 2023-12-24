@@ -243,7 +243,7 @@ mod tests {
 )
                 "#;
             let wasm = wat::parse_str(code).unwrap();
-            let store = Store::from_bytes(&wasm, None).unwrap();
+            let store = Store::from_bytes(wasm, None).unwrap();
             Rc::new(RefCell::new(store))
         };
 
