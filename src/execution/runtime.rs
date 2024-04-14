@@ -191,9 +191,8 @@ impl Runtime {
                 trace!("call stack is empty, return");
                 break;
             };
-            let insts = &frame.insts;
             frame.pc += 1;
-            let Some(inst) = insts.get(frame.pc as usize) else {
+            let Some(inst) = frame.insts.get(frame.pc as usize) else {
                 trace!("reach the end of function");
                 break;
             };
@@ -339,7 +338,7 @@ impl Runtime {
                 Instruction::Loop(block) => {
                     let arity = block.block_type.result_count();
                     let start_pc = frame.pc;
-                    let pc = get_end_address(insts, frame.pc)?;
+                    let pc = get_end_address(&frame.insts, frame.pc)?;
 
                     let label = Label {
                         start: Some(start_pc),
@@ -355,11 +354,11 @@ impl Runtime {
                     let cond: Value = stack.pop1()?;
 
                     // calc pc when the end of block
-                    let next_pc = get_end_address(insts, frame.pc)?;
+                    let next_pc = get_end_address(&frame.insts, frame.pc)?;
 
                     if !cond.is_true() {
                         // if the condition is false, skip the if block
-                        frame.pc = get_else_or_end_address(insts, frame.pc)? as isize;
+                        frame.pc = get_else_or_end_address(&frame.insts, frame.pc)? as isize;
                     }
 
                     // NOTE: if block has no any instruction, just continue
@@ -387,7 +386,7 @@ impl Runtime {
                 }
                 Instruction::Block(block) => {
                     let arity = block.block_type.result_count();
-                    let pc = get_end_address(insts, frame.pc)?;
+                    let pc = get_end_address(&frame.insts, frame.pc)?;
 
                     let label = Label {
                         start: None,
@@ -520,7 +519,7 @@ impl Runtime {
                     let store = self.store.borrow();
                     let memory = store
                         .memory
-                        .get(0)
+                        .first()
                         .with_context(|| Error::NotFoundMemory(dst))?;
                     let mut memory = memory.borrow_mut();
                     memory.data.copy_within(src..src + len, dst);
@@ -533,7 +532,7 @@ impl Runtime {
                     let store = self.store.borrow();
                     let memory = store
                         .memory
-                        .get(0)
+                        .first()
                         .with_context(|| Error::NotFoundMemory(dst))?;
                     let mut memory = memory.borrow_mut();
 

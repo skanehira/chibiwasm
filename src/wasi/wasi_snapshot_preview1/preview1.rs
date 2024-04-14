@@ -53,7 +53,7 @@ impl WasiSnapshotPreview1 {
 
     fn proc_exit(&self, args: Vec<Value>) -> ! {
         let exit_code: i32 = args
-            .get(0)
+            .first()
             .expect("no any argument in proc_exit")
             .clone()
             .into();
@@ -65,7 +65,7 @@ impl WasiSnapshotPreview1 {
         let (mut offset, mut buf_offset) = (args[0] as usize, args[1] as usize);
 
         let store = store.borrow();
-        let memory = store.memory.get(0).with_context(|| "not found memory")?;
+        let memory = store.memory.first().with_context(|| "not found memory")?;
         let mut memory = memory.borrow_mut();
 
         let env = std::env::vars();
@@ -89,7 +89,7 @@ impl WasiSnapshotPreview1 {
         let (offset, buf_offset) = (args[0] as usize, args[1] as usize);
 
         let store = store.borrow();
-        let memory = store.memory.get(0).with_context(|| "not found memory")?;
+        let memory = store.memory.first().with_context(|| "not found memory")?;
         let mut memory = memory.borrow_mut();
 
         let env = std::env::vars();
@@ -118,7 +118,7 @@ impl WasiSnapshotPreview1 {
         );
 
         let store = store.borrow();
-        let memory = store.memory.get(0).with_context(|| "not found memory")?;
+        let memory = store.memory.first().with_context(|| "not found memory")?;
         let mut memory = memory.borrow_mut();
 
         let file = self
@@ -159,7 +159,7 @@ impl WasiSnapshotPreview1 {
         );
 
         let store = store.borrow();
-        let memory = store.memory.get(0).with_context(|| "not found memory")?;
+        let memory = store.memory.first().with_context(|| "not found memory")?;
         let mut memory = memory.borrow_mut();
 
         let file = self
@@ -197,7 +197,7 @@ impl WasiSnapshotPreview1 {
         let (mut offset, mut buf_offset) = (args[0] as usize, args[1] as usize);
 
         let store = store.borrow();
-        let memory = store.memory.get(0).with_context(|| "not found memory")?;
+        let memory = store.memory.first().with_context(|| "not found memory")?;
         let mut memory = memory.borrow_mut();
 
         let args = std::env::args();
@@ -221,7 +221,7 @@ impl WasiSnapshotPreview1 {
         let (offset, buf_offset) = (args[0] as usize, args[1] as usize);
 
         let store = store.borrow();
-        let memory = store.memory.get(0).with_context(|| "not found memory")?;
+        let memory = store.memory.first().with_context(|| "not found memory")?;
         let mut memory = memory.borrow_mut();
 
         let args = std::env::args();
@@ -245,7 +245,7 @@ impl WasiSnapshotPreview1 {
         let (mut offset, buf_len) = (args[0] as usize, args[1] as usize);
 
         let store = store.borrow();
-        let memory = store.memory.get(0).with_context(|| "not found memory")?;
+        let memory = store.memory.first().with_context(|| "not found memory")?;
         let mut memory = memory.borrow_mut();
 
         let mut rng = thread_rng();
@@ -267,7 +267,7 @@ impl WasiSnapshotPreview1 {
         let (fd, offset) = (args[0] as usize, args[1] as usize);
 
         let store = store.borrow();
-        let memory = store.memory.get(0).with_context(|| "not found memory")?;
+        let memory = store.memory.first().with_context(|| "not found memory")?;
         let mut memory = memory.borrow_mut();
 
         let file = self

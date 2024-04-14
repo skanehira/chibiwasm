@@ -88,7 +88,7 @@ impl Store {
                 if importers.is_empty() {
                     bail!("not found import module: {}", module_name);
                 }
-                let importer = importers.get(0).unwrap();
+                let importer = importers.first().unwrap();
 
                 match import_info.kind {
                     crate::binary::types::ImportKind::Func(typeidx) => {
@@ -231,7 +231,7 @@ impl Store {
         // table
         if let Some(ref table_section) = module.table_section {
             let table = table_section
-                .get(0) // NOTE: only support one table now
+                .first() // NOTE: only support one table now
                 .with_context(|| "cannot get table from table section")?; // NOTE: only support one table now
             let min = table.limits.min as usize;
 
