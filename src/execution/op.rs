@@ -20,18 +20,13 @@ pub fn local_get(locals: &[Value], stack: &mut impl StackAccess, idx: usize) -> 
     Ok(())
 }
 
-pub fn local_set(locals: &mut Vec<Value>, stack: &mut impl StackAccess, idx: usize) -> Result<()> {
+pub fn local_set(locals: &mut [Value], stack: &mut impl StackAccess, idx: usize) -> Result<()> {
     let value: Value = stack.pop1()?;
-    if locals.len() <= idx {
-        for _ in 0..(idx + 1) - locals.len() {
-            locals.push(0.into());
-        }
-    }
     locals[idx] = value;
     Ok(())
 }
 
-pub fn local_tee(locals: &mut Vec<Value>, stack: &mut impl StackAccess, idx: usize) -> Result<()> {
+pub fn local_tee(locals: &mut [Value], stack: &mut impl StackAccess, idx: usize) -> Result<()> {
     let value: Value = stack.pop1()?;
     stack.push(value.clone());
     stack.push(value);
