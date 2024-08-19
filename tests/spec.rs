@@ -2,13 +2,10 @@
 mod importer {
     use anyhow::{bail, Context as _, Result};
     use chibiwasm::{
-        module::{ExternalFuncInst, FuncInst, GlobalInst, InternalTableInst, InternalMemoryInst},
+        module::{ExternalFuncInst, FuncInst, GlobalInst, InternalMemoryInst, InternalTableInst},
         ExternalVal, Importer, Runtime, Store, Value,
     };
-    use std::{cell::RefCell, collections::HashMap, rc::Rc};
-
-    #[derive(Default, Clone)]
-    pub struct Imports(pub HashMap<String, Import>);
+    use std::{cell::RefCell, rc::Rc};
 
     #[derive(Clone)]
     pub struct Import((String, Rc<RefCell<Store>>));

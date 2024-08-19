@@ -2,10 +2,7 @@ use super::{section::*, types::*};
 use anyhow::{bail, Result};
 use num_traits::FromPrimitive;
 use std::io;
-use std::{
-    io::{BufRead, BufReader, Read},
-    u8,
-};
+use std::io::{BufRead, BufReader, Read};
 
 #[derive(Debug, Default)]
 pub struct Module {
