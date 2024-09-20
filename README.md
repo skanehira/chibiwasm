@@ -2,6 +2,10 @@
 This repository was created for the purpose of learning how Wasm works.
 Please do not use it in production.
 
+If you want to learn how Wasm runtime works, I recommend this book :)
+
+https://skanehira.github.io/writing-a-wasm-runtime-in-rust/
+
 ## Usage
 ```sh
 $ cat
