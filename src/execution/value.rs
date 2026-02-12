@@ -73,6 +73,7 @@ pub struct Label {
 
 #[derive(Clone, Debug, Default)]
 pub struct Frame {
+    pub func_idx: usize,
     pub pc: isize,               // next pc
     pub sp: usize,               // stack pointer when frame created
     pub insts: Vec<Instruction>, // function instructions
@@ -559,4 +560,4 @@ macro_rules! impl_numeric {
     }
 }
 
-impl_numeric!(i8, i16, i32, i64, f32, f64, u8, u16, u32);
+impl_numeric!(i8, i16, i32, i64, f32, f64, u8, u16, u32, u64);

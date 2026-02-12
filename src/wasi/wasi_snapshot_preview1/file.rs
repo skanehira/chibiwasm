@@ -1,5 +1,8 @@
 use anyhow::Result;
-use std::io::{Read, Seek, Write};
+use std::{
+    io::{Read, Seek, SeekFrom, Write},
+    path::PathBuf,
+};
 
 pub trait ReadWrite: Read + Write + Seek + Send + Sync + 'static {}
 
@@ -47,7 +50,16 @@ pub enum FileType {
 pub trait File: Send + Sync {
     fn write(&mut self, data: &[u8]) -> Result<usize>;
     fn read(&mut self, data: &mut [u8]) -> Result<usize>;
-    fn seek(&mut self, pos: u64) -> Result<u64>;
+    fn seek(&mut self, pos: SeekFrom) -> Result<u64>;
+    fn tell(&mut self) -> Result<u64> {
+        self.seek(SeekFrom::Current(0))
+    }
+    fn set_len(&mut self, _len: u64) -> Result<()> {
+        Ok(())
+    }
+    fn size(&self) -> Result<u64> {
+        Ok(0)
+    }
     fn filetype(&self) -> Result<FileType>;
     fn fdflags(&self) -> Result<FdFlags>;
     fn read_string(&mut self) -> Result<String>;
@@ -63,18 +75,30 @@ pub struct FdStat {
 pub struct FileEntry {
     caps: FileCaps,
     file: Box<dyn File>,
+    fdflags: FdFlags,
+    preopen_path: Option<PathBuf>,
 }
 
 impl FileEntry {
     pub fn new(file: Box<dyn File>, caps: FileCaps) -> Self {
-        Self { caps, file }
+        Self {
+            caps,
+            file,
+            fdflags: FdFlags::Append,
+            preopen_path: None,
+        }
+    }
+
+    pub fn with_preopen_path(mut self, path: PathBuf) -> Self {
+        self.preopen_path = Some(path);
+        self
     }
 
     pub fn get_fdstat(&self) -> Result<FdStat> {
         Ok(FdStat {
             filetype: self.file.filetype()?,
             caps: self.caps.clone(),
-            flags: self.file.fdflags()?,
+            flags: self.fdflags,
         })
     }
 
@@ -82,5 +106,13 @@ impl FileEntry {
         // TODO: check capabilites
         let file = &mut self.file;
         Ok(file)
+    }
+
+    pub fn preopen_path(&self) -> Option<&PathBuf> {
+        self.preopen_path.as_ref()
+    }
+
+    pub fn set_fdflags(&mut self, flags: FdFlags) {
+        self.fdflags = flags;
     }
 }

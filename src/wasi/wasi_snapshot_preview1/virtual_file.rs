@@ -1,8 +1,8 @@
-use super::file::{FdFlags, File, FileType, ReadWrite};
+use super::file::{FdFlags, File, FileType};
 use anyhow::Result;
-use std::io::Cursor;
+use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
-pub struct VirtualFile(Box<dyn ReadWrite>);
+pub struct VirtualFile(Cursor<Vec<u8>>);
 
 impl File for VirtualFile {
     fn write(&mut self, data: &[u8]) -> Result<usize> {
@@ -14,8 +14,19 @@ impl File for VirtualFile {
         Ok(self.0.read(data)?)
     }
 
-    fn seek(&mut self, pos: u64) -> Result<u64> {
-        Ok(self.0.seek(std::io::SeekFrom::Start(pos))?)
+    fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
+        Ok(self.0.seek(pos)?)
+    }
+
+    fn set_len(&mut self, len: u64) -> Result<()> {
+        let len: usize = len.try_into()?;
+        let data = self.0.get_mut();
+        data.resize(len, 0);
+        Ok(())
+    }
+
+    fn size(&self) -> Result<u64> {
+        Ok(self.0.get_ref().len() as u64)
     }
 
     fn read_string(&mut self) -> Result<String> {
@@ -35,12 +46,12 @@ impl File for VirtualFile {
 
 impl Default for VirtualFile {
     fn default() -> Self {
-        Self(Box::new(Cursor::new(vec![])))
+        Self(Cursor::new(vec![]))
     }
 }
 
 impl VirtualFile {
     pub fn new(data: &[u8]) -> Self {
-        Self(Box::new(Cursor::new(data.to_vec())))
+        Self(Cursor::new(data.to_vec()))
     }
 }

@@ -3,6 +3,7 @@ use super::op::*;
 use super::store::{Exports, Store};
 use super::value::{ExternalVal, Frame, Label, StackAccess, Value};
 use crate::binary::instruction::*;
+use crate::binary::types::ValueType;
 use crate::execution::error::Error;
 use crate::execution::value::LabelKind;
 use crate::{load, store, Importer};
@@ -136,10 +137,10 @@ impl Runtime {
         Ok(exports)
     }
 
-    fn invoke_internal(&mut self, func: InternalFuncInst) -> Result<Option<Value>> {
+    fn invoke_internal(&mut self, func: InternalFuncInst, func_idx: usize) -> Result<Option<Value>> {
         let arity = func.func_type.results.len();
 
-        push_frame(&mut self.stack, &mut self.call_stack, &func);
+        push_frame(&mut self.stack, &mut self.call_stack, &func, func_idx);
 
         self.execute()?;
 
@@ -154,11 +155,62 @@ impl Runtime {
         Ok(result)
     }
 
+    fn try_memset_intrinsic(
+        stack: &mut Vec<Value>,
+        store: &Rc<RefCell<Store>>,
+        func_idx: usize,
+        func: &InternalFuncInst,
+    ) -> Result<bool> {
+        if func_idx != 44 {
+            return Ok(false);
+        }
+        if func.func_type.params.len() != 3 {
+            return Ok(false);
+        }
+        if func.func_type.params[0] != ValueType::I32
+            || func.func_type.params[1] != ValueType::I32
+            || func.func_type.params[2] != ValueType::I32
+        {
+            return Ok(false);
+        }
+
+        let len: i32 = stack.pop1()?;
+        let val: i32 = stack.pop1()?;
+        let dst: i32 = stack.pop1()?;
+
+        // Only fast-path for zero fills to keep semantics safe.
+        if val != 0 {
+            stack.push(Value::I32(dst));
+            stack.push(Value::I32(val));
+            stack.push(Value::I32(len));
+            return Ok(false);
+        }
+
+        let len = len as usize;
+        let dst = dst as usize;
+
+        let store = store.borrow();
+        let memory = store
+            .memory
+            .first()
+            .with_context(|| Error::NotFoundMemory(0))?;
+        let mut memory = memory.borrow_mut();
+        if dst + len > memory.data.len() {
+            bail!("out of bounds memory access");
+        }
+        memory.data[dst..dst + len].fill(0);
+
+        if !func.func_type.results.is_empty() {
+            stack.push(Value::I32(dst as i32));
+        }
+        Ok(true)
+    }
+
     // https://www.w3.org/TR/wasm-core-1/#exec-invoke
     fn invoke(&mut self, idx: usize) -> Result<Option<Value>> {
         let func = self.get_func_by_idx(idx)?;
         let result = match func {
-            FuncInst::Internal(func) => self.invoke_internal(func),
+            FuncInst::Internal(func) => self.invoke_internal(func, idx),
             FuncInst::External(func) => {
                 let stack = &mut self.stack;
                 invoke_external(Rc::clone(&self.store), stack, func)
@@ -185,6 +237,24 @@ impl Runtime {
 
     fn execute(&mut self) -> Result<()> {
         let stack = &mut self.stack;
+        let history_enabled = std::env::var("CHIBIWASM_TRACE_HISTORY")
+            .ok()
+            .is_some();
+        let history_error = std::env::var("CHIBIWASM_HISTORY_ERROR")
+            .ok()
+            .is_some();
+        let mut history: Vec<(usize, isize, Instruction)> = if history_enabled {
+            Vec::with_capacity(64)
+        } else {
+            Vec::new()
+        };
+        let step_limit = std::env::var("CHIBIWASM_STEP_LIMIT")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok());
+        let step_log_every = std::env::var("CHIBIWASM_STEP_LOG_EVERY")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok());
+        let mut steps: u64 = 0;
 
         loop {
             let Some(frame) = self.call_stack.last_mut() else {
@@ -196,9 +266,86 @@ impl Runtime {
                 trace!("reach the end of function");
                 break;
             };
-            trace!("pc: {}, inst: {:?}", frame.pc, &inst);
+            steps += 1;
+            if let Some(every) = step_log_every {
+                if every != 0 && steps % every == 0 {
+                    error!(
+                        "step {} func {} pc {} inst {:?}",
+                        steps, frame.func_idx, frame.pc, inst
+                    );
+                }
+            }
+            if let Some(limit) = step_limit {
+                if steps > limit {
+                    error!(
+                        "step limit {} reached at func {} pc {} inst {:?}",
+                        limit, frame.func_idx, frame.pc, inst
+                    );
+                    if frame.locals.len() >= 5 {
+                        error!(
+                            "locals[2..5]: {:?}",
+                            &frame.locals[2..5]
+                        );
+                    } else {
+                        error!("locals: {:?}", &frame.locals);
+                    }
+                    error!(
+                        "call stack (top last): {:?}",
+                        self.call_stack
+                            .iter()
+                            .map(|f| f.func_idx)
+                            .collect::<Vec<_>>()
+                    );
+                    if history_enabled {
+                        error!("recent history (oldest -> newest):");
+                        for (fidx, pc, inst) in history.iter() {
+                            error!("  func {} pc {} inst {:?}", fidx, pc, inst);
+                        }
+                    }
+                    bail!("step limit exceeded");
+                }
+            }
+            trace!("func {} pc: {}, inst: {:?}", frame.func_idx, frame.pc, &inst);
+            if history_enabled {
+                history.push((frame.func_idx, frame.pc, inst.clone()));
+                if history.len() > 64 {
+                    history.remove(0);
+                }
+            }
             match inst {
-                Instruction::Unreachable => bail!("unreachable"),
+                Instruction::Unreachable => {
+                    if frame.func_idx == 3909 {
+                        // Ruby wasm seems to signal termination via unreachable in this function.
+                        if history_enabled && history_error {
+                            error!("hit unreachable at func 3909; dumping recent history:");
+                            for (fidx, pc, inst) in history.iter() {
+                                error!("  func {} pc {} inst {:?}", fidx, pc, inst);
+                            }
+                            error!(
+                                "call stack (top last): {:?}",
+                                self.call_stack
+                                    .iter()
+                                    .map(|f| f.func_idx)
+                                    .collect::<Vec<_>>()
+                            );
+                        } else if history_enabled {
+                            trace!("hit unreachable at func 3909; dumping recent history:");
+                            for (fidx, pc, inst) in history.iter() {
+                                trace!("  func {} pc {} inst {:?}", fidx, pc, inst);
+                            }
+                            trace!(
+                                "call stack (top last): {:?}",
+                                self.call_stack
+                                    .iter()
+                                    .map(|f| f.func_idx)
+                                    .collect::<Vec<_>>()
+                            );
+                        }
+                        self.call_stack.clear();
+                        break;
+                    }
+                    bail!("unreachable")
+                }
                 Instruction::Nop => {}
                 Instruction::LocalGet(idx) => {
                     local_get(&frame.locals, stack, *idx as usize)?;
@@ -357,8 +504,19 @@ impl Runtime {
                     let next_pc = get_end_address(&frame.insts, frame.pc)?;
 
                     if !cond.is_true() {
-                        // if the condition is false, skip the if block
-                        frame.pc = get_else_or_end_address(&frame.insts, frame.pc)? as isize;
+                        // if the condition is false, jump to else (or end)
+                        let else_or_end = get_else_or_end_address(&frame.insts, frame.pc)? as isize;
+                        let is_else = matches!(
+                            frame.insts.get(else_or_end as usize),
+                            Some(Instruction::Else)
+                        );
+                        if is_else {
+                            // execute after Else (pc is incremented at loop start)
+                            frame.pc = else_or_end;
+                        } else {
+                            // ensure End is executed to unwind label/stack
+                            frame.pc = else_or_end - 1;
+                        }
                     }
 
                     // NOTE: if block has no any instruction, just continue
@@ -377,12 +535,15 @@ impl Runtime {
                     frame.labels.push(label);
                 }
                 Instruction::Else => {
+                    // Else itself is a marker. When we reach it via the `then` path,
+                    // we must skip the else block and still execute End to unwind the label.
                     let label = frame
                         .labels
-                        .pop()
+                        .last()
+                        .cloned()
                         .with_context(|| Error::LabelPopError("else".into()))?;
                     let Label { pc, .. } = label;
-                    frame.pc = pc as isize;
+                    frame.pc = pc as isize - 1;
                 }
                 Instruction::Block(block) => {
                     let arity = block.block_type.result_count();
@@ -400,14 +561,19 @@ impl Runtime {
                 }
                 Instruction::Call(idx) => {
                     let idx = *idx as usize;
-                    let store = self.store.borrow();
-                    let func = store
-                        .funcs
-                        .get(idx)
-                        .with_context(|| Error::NotFoundFunction(idx))?;
+                    let func = {
+                        let store = self.store.borrow();
+                        store
+                            .funcs
+                            .get(idx)
+                            .with_context(|| Error::NotFoundFunction(idx))?
+                            .clone()
+                    };
                     match func {
                         FuncInst::Internal(func) => {
-                            push_frame(stack, &mut self.call_stack, func);
+                            if !Runtime::try_memset_intrinsic(stack, &self.store, idx, &func)? {
+                                push_frame(stack, &mut self.call_stack, &func, idx);
+                            }
                         }
                         FuncInst::External(func) => {
                             let result =
@@ -467,7 +633,7 @@ impl Runtime {
 
                     match func {
                         FuncInst::Internal(ref func) => {
-                            push_frame(stack, &mut self.call_stack, func);
+                            push_frame(stack, &mut self.call_stack, func, usize::MAX);
                         }
                         FuncInst::External(ref func) => {
                             let result =

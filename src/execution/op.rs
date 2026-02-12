@@ -142,7 +142,12 @@ pub fn get_else_or_end_address(insts: &[Instruction], pc: isize) -> Result<usize
     }
 }
 
-pub fn push_frame(stack: &mut Vec<Value>, call_stack: &mut Vec<Frame>, func: &InternalFuncInst) {
+pub fn push_frame(
+    stack: &mut Vec<Value>,
+    call_stack: &mut Vec<Frame>,
+    func: &InternalFuncInst,
+    func_idx: usize,
+) {
     let arity = func.func_type.results.len();
     let bottom = stack.len() - func.func_type.params.len();
     let mut locals = stack.split_off(bottom);
@@ -158,6 +163,7 @@ pub fn push_frame(stack: &mut Vec<Value>, call_stack: &mut Vec<Frame>, func: &In
 
     let sp = stack.len();
     let frame = Frame {
+        func_idx,
         pc: -1,
         sp,
         insts: func.code.body.clone(),
