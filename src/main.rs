@@ -1,7 +1,7 @@
 use anyhow::Result;
 use chibiwasm::{execution::Runtime, wasi::WasiSnapshotPreview1};
-use clap::Parser;
 use clap::ArgAction;
+use clap::Parser;
 
 #[derive(Debug, Parser)]
 #[clap(author, about, version)]

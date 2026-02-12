@@ -137,7 +137,11 @@ impl Runtime {
         Ok(exports)
     }
 
-    fn invoke_internal(&mut self, func: InternalFuncInst, func_idx: usize) -> Result<Option<Value>> {
+    fn invoke_internal(
+        &mut self,
+        func: InternalFuncInst,
+        func_idx: usize,
+    ) -> Result<Option<Value>> {
         let arity = func.func_type.results.len();
 
         push_frame(&mut self.stack, &mut self.call_stack, &func, func_idx);
@@ -248,7 +252,12 @@ impl Runtime {
                 trace!("reach the end of function");
                 break;
             };
-            trace!("func {} pc: {}, inst: {:?}", frame.func_idx, frame.pc, &inst);
+            trace!(
+                "func {} pc: {}, inst: {:?}",
+                frame.func_idx,
+                frame.pc,
+                &inst
+            );
             match inst {
                 Instruction::Unreachable => {
                     if frame.func_idx == 3909 {

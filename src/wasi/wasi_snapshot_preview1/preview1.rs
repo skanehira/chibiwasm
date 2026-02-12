@@ -1,9 +1,5 @@
 use super::{
-    dir_file::DirFile,
-    file::FileEntry,
-    file_table::FileTable,
-    types::*,
-    wasi_file::WasiFile,
+    dir_file::DirFile, file::FileEntry, file_table::FileTable, types::*, wasi_file::WasiFile,
 };
 use crate::{
     binary::instruction::MemoryArg, memory_load, memory_write, module::ExternalFuncInst,
@@ -660,7 +656,11 @@ impl WasiSnapshotPreview1 {
             write_u64(&mut memory, offset + 0, index + 1)?;
             write_u64(&mut memory, offset + 8, 0)?;
             write_u32(&mut memory, offset + 16, name_bytes.len() as u32)?;
-            write_u8(&mut memory, offset + 20, filetype_to_u8(&entry.file_type()?))?;
+            write_u8(
+                &mut memory,
+                offset + 20,
+                filetype_to_u8(&entry.file_type()?),
+            )?;
             memory.write_bytes(offset + 24, name_bytes)?;
 
             used += entry_size;
@@ -1144,7 +1144,9 @@ impl WasiSnapshotPreview1 {
         }
         let base = if let Some(file) = self.file_arc(dirfd) {
             let file = file.lock().expect("cannot lock file");
-            file.preopen_path().cloned().unwrap_or_else(|| self.preopen_root.clone())
+            file.preopen_path()
+                .cloned()
+                .unwrap_or_else(|| self.preopen_root.clone())
         } else {
             self.preopen_root.clone()
         };
@@ -1183,39 +1185,111 @@ fn arg_i64(args: &[Value], idx: usize) -> i64 {
     }
 }
 
-fn write_u8(memory: &mut crate::execution::module::InternalMemoryInst, offset: usize, value: u8) -> Result<()> {
-    memory.write(0, &MemoryArg { align: 1, offset: offset as u32 }, value)
+fn write_u8(
+    memory: &mut crate::execution::module::InternalMemoryInst,
+    offset: usize,
+    value: u8,
+) -> Result<()> {
+    memory.write(
+        0,
+        &MemoryArg {
+            align: 1,
+            offset: offset as u32,
+        },
+        value,
+    )
 }
 
-fn write_u16(memory: &mut crate::execution::module::InternalMemoryInst, offset: usize, value: u16) -> Result<()> {
-    memory.write(0, &MemoryArg { align: 2, offset: offset as u32 }, value)
+fn write_u16(
+    memory: &mut crate::execution::module::InternalMemoryInst,
+    offset: usize,
+    value: u16,
+) -> Result<()> {
+    memory.write(
+        0,
+        &MemoryArg {
+            align: 2,
+            offset: offset as u32,
+        },
+        value,
+    )
 }
 
-fn write_u32(memory: &mut crate::execution::module::InternalMemoryInst, offset: usize, value: u32) -> Result<()> {
-    memory.write(0, &MemoryArg { align: 4, offset: offset as u32 }, value)
+fn write_u32(
+    memory: &mut crate::execution::module::InternalMemoryInst,
+    offset: usize,
+    value: u32,
+) -> Result<()> {
+    memory.write(
+        0,
+        &MemoryArg {
+            align: 4,
+            offset: offset as u32,
+        },
+        value,
+    )
 }
 
-fn write_u64(memory: &mut crate::execution::module::InternalMemoryInst, offset: usize, value: u64) -> Result<()> {
-    memory.write(0, &MemoryArg { align: 8, offset: offset as u32 }, value)
+fn write_u64(
+    memory: &mut crate::execution::module::InternalMemoryInst,
+    offset: usize,
+    value: u64,
+) -> Result<()> {
+    memory.write(
+        0,
+        &MemoryArg {
+            align: 8,
+            offset: offset as u32,
+        },
+        value,
+    )
 }
 
 fn read_u8(memory: &crate::execution::module::InternalMemoryInst, offset: usize) -> Result<u8> {
-    memory.load(0, &MemoryArg { align: 1, offset: offset as u32 })
+    memory.load(
+        0,
+        &MemoryArg {
+            align: 1,
+            offset: offset as u32,
+        },
+    )
 }
 
 fn read_u16(memory: &crate::execution::module::InternalMemoryInst, offset: usize) -> Result<u16> {
-    memory.load(0, &MemoryArg { align: 2, offset: offset as u32 })
+    memory.load(
+        0,
+        &MemoryArg {
+            align: 2,
+            offset: offset as u32,
+        },
+    )
 }
 
 fn read_u32(memory: &crate::execution::module::InternalMemoryInst, offset: usize) -> Result<u32> {
-    memory.load(0, &MemoryArg { align: 4, offset: offset as u32 })
+    memory.load(
+        0,
+        &MemoryArg {
+            align: 4,
+            offset: offset as u32,
+        },
+    )
 }
 
 fn read_u64(memory: &crate::execution::module::InternalMemoryInst, offset: usize) -> Result<u64> {
-    memory.load(0, &MemoryArg { align: 8, offset: offset as u32 })
+    memory.load(
+        0,
+        &MemoryArg {
+            align: 8,
+            offset: offset as u32,
+        },
+    )
 }
 
-fn read_string(memory: &crate::execution::module::InternalMemoryInst, ptr: usize, len: usize) -> Result<String> {
+fn read_string(
+    memory: &crate::execution::module::InternalMemoryInst,
+    ptr: usize,
+    len: usize,
+) -> Result<String> {
     let bytes = &memory.data[ptr..ptr + len];
     Ok(String::from_utf8_lossy(bytes).to_string())
 }
