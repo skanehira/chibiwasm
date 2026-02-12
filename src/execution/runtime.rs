@@ -237,24 +237,6 @@ impl Runtime {
 
     fn execute(&mut self) -> Result<()> {
         let stack = &mut self.stack;
-        let history_enabled = std::env::var("CHIBIWASM_TRACE_HISTORY")
-            .ok()
-            .is_some();
-        let history_error = std::env::var("CHIBIWASM_HISTORY_ERROR")
-            .ok()
-            .is_some();
-        let mut history: Vec<(usize, isize, Instruction)> = if history_enabled {
-            Vec::with_capacity(64)
-        } else {
-            Vec::new()
-        };
-        let step_limit = std::env::var("CHIBIWASM_STEP_LIMIT")
-            .ok()
-            .and_then(|v| v.parse::<u64>().ok());
-        let step_log_every = std::env::var("CHIBIWASM_STEP_LOG_EVERY")
-            .ok()
-            .and_then(|v| v.parse::<u64>().ok());
-        let mut steps: u64 = 0;
 
         loop {
             let Some(frame) = self.call_stack.last_mut() else {
@@ -266,81 +248,11 @@ impl Runtime {
                 trace!("reach the end of function");
                 break;
             };
-            steps += 1;
-            if let Some(every) = step_log_every {
-                if every != 0 && steps % every == 0 {
-                    error!(
-                        "step {} func {} pc {} inst {:?}",
-                        steps, frame.func_idx, frame.pc, inst
-                    );
-                }
-            }
-            if let Some(limit) = step_limit {
-                if steps > limit {
-                    error!(
-                        "step limit {} reached at func {} pc {} inst {:?}",
-                        limit, frame.func_idx, frame.pc, inst
-                    );
-                    if frame.locals.len() >= 5 {
-                        error!(
-                            "locals[2..5]: {:?}",
-                            &frame.locals[2..5]
-                        );
-                    } else {
-                        error!("locals: {:?}", &frame.locals);
-                    }
-                    error!(
-                        "call stack (top last): {:?}",
-                        self.call_stack
-                            .iter()
-                            .map(|f| f.func_idx)
-                            .collect::<Vec<_>>()
-                    );
-                    if history_enabled {
-                        error!("recent history (oldest -> newest):");
-                        for (fidx, pc, inst) in history.iter() {
-                            error!("  func {} pc {} inst {:?}", fidx, pc, inst);
-                        }
-                    }
-                    bail!("step limit exceeded");
-                }
-            }
             trace!("func {} pc: {}, inst: {:?}", frame.func_idx, frame.pc, &inst);
-            if history_enabled {
-                history.push((frame.func_idx, frame.pc, inst.clone()));
-                if history.len() > 64 {
-                    history.remove(0);
-                }
-            }
             match inst {
                 Instruction::Unreachable => {
                     if frame.func_idx == 3909 {
                         // Ruby wasm seems to signal termination via unreachable in this function.
-                        if history_enabled && history_error {
-                            error!("hit unreachable at func 3909; dumping recent history:");
-                            for (fidx, pc, inst) in history.iter() {
-                                error!("  func {} pc {} inst {:?}", fidx, pc, inst);
-                            }
-                            error!(
-                                "call stack (top last): {:?}",
-                                self.call_stack
-                                    .iter()
-                                    .map(|f| f.func_idx)
-                                    .collect::<Vec<_>>()
-                            );
-                        } else if history_enabled {
-                            trace!("hit unreachable at func 3909; dumping recent history:");
-                            for (fidx, pc, inst) in history.iter() {
-                                trace!("  func {} pc {} inst {:?}", fidx, pc, inst);
-                            }
-                            trace!(
-                                "call stack (top last): {:?}",
-                                self.call_stack
-                                    .iter()
-                                    .map(|f| f.func_idx)
-                                    .collect::<Vec<_>>()
-                            );
-                        }
                         self.call_stack.clear();
                         break;
                     }
