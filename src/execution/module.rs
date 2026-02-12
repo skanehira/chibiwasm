@@ -59,11 +59,12 @@ impl InternalMemoryInst {
 
     // https://www.w3.org/TR/wasm-core-1/#grow-mem
     pub fn grow(&mut self, grow_size: u32) -> Result<()> {
-        let size = self.size() as u32;
-        if size % PAGE_SIZE != 0 {
+        let size_bytes = self.data.len() as u32;
+        if size_bytes % PAGE_SIZE != 0 {
             bail!(Error::MemorySizeNotPageAligned(PAGE_SIZE));
         }
-        let len = size + grow_size;
+        let current_pages = size_bytes / PAGE_SIZE;
+        let len = current_pages + grow_size;
         if let Some(max) = self.max {
             if max < len {
                 bail!(Error::MemoryPageOverflow(max, len));

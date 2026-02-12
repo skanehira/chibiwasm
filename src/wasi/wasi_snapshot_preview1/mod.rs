@@ -1,3 +1,4 @@
+pub mod dir_file;
 pub mod file;
 pub mod file_table;
 pub mod preview1;

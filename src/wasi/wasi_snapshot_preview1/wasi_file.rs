@@ -1,6 +1,6 @@
 use super::file::{FdFlags, File, FileType};
 use anyhow::Result;
-use std::{io::prelude::*, os::fd::FromRawFd};
+use std::{io::prelude::*, io::SeekFrom, os::fd::FromRawFd};
 
 pub struct WasiFile(std::fs::File);
 
@@ -14,8 +14,17 @@ impl File for WasiFile {
         Ok(self.0.read(data)?)
     }
 
-    fn seek(&mut self, pos: u64) -> Result<u64> {
-        Ok(self.0.seek(std::io::SeekFrom::Start(pos))?)
+    fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
+        Ok(self.0.seek(pos)?)
+    }
+
+    fn set_len(&mut self, len: u64) -> Result<()> {
+        self.0.set_len(len)?;
+        Ok(())
+    }
+
+    fn size(&self) -> Result<u64> {
+        Ok(self.0.metadata()?.len())
     }
 
     fn read_string(&mut self) -> Result<String> {
@@ -48,6 +57,10 @@ impl File for WasiFile {
 impl WasiFile {
     pub fn from_raw_fd(fd: u32) -> Self {
         let file = unsafe { std::fs::File::from_raw_fd(fd as i32) };
+        Self(file)
+    }
+
+    pub fn from_file(file: std::fs::File) -> Self {
         Self(file)
     }
 }
